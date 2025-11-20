@@ -18,6 +18,20 @@ class Config:
     OPENROUTER_API_KEY = os.getenv('OPENROUTER_API_KEY')
     OPENROUTER_DEFAULT_MODEL = os.getenv('OPENROUTER_DEFAULT_MODEL', 'anthropic/claude-3.5-sonnet')
 
+    # Available models for UI (comma-separated list)
+    # Can be configured to show only models you want to use
+    _models_env = os.getenv('OPENROUTER_MODELS',
+        'anthropic/claude-3.5-sonnet,'
+        'anthropic/claude-3-opus,'
+        'anthropic/claude-3-haiku,'
+        'openai/gpt-4-turbo,'
+        'openai/gpt-4,'
+        'openai/gpt-3.5-turbo,'
+        'google/gemini-pro,'
+        'meta-llama/llama-3-70b-instruct'
+    )
+    OPENROUTER_MODELS = [m.strip() for m in _models_env.split(',') if m.strip()]
+
     # GitHub OAuth
     GITHUB_CLIENT_ID = os.getenv('GITHUB_CLIENT_ID')
     GITHUB_CLIENT_SECRET = os.getenv('GITHUB_CLIENT_SECRET')
