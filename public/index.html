@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Markdown Viewer & Editor</title>
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="/styles/base.css">
+    <link rel="stylesheet" href="/styles/layout.css">
+    <link rel="stylesheet" href="/styles/components/toolbar.css">
+    <link rel="stylesheet" href="/styles/components/sidebar.css">
+    <link rel="stylesheet" href="/styles/components/editor.css">
+    <link rel="stylesheet" href="/styles/components/preview.css">
+    <link rel="stylesheet" href="/styles/components/dialog.css">
+
+    <!-- External Libraries -->
+    <!-- marked.js - GitHub Flavored Markdown parser -->
+    <script src="https://cdn.jsdelivr.net/npm/marked@11.1.0/marked.min.js"></script>
+
+    <!-- CodeMirror 6 - For future implementation -->
+    <!-- Note: CodeMirror 6 is complex to load via CDN, using textarea fallback initially -->
+
+    <!-- Scripts -->
+    <script type="module" src="/scripts/main.js"></script>
+</head>
+<body>
+    <!-- Main Container -->
+    <div class="app-container">
+
+        <!-- Top Toolbar -->
+        <header class="toolbar">
+            <div class="toolbar__section toolbar__section--left">
+                <button class="toolbar__button" id="btn-new" title="New Document">
+                    <span class="icon">&#43;</span>
+                    <span class="label">New</span>
+                </button>
+                <button class="toolbar__button" id="btn-open" title="Open File">
+                    <span class="icon">&#128193;</span>
+                    <span class="label">Open</span>
+                </button>
+                <button class="toolbar__button" id="btn-save" title="Save">
+                    <span class="icon">&#128190;</span>
+                    <span class="label">Save</span>
+                </button>
+
+                <div class="toolbar__divider"></div>
+
+                <button class="toolbar__button" id="btn-export" title="Export">
+                    <span class="icon">&#8595;</span>
+                    <span class="label">Export</span>
+                </button>
+            </div>
+
+            <div class="toolbar__section toolbar__section--center">
+                <h1 class="toolbar__title" id="document-title">Untitled Document</h1>
+            </div>
+
+            <div class="toolbar__section toolbar__section--right">
+                <button class="toolbar__button" id="btn-github" title="GitHub">
+                    <span class="icon">&#128279;</span>
+                    <span class="label">GitHub</span>
+                </button>
+
+                <button class="toolbar__button" id="btn-toggle-sidebar" title="Toggle Transform Panel">
+                    <span class="icon">&#9776;</span>
+                </button>
+
+                <button class="toolbar__button" id="btn-theme" title="Toggle Theme">
+                    <span class="icon">&#9788;</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+
+            <!-- Transform Sidebar -->
+            <aside class="sidebar" id="transform-sidebar">
+                <div class="sidebar__header">
+                    <h2 class="sidebar__title">Transformations</h2>
+                </div>
+
+                <div class="sidebar__content">
+
+                    <!-- Newline Operations -->
+                    <section class="sidebar__section">
+                        <h3 class="sidebar__section-title">Text Formatting</h3>
+
+                        <button class="sidebar__action" id="action-remove-newlines">
+                            <span class="action__icon">&#10227;</span>
+                            <span class="action__label">Remove Newlines</span>
+                        </button>
+
+                        <div class="sidebar__options" id="newline-options" style="display: none;">
+                            <label class="option">
+                                <input type="radio" name="newline-mode" value="smart" checked>
+                                <span>Smart (preserve structure)</span>
+                            </label>
+                            <label class="option">
+                                <input type="radio" name="newline-mode" value="paragraph">
+                                <span>Paragraph only</span>
+                            </label>
+                            <label class="option">
+                                <input type="radio" name="newline-mode" value="aggressive">
+                                <span>Aggressive</span>
+                            </label>
+                        </div>
+                    </section>
+
+                    <!-- Translation -->
+                    <section class="sidebar__section">
+                        <h3 class="sidebar__section-title">Translation</h3>
+
+                        <div class="form-group">
+                            <label for="translate-lang">Target Language</label>
+                            <select id="translate-lang" class="form-select">
+                                <option value="Spanish">Spanish</option>
+                                <option value="French">French</option>
+                                <option value="German">German</option>
+                                <option value="Italian">Italian</option>
+                                <option value="Portuguese">Portuguese</option>
+                                <option value="Russian">Russian</option>
+                                <option value="Chinese">Chinese</option>
+                                <option value="Japanese">Japanese</option>
+                                <option value="Korean">Korean</option>
+                            </select>
+                        </div>
+
+                        <button class="sidebar__action" id="action-translate">
+                            <span class="action__icon">&#127758;</span>
+                            <span class="action__label">Translate</span>
+                        </button>
+                    </section>
+
+                    <!-- LLM Operations -->
+                    <section class="sidebar__section">
+                        <h3 class="sidebar__section-title">LLM Transformations</h3>
+
+                        <button class="sidebar__action" id="action-tone-formal">
+                            <span class="action__icon">&#128188;</span>
+                            <span class="action__label">Formal Tone</span>
+                        </button>
+
+                        <button class="sidebar__action" id="action-tone-casual">
+                            <span class="action__icon">&#128172;</span>
+                            <span class="action__label">Casual Tone</span>
+                        </button>
+
+                        <button class="sidebar__action" id="action-summarize">
+                            <span class="action__icon">&#128220;</span>
+                            <span class="action__label">Summarize</span>
+                        </button>
+
+                        <button class="sidebar__action" id="action-expand">
+                            <span class="action__icon">&#128214;</span>
+                            <span class="action__label">Expand</span>
+                        </button>
+                    </section>
+
+                    <!-- Custom Prompt -->
+                    <section class="sidebar__section">
+                        <h3 class="sidebar__section-title">Custom LLM Prompt</h3>
+
+                        <div class="form-group">
+                            <label for="custom-prompt">Instructions</label>
+                            <textarea
+                                id="custom-prompt"
+                                class="form-textarea"
+                                rows="3"
+                                placeholder="e.g., Make this more technical..."
+                            ></textarea>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="llm-model">Model</label>
+                            <select id="llm-model" class="form-select">
+                                <option value="anthropic/claude-3.5-sonnet">Claude 3.5 Sonnet</option>
+                                <option value="anthropic/claude-3-opus">Claude 3 Opus</option>
+                                <option value="anthropic/claude-3-haiku">Claude 3 Haiku</option>
+                                <option value="openai/gpt-4-turbo">GPT-4 Turbo</option>
+                                <option value="openai/gpt-4">GPT-4</option>
+                            </select>
+                        </div>
+
+                        <button class="sidebar__action" id="action-custom-prompt">
+                            <span class="action__icon">&#9998;</span>
+                            <span class="action__label">Apply Prompt</span>
+                        </button>
+                    </section>
+
+                </div>
+            </aside>
+
+            <!-- Editor and Preview Area -->
+            <div class="editor-container">
+
+                <!-- View Mode Toggle -->
+                <div class="view-controls">
+                    <div class="view-controls__tabs">
+                        <button class="view-tab view-tab--active" data-view="split">
+                            <span>Split View</span>
+                        </button>
+                        <button class="view-tab" data-view="edit">
+                            <span>Edit Only</span>
+                        </button>
+                        <button class="view-tab" data-view="preview">
+                            <span>Preview Only</span>
+                        </button>
+                    </div>
+
+                    <div class="view-controls__status" id="editor-status">
+                        <span id="status-chars">0 characters</span>
+                        <span class="divider">•</span>
+                        <span id="status-words">0 words</span>
+                        <span class="divider">•</span>
+                        <span id="status-lines">1 line</span>
+                    </div>
+                </div>
+
+                <!-- Split Pane Container -->
+                <div class="split-pane" id="split-pane">
+
+                    <!-- Editor Pane -->
+                    <div class="pane pane--editor" id="editor-pane">
+                        <div id="editor"></div>
+                    </div>
+
+                    <!-- Resize Handle -->
+                    <div class="resize-handle" id="resize-handle"></div>
+
+                    <!-- Preview Pane -->
+                    <div class="pane pane--preview" id="preview-pane">
+                        <div class="preview-content" id="preview"></div>
+                    </div>
+
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Export Dialog -->
+    <dialog class="dialog" id="export-dialog">
+        <div class="dialog__header">
+            <h2 class="dialog__title">Export Document</h2>
+            <button class="dialog__close" id="close-export-dialog">×</button>
+        </div>
+
+        <div class="dialog__content">
+            <div class="export-options">
+                <button class="export-option" data-format="md">
+                    <span class="export-option__icon">&#128221;</span>
+                    <span class="export-option__label">Markdown (.md)</span>
+                </button>
+
+                <button class="export-option" data-format="html">
+                    <span class="export-option__icon">&#127760;</span>
+                    <span class="export-option__label">HTML (.html)</span>
+                </button>
+
+                <button class="export-option" data-format="pdf">
+                    <span class="export-option__icon">&#128196;</span>
+                    <span class="export-option__label">PDF (.pdf)</span>
+                </button>
+
+                <button class="export-option" data-format="docx">
+                    <span class="export-option__icon">&#128196;</span>
+                    <span class="export-option__label">Word (.docx)</span>
+                </button>
+            </div>
+        </div>
+    </dialog>
+
+    <!-- GitHub Dialog -->
+    <dialog class="dialog" id="github-dialog">
+        <div class="dialog__header">
+            <h2 class="dialog__title">GitHub Integration</h2>
+            <button class="dialog__close" id="close-github-dialog">×</button>
+        </div>
+
+        <div class="dialog__content" id="github-content">
+            <!-- Content loaded dynamically -->
+        </div>
+    </dialog>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loading-overlay" style="display: none;">
+        <div class="loading-spinner"></div>
+        <p class="loading-text" id="loading-text">Processing...</p>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div class="toast-container" id="toast-container"></div>
+
+</body>
+</html>
