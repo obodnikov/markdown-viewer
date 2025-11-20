@@ -51,23 +51,33 @@ export class TransformUI {
     }
 
     async handleRemoveNewlines() {
+        console.log('🔄 Remove newlines clicked');
+
         const content = this.getContent();
+        console.log('📄 Content length:', content.length);
+
         if (!content.trim()) {
-            this.showError('No content to transform');
+            console.warn('⚠️ No content');
+            alert('Please enter some markdown content first');
             return;
         }
 
-        const mode = document.querySelector('input[name="newline-mode"]:checked').value;
+        const modeElement = document.querySelector('input[name="newline-mode"]:checked');
+        const mode = modeElement ? modeElement.value : 'smart';
+        console.log('⚙️ Mode:', mode);
 
         this.showLoading('Removing newlines...');
 
         try {
             const result = this.newlineRemover.remove(content, mode);
+            console.log('✅ Result length:', result.length);
             this.setContent(result);
             this.hideLoading();
+            console.log('✅ Newlines removed successfully');
         } catch (error) {
+            console.error('❌ Error:', error);
             this.hideLoading();
-            this.showError(`Failed to remove newlines: ${error.message}`);
+            alert(`Failed to remove newlines: ${error.message}`);
         }
     }
 
@@ -193,10 +203,12 @@ export class TransformUI {
     }
 
     showError(message) {
-        // Use toast notification from main app
-        const event = new CustomEvent('toast', {
-            detail: { message, type: 'error' }
-        });
-        document.dispatchEvent(event);
+        console.error('Error:', message);
+        alert(message);
+    }
+
+    showSuccess(message) {
+        console.log('Success:', message);
+        // Could add toast notification here
     }
 }

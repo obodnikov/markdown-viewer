@@ -5,6 +5,10 @@
 
 export class NewlineRemover {
     remove(markdown, mode = 'smart') {
+        // First, replace any literal \n characters with actual newlines
+        // This handles cases where markdown contains escaped newlines
+        markdown = markdown.replace(/\\n/g, '\n');
+
         switch (mode) {
             case 'smart':
                 return this.smartRemove(markdown);
@@ -84,7 +88,10 @@ export class NewlineRemover {
             // Empty line - paragraph break
             if (trimmed === '') {
                 this.flushParagraph(currentParagraph, result);
-                result.push('');
+                // Only add empty line if the last item isn't already empty (avoid double spacing)
+                if (result.length > 0 && result[result.length - 1] !== '') {
+                    result.push('');
+                }
                 inList = false;
                 inTable = false;
                 continue;
