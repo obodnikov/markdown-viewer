@@ -1,0 +1,116 @@
+/**
+ * Sidebar component styles
+ */
+
+.sidebar {
+    width: 280px;
+    background-color: var(--color-surface);
+    border-right: 1px solid var(--color-outline-variant);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    z-index: var(--z-sidebar);
+    transition: transform var(--transition-base);
+}
+
+.sidebar.is-collapsed {
+    transform: translateX(-100%);
+    width: 0;
+}
+
+.sidebar__header {
+    padding: var(--space-2);
+    border-bottom: 1px solid var(--color-outline-variant);
+}
+
+.sidebar__title {
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-on-surface);
+}
+
+.sidebar__content {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--space-2);
+}
+
+.sidebar__section {
+    margin-bottom: var(--space-3);
+}
+
+.sidebar__section-title {
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-on-surface-variant);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: var(--space-2);
+}
+
+.sidebar__action {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-2);
+    border-radius: var(--radius-sm);
+    background-color: var(--color-surface-variant);
+    color: var(--color-on-surface);
+    margin-bottom: var(--space-1);
+    transition: all var(--transition-fast);
+}
+
+.sidebar__action:hover {
+    background-color: var(--color-secondary-container);
+    color: var(--color-on-secondary-container);
+    box-shadow: var(--elevation-1);
+}
+
+.sidebar__action:active {
+    transform: scale(0.98);
+}
+
+.action__icon {
+    font-size: var(--font-size-xl);
+}
+
+.action__label {
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+}
+
+.sidebar__options {
+    margin: var(--space-2) 0;
+    padding: var(--space-2);
+    background-color: var(--color-surface-variant);
+    border-radius: var(--radius-sm);
+}
+
+.option {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+    padding: var(--space-1);
+    cursor: pointer;
+    font-size: var(--font-size-sm);
+}
+
+.option input[type="radio"] {
+    cursor: pointer;
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+    .sidebar {
+        position: absolute;
+        left: 0;
+        top: 0;
+        height: 100%;
+        box-shadow: var(--elevation-4);
+    }
+
+    .sidebar.is-collapsed {
+        transform: translateX(-100%);
+    }
+}

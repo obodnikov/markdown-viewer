@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  markdown-viewer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: markdown-viewer
+    ports:
+      - "8000:80"      # Frontend (nginx)
+      - "5000:5000"    # Backend (Flask)
+    environment:
+      - FLASK_APP=backend/app.py
+      - FLASK_ENV=production
+      - DEBUG=false
+      - SECRET_KEY=${SECRET_KEY:-change-me-in-production}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - GITHUB_CLIENT_ID=${GITHUB_CLIENT_ID}
+      - GITHUB_CLIENT_SECRET=${GITHUB_CLIENT_SECRET}
+      - GITHUB_REDIRECT_URI=${GITHUB_REDIRECT_URI:-http://localhost:5000/api/github/callback}
+      - CORS_ORIGINS=http://localhost:8000,http://127.0.0.1:8000
+    volumes:
+      - ./backend:/app/backend
+      - ./public:/var/www/html
+      - ./styles:/var/www/html/styles
+      - ./scripts:/var/www/html/scripts
+    env_file:
+      - .env
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  app_data:
+
+networks:
+  default:
+    name: markdown-viewer-network

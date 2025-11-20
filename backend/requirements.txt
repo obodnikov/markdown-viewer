@@ -1,0 +1,21 @@
+# Flask and extensions
+Flask==3.0.0
+flask-cors==4.0.0
+
+# OpenRouter SDK (Official)
+openrouter>=0.0.19
+
+# GitHub API
+PyGithub==2.1.1
+
+# Environment variables
+python-dotenv==1.0.0
+
+# Pandoc wrapper
+pypandoc==1.12
+
+# Requests for OAuth
+requests==2.31.0
+
+# Production server
+gunicorn==21.2.0

@@ -1,0 +1,100 @@
+/**
+ * Editor component styles (CodeMirror customization)
+ */
+
+#editor {
+    height: 100%;
+    width: 100%;
+}
+
+/* CodeMirror Overrides */
+.cm-editor {
+    height: 100%;
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-base);
+    line-height: var(--line-height-relaxed);
+}
+
+.cm-scroller {
+    overflow: auto;
+}
+
+.cm-content {
+    padding: var(--space-2);
+}
+
+.cm-line {
+    padding: 0 var(--space-1);
+}
+
+/* Syntax Highlighting */
+.cm-editor .cm-header1 {
+    font-size: 2em;
+    font-weight: var(--font-weight-bold);
+    color: var(--color-primary);
+}
+
+.cm-editor .cm-header2 {
+    font-size: 1.5em;
+    font-weight: var(--font-weight-bold);
+    color: var(--color-primary);
+}
+
+.cm-editor .cm-header3 {
+    font-size: 1.25em;
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-primary);
+}
+
+.cm-editor .cm-strong {
+    font-weight: var(--font-weight-bold);
+}
+
+.cm-editor .cm-em {
+    font-style: italic;
+}
+
+.cm-editor .cm-link {
+    color: var(--color-primary);
+    text-decoration: underline;
+}
+
+.cm-editor .cm-code {
+    background-color: var(--color-surface-variant);
+    padding: 2px 4px;
+    border-radius: var(--radius-xs);
+    font-family: var(--font-family-mono);
+}
+
+/* Active Line Highlight */
+.cm-activeLine {
+    background-color: var(--color-surface-variant);
+}
+
+/* Selection */
+.cm-selectionBackground,
+::selection {
+    background-color: var(--color-primary-container);
+}
+
+/* Cursor */
+.cm-cursor {
+    border-left-color: var(--color-primary);
+}
+
+/* Gutters */
+.cm-gutters {
+    background-color: var(--color-surface);
+    border-right: 1px solid var(--color-outline-variant);
+    color: var(--color-on-surface-variant);
+}
+
+.cm-lineNumbers .cm-gutterElement {
+    padding: 0 var(--space-1);
+    font-size: var(--font-size-sm);
+}
+
+/* Focused */
+.cm-focused {
+    outline: none;
+}
