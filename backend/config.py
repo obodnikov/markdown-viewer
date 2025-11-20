@@ -18,6 +18,10 @@ class Config:
     OPENROUTER_API_KEY = os.getenv('OPENROUTER_API_KEY')
     OPENROUTER_DEFAULT_MODEL = os.getenv('OPENROUTER_DEFAULT_MODEL', 'anthropic/claude-3.5-sonnet')
 
+    # Max tokens for LLM responses (higher = longer responses, but more expensive)
+    # Adjust based on your typical document size
+    OPENROUTER_MAX_TOKENS = int(os.getenv('OPENROUTER_MAX_TOKENS', '8000'))
+
     # Available models for UI (comma-separated list)
     # Can be configured to show only models you want to use
     _models_env = os.getenv('OPENROUTER_MODELS',
