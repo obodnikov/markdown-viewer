@@ -147,20 +147,10 @@ class OpenRouterService:
             raise ValueError(f"Unknown operation: {operation}")
 
     def list_available_models(self) -> list:
-        """Get list of available models from OpenRouter.
+        """Get list of available models from configuration.
 
         Returns:
-            List of model identifiers
+            List of model identifiers from Config.OPENROUTER_MODELS
         """
-        # Note: OpenRouter Python SDK doesn't expose model listing yet
-        # Return common models for now
-        return [
-            'anthropic/claude-3.5-sonnet',
-            'anthropic/claude-3-opus',
-            'anthropic/claude-3-haiku',
-            'openai/gpt-4-turbo',
-            'openai/gpt-4',
-            'openai/gpt-3.5-turbo',
-            'google/gemini-pro',
-            'meta-llama/llama-3-70b-instruct',
-        ]
+        from backend.config import Config
+        return Config.OPENROUTER_MODELS

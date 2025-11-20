@@ -2,8 +2,10 @@
  * API client for backend communication
  */
 
+import { config } from '../config.js';
+
 // Auto-detect backend URL
-// Priority: localStorage setting > URL parameter > default
+// Priority: localStorage setting > URL parameter > config file default
 function getAPIBaseURL() {
     // Check localStorage for custom backend URL
     const stored = localStorage.getItem('api_base_url');
@@ -18,8 +20,8 @@ function getAPIBaseURL() {
         return apiUrl;
     }
 
-    // Default
-    return 'http://localhost:5000/api';
+    // Default from config file
+    return config.BACKEND_URL;
 }
 
 const API_BASE_URL = getAPIBaseURL();

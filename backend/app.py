@@ -32,8 +32,12 @@ def create_app(config_class=Config):
     app = Flask(__name__)
     app.config.from_object(config_class)
 
-    # Enable CORS
-    CORS(app, origins=config_class.CORS_ORIGINS, supports_credentials=True)
+    # Enable CORS with proper preflight support
+    CORS(app,
+         origins=config_class.CORS_ORIGINS,
+         supports_credentials=True,
+         allow_headers=['Content-Type', 'Authorization'],
+         methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'])
 
     # Register blueprints
     app.register_blueprint(llm_bp)

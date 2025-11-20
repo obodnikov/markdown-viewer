@@ -13,6 +13,7 @@ export class TransformUI {
         this.newlineRemover = new NewlineRemover();
 
         this.setupEventListeners();
+        this.loadModels();
     }
 
     setupEventListeners() {
@@ -210,5 +211,85 @@ export class TransformUI {
     showSuccess(message) {
         console.log('Success:', message);
         // Could add toast notification here
+    }
+
+    async loadModels() {
+        try {
+            const models = await this.llmClient.listModels();
+            const modelSelect = document.getElementById('llm-model');
+
+            if (models && models.length > 0) {
+                // Clear existing options
+                modelSelect.innerHTML = '';
+
+                // Populate with models from backend
+                models.forEach(modelId => {
+                    const option = document.createElement('option');
+                    option.value = modelId;
+                    option.textContent = this.formatModelName(modelId);
+                    modelSelect.appendChild(option);
+                });
+
+                console.log(`✅ Loaded ${models.length} models from backend`);
+            } else {
+                console.warn('⚠️ No models received from backend, keeping defaults');
+            }
+        } catch (error) {
+            console.error('❌ Failed to load models:', error);
+            console.warn('⚠️ Using hardcoded model list as fallback');
+        }
+    }
+
+    formatModelName(modelId) {
+        // Convert model IDs to friendly names
+        // e.g., "anthropic/claude-3.5-sonnet" -> "Claude 3.5 Sonnet"
+        const parts = modelId.split('/');
+        if (parts.length !== 2) return modelId;
+
+        const [provider, model] = parts;
+
+        // Handle common patterns
+        if (model.includes('claude')) {
+            return model
+                .replace('claude-', 'Claude ')
+                .replace(/-/g, ' ')
+                .split(' ')
+                .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                .join(' ');
+        }
+
+        if (model.includes('gpt')) {
+            return model
+                .replace('gpt-', 'GPT-')
+                .replace(/-/g, ' ')
+                .split(' ')
+                .map((word, i) => i === 0 ? word : word.charAt(0).toUpperCase() + word.slice(1))
+                .join(' ');
+        }
+
+        if (model.includes('gemini')) {
+            return model
+                .replace('gemini-', 'Gemini ')
+                .replace(/-/g, ' ')
+                .split(' ')
+                .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                .join(' ');
+        }
+
+        if (model.includes('llama')) {
+            return model
+                .replace('llama-', 'Llama ')
+                .replace(/-/g, ' ')
+                .split(' ')
+                .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                .join(' ');
+        }
+
+        // Default: capitalize each word
+        return model
+            .replace(/-/g, ' ')
+            .split(' ')
+            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+            .join(' ');
     }
 }
