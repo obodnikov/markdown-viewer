@@ -42,19 +42,26 @@ class OpenRouterService:
             "You are a markdown transformation assistant. "
             "Preserve ALL markdown syntax (headers, lists, links, code blocks, tables, images). "
             "Only modify the text content as requested. "
-            "Return only the transformed markdown without explanations."
+            "Return ONLY the transformed markdown with ZERO explanations, comments, or meta-commentary. "
+            "NEVER add phrases like 'Would you like me to continue', 'Continue with...', '[Continue...]', etc. "
+            "IMPORTANT: Complete the ENTIRE transformation from beginning to end - do not truncate or stop mid-way. "
+            "Your response should START with the transformed content and END with the transformed content. Nothing else."
         )
 
         # Build user prompt based on operation
         user_prompt = self._build_prompt(operation, content, params)
 
         try:
+            from backend.config import Config
+
             response = self.client.chat.send(
                 model=model,
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt}
-                ]
+                ],
+                max_tokens=Config.OPENROUTER_MAX_TOKENS,
+                temperature=0.3  # Lower temperature = more focused, less creative/chatty
             )
 
             return response.choices[0].message.content.strip()
@@ -89,7 +96,10 @@ class OpenRouterService:
                 "You are a markdown transformation assistant. "
                 "Preserve ALL markdown syntax (headers, lists, links, code blocks, tables, images). "
                 "Only modify the text content as requested. "
-                "Return only the transformed markdown without explanations."
+                "Return ONLY the transformed markdown with ZERO explanations, comments, or meta-commentary. "
+                "NEVER add phrases like 'Would you like me to continue', 'Continue with...', '[Continue...]', etc. "
+                "IMPORTANT: Complete the ENTIRE transformation from beginning to end - do not truncate or stop mid-way. "
+                "Your response should START with the transformed content and END with the transformed content. Nothing else."
             )
             messages.append({"role": "system", "content": system_prompt})
 
@@ -97,7 +107,14 @@ class OpenRouterService:
         messages.append({"role": "user", "content": user_message})
 
         try:
-            response = self.client.chat.send(model=model, messages=messages)
+            from backend.config import Config
+
+            response = self.client.chat.send(
+                model=model,
+                messages=messages,
+                max_tokens=Config.OPENROUTER_MAX_TOKENS,
+                temperature=0.3  # Lower temperature = more focused, less creative/chatty
+            )
             return response.choices[0].message.content.strip()
 
         except Exception as e:
@@ -116,7 +133,14 @@ class OpenRouterService:
         """
         if operation == 'translate':
             target_lang = params.get('target_language', 'English')
-            return f"Translate the following markdown to {target_lang}:\n\n{content}"
+            return (
+                f"Translate ALL of the following markdown content to {target_lang}. "
+                f"Do NOT ask if you should continue. "
+                f"Do NOT add any comments like 'Would you like me to continue' or 'Continue with remaining sections'. "
+                f"Just provide the COMPLETE translation from start to finish. "
+                f"Translate EVERY section, EVERY paragraph, EVERY line.\n\n"
+                f"{content}"
+            )
 
         elif operation == 'remove_newlines':
             mode = params.get('mode', 'smart')
