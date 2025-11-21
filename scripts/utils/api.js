@@ -1,30 +1,36 @@
 /**
  * API client for backend communication
+ *
+ * Uses relative URLs by default for reverse proxy compatibility.
+ * Supports override for debugging purposes.
  */
 
 import { config } from '../config.js';
 
-// Auto-detect backend URL
-// Priority: localStorage setting > URL parameter > config file default
+// Get backend URL with support for overrides
+// Priority: localStorage setting > URL parameter > config file default (relative)
 function getAPIBaseURL() {
-    // Check localStorage for custom backend URL
+    // Check localStorage for custom backend URL (for debugging)
     const stored = localStorage.getItem('api_base_url');
     if (stored) {
+        console.log('[API] Using localStorage override:', stored);
         return stored;
     }
 
-    // Check URL parameters
+    // Check URL parameters (for debugging)
     const params = new URLSearchParams(window.location.search);
     const apiUrl = params.get('api_url');
     if (apiUrl) {
+        console.log('[API] Using URL parameter override:', apiUrl);
         return apiUrl;
     }
 
-    // Default from config file
+    // Default from config file (relative URL for proxy compatibility)
     return config.BACKEND_URL;
 }
 
 const API_BASE_URL = getAPIBaseURL();
+console.log('[API] Backend URL:', API_BASE_URL);
 
 export class APIClient {
     static async request(endpoint, options = {}) {

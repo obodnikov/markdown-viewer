@@ -72,7 +72,50 @@ A modern, feature-rich markdown editor with GitHub Flavored Markdown support, LL
 
 5. **Access the application**
    - Frontend: http://localhost:8000
-   - Backend API: http://localhost:5000
+   - Backend API: http://localhost:5050/api
+
+### Reverse Proxy Setup (Production)
+
+The application is designed to work behind reverse proxies (nginx, Traefik, etc.) with **no configuration changes needed**. The frontend uses relative URLs that automatically adapt to your domain.
+
+#### Example nginx reverse proxy configuration:
+
+```nginx
+server {
+  listen 443 ssl http2;
+  server_name md.yourdomain.com;
+
+  # SSL configuration
+  ssl_certificate     /path/to/fullchain.pem;
+  ssl_certificate_key /path/to/privkey.pem;
+
+  # Proxy to Docker container
+  location / {
+    proxy_pass http://172.30.0.20:80;  # Container IP and nginx port
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+
+    # Optional: Increase timeouts for large file exports
+    proxy_read_timeout 600s;
+    client_max_body_size 50M;
+  }
+}
+```
+
+**How it works:**
+- Frontend uses `/api` (relative URL)
+- Browser requests: `https://md.yourdomain.com/api/health`
+- Reverse proxy forwards to container's nginx (port 80)
+- Container's nginx proxies `/api` to Flask backend (port 5050)
+- No CORS issues (same origin for browser)
+
+**Important for GitHub OAuth:**
+Update your GitHub OAuth app callback URL to match your domain:
+- Production: `https://md.yourdomain.com/api/github/callback`
+- Update `.env`: `GITHUB_REDIRECT_URI=https://md.yourdomain.com/api/github/callback`
 
 ### Manual Setup
 
@@ -133,7 +176,7 @@ A modern, feature-rich markdown editor with GitHub Flavored Markdown support, LL
 
 2. **Access the application**
    - Frontend: http://localhost:8000
-   - Backend: http://localhost:5000
+   - Backend: http://localhost:5050/api
 
 ## Configuration
 
@@ -150,7 +193,8 @@ A modern, feature-rich markdown editor with GitHub Flavored Markdown support, LL
 
 1. Register a new OAuth app at [GitHub Developer Settings](https://github.com/settings/developers)
    - Homepage URL: `http://localhost:8000`
-   - Callback URL: `http://localhost:5000/api/github/callback`
+   - Callback URL: `http://localhost:5050/api/github/callback` (development)
+   - For production behind proxy: `https://yourdomain.com/api/github/callback`
 
 2. Add credentials to `.env`:
    ```
