@@ -63,4 +63,19 @@ export class LLMClient {
             return [];
         }
     }
+
+    async listLanguages() {
+        try {
+            const response = await APIClient.get('/llm/languages');
+
+            if (response.success) {
+                return response.languages;
+            } else {
+                throw new Error(response.error || 'Failed to fetch languages');
+            }
+        } catch (error) {
+            console.error('List languages error:', error);
+            return [];
+        }
+    }
 }

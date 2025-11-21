@@ -11,12 +11,12 @@ A modern, feature-rich markdown editor with GitHub Flavored Markdown support, LL
 - **Auto-save** - Automatic local storage backup every 30 seconds
 
 ### LLM Transformations (via OpenRouter)
-- **Translation** - Translate to 9+ languages while preserving markdown structure
+- **Translation** - Translate to 15+ configurable languages while preserving markdown structure
 - **Tone Adjustment** - Convert between formal and casual tones
 - **Summarization** - Create concise summaries
 - **Content Expansion** - Elaborate on existing content
 - **Custom Prompts** - Apply any LLM transformation with custom instructions
-- **Model Selection** - Choose from Claude, GPT-4, and other models
+- **Model Selection** - Choose from Claude, GPT-4, and other configurable models
 
 ### Text Operations
 - **Smart Newline Removal** - Three modes:
@@ -61,6 +61,12 @@ A modern, feature-rich markdown editor with GitHub Flavored Markdown support, LL
    ```bash
    # Required: OpenRouter API key
    OPENROUTER_API_KEY=sk-or-v1-your-key-here
+
+   # Optional: Customize available models (comma-separated)
+   OPENROUTER_MODELS=anthropic/claude-3.5-sonnet,openai/gpt-4-turbo
+
+   # Optional: Customize translation languages (comma-separated)
+   TRANSLATION_LANGUAGES=Spanish,French,German,Chinese,Japanese
 
    # Optional: GitHub OAuth (for GitHub integration)
    GITHUB_CLIENT_ID=your-client-id
@@ -191,6 +197,33 @@ Update your GitHub OAuth app callback URL to match your domain:
    OPENROUTER_DEFAULT_MODEL=anthropic/claude-3.5-sonnet
    ```
 
+3. **Optional: Customize Available Models**
+
+   By default, the application shows several popular models. You can customize which models appear in the UI:
+   ```bash
+   # Show only specific models
+   OPENROUTER_MODELS=anthropic/claude-3.5-sonnet,anthropic/claude-3-haiku,openai/gpt-4-turbo
+
+   # Or use the full default list
+   OPENROUTER_MODELS=anthropic/claude-3.5-sonnet,anthropic/claude-3-opus,anthropic/claude-3-haiku,openai/gpt-4-turbo,openai/gpt-4,openai/gpt-3.5-turbo,google/gemini-pro,meta-llama/llama-3-70b-instruct
+   ```
+
+   See the full model list at [OpenRouter Models](https://openrouter.ai/models)
+
+4. **Optional: Customize Translation Languages**
+
+   By default, the application supports 15 languages. You can customize which languages appear in the translation dropdown:
+   ```bash
+   # Show only specific languages
+   TRANSLATION_LANGUAGES=Spanish,French,German,Chinese,Japanese
+
+   # Or use the full default list
+   TRANSLATION_LANGUAGES=Spanish,French,German,Italian,Portuguese,Russian,Chinese,Japanese,Korean,Arabic,Hindi,Dutch,Swedish,Turkish,Polish
+
+   # Add more languages
+   TRANSLATION_LANGUAGES=Spanish,French,German,Norwegian,Finnish,Greek,Hebrew,Vietnamese
+   ```
+
 ### GitHub OAuth (Optional)
 
 1. Register a new OAuth app at [GitHub Developer Settings](https://github.com/settings/developers)
@@ -209,7 +242,8 @@ Update your GitHub OAuth app callback URL to match your domain:
 ### LLM Transformations
 - `POST /api/llm/transform` - Transform text (translate, tone change, etc.)
 - `POST /api/llm/custom-prompt` - Apply custom LLM prompt
-- `GET /api/llm/models` - List available models
+- `GET /api/llm/models` - List available models (configured via OPENROUTER_MODELS)
+- `GET /api/llm/languages` - List available translation languages (configured via TRANSLATION_LANGUAGES)
 
 ### Export
 - `POST /api/export/html` - Export to HTML

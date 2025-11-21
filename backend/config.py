@@ -36,6 +36,27 @@ class Config:
     )
     OPENROUTER_MODELS = [m.strip() for m in _models_env.split(',') if m.strip()]
 
+    # Available translation languages (comma-separated list)
+    # Can be configured to show only languages you want to support
+    _languages_env = os.getenv('TRANSLATION_LANGUAGES',
+        'Spanish,'
+        'French,'
+        'German,'
+        'Italian,'
+        'Portuguese,'
+        'Russian,'
+        'Chinese,'
+        'Japanese,'
+        'Korean,'
+        'Arabic,'
+        'Hindi,'
+        'Dutch,'
+        'Swedish,'
+        'Turkish,'
+        'Polish'
+    )
+    TRANSLATION_LANGUAGES = [lang.strip() for lang in _languages_env.split(',') if lang.strip()]
+
     # GitHub OAuth
     GITHUB_CLIENT_ID = os.getenv('GITHUB_CLIENT_ID')
     GITHUB_CLIENT_SECRET = os.getenv('GITHUB_CLIENT_SECRET')
