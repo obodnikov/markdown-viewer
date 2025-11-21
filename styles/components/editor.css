@@ -98,3 +98,60 @@
 .cm-focused {
     outline: none;
 }
+
+/* Textarea Fallback Styles */
+#editor textarea {
+    background-color: var(--color-surface);
+    color: var(--color-on-surface);
+    border: none;
+    outline: none;
+}
+
+#editor textarea::placeholder {
+    color: var(--color-on-surface-variant);
+    opacity: 0.6;
+}
+
+#editor textarea:focus {
+    outline: none;
+}
+
+/* Dark Mode Support for Editor Container */
+[data-theme="dark"] .pane--editor {
+    background-color: var(--color-surface);
+}
+
+[data-theme="dark"] #editor {
+    background-color: var(--color-surface);
+    color: var(--color-on-surface);
+}
+
+[data-theme="dark"] #editor textarea {
+    background-color: var(--color-surface);
+    color: var(--color-on-surface);
+}
+
+/* CodeMirror Dark Mode Overrides */
+[data-theme="dark"] .cm-editor {
+    background-color: var(--color-surface);
+    color: var(--color-on-surface);
+}
+
+[data-theme="dark"] .cm-content {
+    background-color: var(--color-surface);
+    color: var(--color-on-surface);
+}
+
+[data-theme="dark"] .cm-gutters {
+    background-color: var(--color-surface);
+    border-right-color: var(--color-outline-variant);
+    color: var(--color-on-surface-variant);
+}
+
+[data-theme="dark"] .cm-activeLine {
+    background-color: var(--color-surface-variant);
+}
+
+[data-theme="dark"] .cm-selectionBackground {
+    background-color: var(--color-primary-container);
+}

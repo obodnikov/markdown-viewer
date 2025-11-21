@@ -49,11 +49,12 @@ export class EditorManager {
         const textarea = document.createElement('textarea');
         textarea.style.width = '100%';
         textarea.style.height = '100%';
-        textarea.style.border = 'none';
         textarea.style.resize = 'none';
         textarea.style.padding = '16px';
-        textarea.style.fontFamily = 'monospace';
-        textarea.style.fontSize = '16px';
+        textarea.style.fontFamily = 'var(--font-family-mono)';
+        textarea.style.fontSize = 'var(--font-size-base)';
+        textarea.style.lineHeight = 'var(--line-height-relaxed)';
+        // Note: background-color and color are now controlled by CSS for dark mode support
 
         textarea.addEventListener('input', () => {
             this.onChange(textarea.value);

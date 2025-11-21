@@ -3,12 +3,20 @@
  */
 
 import { APIClient } from '../utils/api.js';
+import { config } from '../config.js';
 
 export class GitHubUI {
     constructor(loadDocumentCallback) {
         this.loadDocument = loadDocumentCallback;
         this.authenticated = false;
         this.currentRepo = null;
+    }
+
+    // Helper to get backend URL (without /api suffix)
+    getBackendBaseURL() {
+        const apiUrl = APIClient.getBackendURL();
+        // Remove '/api' suffix to get base URL
+        return apiUrl.replace(/\/api$/, '');
     }
 
     async show() {
@@ -57,7 +65,8 @@ export class GitHubUI {
     }
 
     connectGitHub() {
-        window.location.href = 'http://localhost:5000/api/github/auth';
+        const backendUrl = this.getBackendBaseURL();
+        window.location.href = `${backendUrl}/api/github/auth`;
     }
 
     async renderRepoList() {
@@ -159,7 +168,10 @@ export class GitHubUI {
 
 // Make methods available globally for inline onclick handlers
 window.connectGitHub = function() {
-    window.location.href = 'http://localhost:5000/api/github/auth';
+    // Get backend URL dynamically from config
+    const apiUrl = localStorage.getItem('api_base_url') || config.BACKEND_URL;
+    const backendUrl = apiUrl.replace(/\/api$/, '');
+    window.location.href = `${backendUrl}/api/github/auth`;
 };
 
 window.disconnectGitHub = async function() {
