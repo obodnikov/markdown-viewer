@@ -20,11 +20,12 @@ Instructions for AI coding assistants so the generated UI is consistent, maintai
     components/      # button.css, card.css, dialog.css, etc.
     themes/          # light.css, dark.css, high-contrast.css
   /scripts
+    config.js        # frontend configuration (API URLs, relative paths)
     main.js          # app bootstrap (tiny)
     router.js        # optional: hash/router
     utils/           # dom.js, format.js, fetch.js, etc.
     components/      # button.js, dialog.js (enhancements only)
-  /assets            # icons, images, fonts
+  /icons             # PWA icons, favicons
   ```
 - **File size rule**: keep each JS file **~800 lines or less**. Split into modules when larger.
 
@@ -65,6 +66,57 @@ Use CSS variables in `/styles/base.css` to define your design tokens.
 - Avoid unnecessary dependencies; justify new ones in comments.
 - Use `/scripts/utils/` for helpers.
 - Prefer event delegation and clean DOM queries.
+
+### Path References
+- **API URLs**: Always use relative paths (`/api/endpoint`, never `http://...`).
+- **Module imports**: Use relative paths (`./utils/helper.js`, `../config.js`).
+- **Static assets**: Reference via relative paths (`/icons/favicon.ico`, `/styles/base.css`).
+- **Never hardcode**: Avoid `http://localhost` or server-specific URLs in code.
+- **Configuration**: Keep URLs in `/scripts/config.js` for easy management.
+
+---
+
+## API & Backend Communication
+- **Always use relative URLs** for API endpoints (e.g., `/api/endpoint`).
+- **Never hardcode backend URLs** (e.g., `http://localhost:5000`).
+- Configuration lives in `/scripts/config.js` with relative paths by default.
+- **Benefits of relative URLs:**
+  - Works in all environments (local dev, Docker, reverse proxy)
+  - No CORS issues (same origin for browser)
+  - HTTPS handled automatically by reverse proxy
+  - Single codebase for all deployments
+
+### Examples
+
+**✅ GOOD - Relative URL:**
+```javascript
+// API calls use relative paths
+fetch('/api/health')
+APIClient.post('/api/llm/transform', data)
+
+// Configuration uses relative path
+export const config = {
+    BACKEND_URL: '/api'
+};
+```
+
+**❌ BAD - Hardcoded absolute URL:**
+```javascript
+// Don't do this!
+fetch('http://localhost:5000/api/health')
+const API_URL = 'http://localhost:5050/api';
+```
+
+### How It Works
+
+```
+Browser → /api/health (relative URL)
+         ↓
+Local Dev: http://localhost:8000/api/health → nginx → backend:5050
+Production: https://yourdomain.com/api/health → proxy → container
+         ↓
+Same code works everywhere!
+```
 
 ---
 
@@ -114,4 +166,6 @@ Maintain our internal rules: **no inline CSS/JS** and keep JS files **~800 lines
 - **Strict separation**: HTML • CSS • JS (no inline).
 - **Small modules**: JS files ~800 lines max.
 - **Accessible**: focus states, contrast, keyboard support.
+- **Relative paths**: Use `/api` for APIs, relative imports for modules, never hardcode URLs.
+- **Reverse proxy ready**: Code works in all environments without configuration changes.
 - **Respect existing cleaned files**: no unsolicited refactors.

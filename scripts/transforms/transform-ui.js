@@ -14,6 +14,7 @@ export class TransformUI {
 
         this.setupEventListeners();
         this.loadModels();
+        this.loadLanguages();
     }
 
     setupEventListeners() {
@@ -237,6 +238,33 @@ export class TransformUI {
         } catch (error) {
             console.error('❌ Failed to load models:', error);
             console.warn('⚠️ Using hardcoded model list as fallback');
+        }
+    }
+
+    async loadLanguages() {
+        try {
+            const languages = await this.llmClient.listLanguages();
+            const languageSelect = document.getElementById('translate-lang');
+
+            if (languages && languages.length > 0) {
+                // Clear existing options
+                languageSelect.innerHTML = '';
+
+                // Populate with languages from backend
+                languages.forEach(language => {
+                    const option = document.createElement('option');
+                    option.value = language;
+                    option.textContent = language;
+                    languageSelect.appendChild(option);
+                });
+
+                console.log(`✅ Loaded ${languages.length} languages from backend`);
+            } else {
+                console.warn('⚠️ No languages received from backend, keeping defaults');
+            }
+        } catch (error) {
+            console.error('❌ Failed to load languages:', error);
+            console.warn('⚠️ Using hardcoded language list as fallback');
         }
     }
 

@@ -146,3 +146,27 @@ def list_models():
 
     except Exception as e:
         return jsonify({'error': f'Unexpected error: {str(e)}'}), 500
+
+
+@llm_bp.route('/languages', methods=['GET'])
+def list_languages():
+    """List available translation languages.
+
+    Returns:
+        {
+            "success": true,
+            "languages": [
+                "Spanish",
+                "French",
+                ...
+            ]
+        }
+    """
+    try:
+        return jsonify({
+            'success': True,
+            'languages': Config.TRANSLATION_LANGUAGES
+        })
+
+    except Exception as e:
+        return jsonify({'error': f'Unexpected error: {str(e)}'}), 500
