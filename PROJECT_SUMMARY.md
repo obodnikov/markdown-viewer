@@ -236,7 +236,8 @@ python3 -m http.server 8000
 
 ### 3. Access Application
 - **Frontend**: http://localhost:8000
-- **Backend API**: http://localhost:5000/api/health
+- **Backend API**: http://localhost:5050/api/health
+- **Behind Reverse Proxy**: https://yourdomain.com (see [REVERSE_PROXY_SETUP.md](REVERSE_PROXY_SETUP.md))
 
 ---
 

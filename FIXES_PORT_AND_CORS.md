@@ -8,18 +8,21 @@
 
 ## Solutions Applied
 
-### 1. Created Frontend Configuration File
+### 1. Updated Frontend Configuration to Use Relative URLs
 
 **File:** [scripts/config.js](scripts/config.js)
 
 ```javascript
 export const config = {
-    BACKEND_URL: 'http://localhost:5050/api',
-    DEFAULT_BACKEND_PORT: 5050,
+    BACKEND_URL: '/api',  // Relative URL for reverse proxy compatibility
 };
 ```
 
-**Why:** Centralizes frontend configuration and makes it easy to change the backend URL without editing API client code.
+**Why:**
+- Works in all environments (local dev, Docker, reverse proxy)
+- No CORS issues (same origin)
+- HTTPS handled automatically
+- No configuration changes needed when deploying behind proxy
 
 ---
 
@@ -67,15 +70,19 @@ CORS(app,
 
 ## How to Fix Your Current Setup
 
-### Step 1: Update Frontend Config
+### Step 1: Frontend Config Now Uses Relative URLs
 
-Edit [scripts/config.js](scripts/config.js):
+The [scripts/config.js](scripts/config.js) now uses relative URLs:
 
 ```javascript
 export const config = {
-    BACKEND_URL: 'http://localhost:5050/api',  // Match your backend port
+    BACKEND_URL: '/api',  // Relative URL - works everywhere
 };
 ```
+
+This works in:
+- Local development: `/api` → `http://localhost:8000/api` → nginx → backend:5050
+- Behind reverse proxy: `/api` → `https://yourdomain.com/api` → proxy → container
 
 ### Step 2: Verify Backend CORS
 
