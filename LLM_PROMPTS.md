@@ -2,6 +2,8 @@
 
 This document contains all LLM prompts used in the Markdown Viewer application.
 
+**Note on Formatting:** Prompts in this document are shown with line breaks for readability. In the actual code, these are concatenated into single strings with spaces between sentences.
+
 ---
 
 ## System Prompts
@@ -13,7 +15,14 @@ This document contains all LLM prompts used in the Markdown Viewer application.
 **Used for:** All predefined transformations (translate, change tone, summarize, expand)
 
 ```
-You are a markdown transformation assistant. Preserve ALL markdown syntax (headers, lists, links, code blocks, tables, images). Only modify the text content as requested. Return ONLY the transformed markdown with ZERO explanations, comments, or meta-commentary. NEVER add phrases like 'Would you like me to continue', 'Continue with...', '[Continue...]', etc. IMPORTANT: Complete the ENTIRE transformation from beginning to end - do not truncate or stop mid-way. Your response should START with the transformed content and END with the transformed content. Nothing else.
+You are a markdown transformation assistant.
+Preserve ALL markdown syntax (headers, lists, links, code blocks, tables, images).
+Only modify the text content as requested.
+Return ONLY the transformed markdown with ZERO explanations, comments, or meta-commentary.
+NEVER add phrases like 'Would you like me to continue', 'Continue with...', '[Continue...]', etc.
+IMPORTANT: Complete the ENTIRE transformation from beginning to end - do not truncate or stop mid-way.
+Your response should START with the transformed content and END with the transformed content.
+Nothing else.
 ```
 
 **Key Features:**
@@ -33,7 +42,14 @@ You are a markdown transformation assistant. Preserve ALL markdown syntax (heade
 
 **When `preserve_markdown=True`:**
 ```
-You are a markdown transformation assistant. Preserve ALL markdown syntax (headers, lists, links, code blocks, tables, images). Only modify the text content as requested. Return ONLY the transformed markdown with ZERO explanations, comments, or meta-commentary. NEVER add phrases like 'Would you like me to continue', 'Continue with...', '[Continue...]', etc. IMPORTANT: Complete the ENTIRE transformation from beginning to end - do not truncate or stop mid-way. Your response should START with the transformed content and END with the transformed content. Nothing else.
+You are a markdown transformation assistant.
+Preserve ALL markdown syntax (headers, lists, links, code blocks, tables, images).
+Only modify the text content as requested.
+Return ONLY the transformed markdown with ZERO explanations, comments, or meta-commentary.
+NEVER add phrases like 'Would you like me to continue', 'Continue with...', '[Continue...]', etc.
+IMPORTANT: Complete the ENTIRE transformation from beginning to end - do not truncate or stop mid-way.
+Your response should START with the transformed content and END with the transformed content.
+Nothing else.
 ```
 
 **When `preserve_markdown=False`:**
@@ -53,14 +69,22 @@ You are a markdown transformation assistant. Preserve ALL markdown syntax (heade
 
 **Prompt Template:**
 ```
-Translate ALL of the following markdown content to {target_language}. Do NOT ask if you should continue. Do NOT add any comments like 'Would you like me to continue' or 'Continue with remaining sections'. Just provide the COMPLETE translation from start to finish. Translate EVERY section, EVERY paragraph, EVERY line.
+Translate ALL of the following markdown content to {target_language}.
+Do NOT ask if you should continue.
+Do NOT add any comments like 'Would you like me to continue' or 'Continue with remaining sections'.
+Just provide the COMPLETE translation from start to finish.
+Translate EVERY section, EVERY paragraph, EVERY line.
 
 {content}
 ```
 
 **Example (Spanish):**
 ```
-Translate ALL of the following markdown content to Spanish. Do NOT ask if you should continue. Do NOT add any comments like 'Would you like me to continue' or 'Continue with remaining sections'. Just provide the COMPLETE translation from start to finish. Translate EVERY section, EVERY paragraph, EVERY line.
+Translate ALL of the following markdown content to Spanish.
+Do NOT ask if you should continue.
+Do NOT add any comments like 'Would you like me to continue' or 'Continue with remaining sections'.
+Just provide the COMPLETE translation from start to finish.
+Translate EVERY section, EVERY paragraph, EVERY line.
 
 # Getting Started
 
@@ -85,14 +109,16 @@ This guide will help you...
 
 #### Mode: Smart (Default)
 ```
-Remove unnecessary newlines within paragraphs, but preserve line breaks in lists, code blocks, tables, and block quotes.
+Remove unnecessary newlines within paragraphs.
+Preserve line breaks in lists, code blocks, tables, and block quotes.
 
 {content}
 ```
 
 #### Mode: Paragraph Only
 ```
-Join lines only within paragraph blocks, preserve all other structures.
+Join lines only within paragraph blocks.
+Preserve all other structures.
 
 {content}
 ```
@@ -372,17 +398,40 @@ return (
     f"CRITICAL INSTRUCTION: Translate EVERY SINGLE WORD of the markdown below to {target_lang}. "
     f"ABSOLUTE REQUIREMENT: Do NOT include ANY meta-commentary, questions, or continuation prompts. "
     f"FORBIDDEN PHRASES: 'Would you like', 'Continue with', 'Should I continue', '[Continue...]', etc. "
-    f"OUTPUT REQUIREMENT: Start immediately with translated content. End with translated content. "
+    f"OUTPUT REQUIREMENT: Start immediately with translated content. "
+    f"End with translated content. "
     f"Do the COMPLETE translation NOW:\n\n"
     f"{content}"
 )
 ```
 
+**How this appears to the LLM:**
+```
+CRITICAL INSTRUCTION: Translate EVERY SINGLE WORD of the markdown below to Spanish.
+ABSOLUTE REQUIREMENT: Do NOT include ANY meta-commentary, questions, or continuation prompts.
+FORBIDDEN PHRASES: 'Would you like', 'Continue with', 'Should I continue', '[Continue...]', etc.
+OUTPUT REQUIREMENT: Start immediately with translated content.
+End with translated content.
+Do the COMPLETE translation NOW:
+
+{content}
+```
+
 **Option 2: Prefix Constraint**
 ```python
-f"Translate to {target_lang}. Output only the translation. "
+f"Translate to {target_lang}. "
+f"Output only the translation. "
 f"Start your response with the first translated character:\n\n"
 f"{content}"
+```
+
+**How this appears to the LLM:**
+```
+Translate to Spanish.
+Output only the translation.
+Start your response with the first translated character:
+
+{content}
 ```
 
 **Option 3: Even Lower Temperature**
@@ -458,7 +507,11 @@ Translate this to Spanish:
 
 ✅ **Good (Current):**
 ```
-Translate ALL of the following markdown content to Spanish. Do NOT ask if you should continue. Do NOT add any comments like 'Would you like me to continue' or 'Continue with remaining sections'. Just provide the COMPLETE translation from start to finish. Translate EVERY section, EVERY paragraph, EVERY line.
+Translate ALL of the following markdown content to Spanish.
+Do NOT ask if you should continue.
+Do NOT add any comments like 'Would you like me to continue' or 'Continue with remaining sections'.
+Just provide the COMPLETE translation from start to finish.
+Translate EVERY section, EVERY paragraph, EVERY line.
 
 {content}
 ```
