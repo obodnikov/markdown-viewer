@@ -1,7 +1,7 @@
 # Multi-stage Dockerfile for Markdown Viewer
 
 # Backend stage
-FROM python:3.11-slim as backend
+FROM python:3.11-slim AS backend
 
 WORKDIR /app
 
@@ -23,7 +23,7 @@ RUN pip install --no-cache-dir -r /app/backend/requirements.txt
 COPY backend/ /app/backend/
 
 # Frontend stage (static files)
-FROM nginx:alpine as frontend
+FROM nginx:alpine AS frontend
 
 # Copy frontend files
 COPY public/ /usr/share/nginx/html/
