@@ -1,4 +1,10 @@
-"""Document export service using pandoc."""
+"""Document export service using pandoc.
+
+Unicode Support:
+- PDF: Uses XeLaTeX engine by default for full Unicode support
+- DOCX: Native Unicode support through Office Open XML format
+- HTML: Full Unicode support through UTF-8 encoding
+"""
 import subprocess
 import tempfile
 import os
@@ -6,7 +12,7 @@ from typing import Optional, Dict, Any
 
 
 class ExportService:
-    """Service for exporting markdown to various formats."""
+    """Service for exporting markdown to various formats with full Unicode support."""
 
     def __init__(self, pandoc_path: str = 'pandoc'):
         """Initialize export service.
@@ -83,7 +89,7 @@ class ExportService:
 
         Args:
             markdown_content: Markdown content
-            options: Conversion options (paper_size, margin, etc.)
+            options: Conversion options (paper_size, margin, pdf_engine, etc.)
 
         Returns:
             PDF content as bytes
@@ -95,6 +101,10 @@ class ExportService:
             '--from=gfm',
             '--to=pdf',
         ]
+
+        # PDF Engine - use XeLaTeX for Unicode support (default)
+        pdf_engine = options.get('pdf_engine', 'xelatex')
+        cmd.extend(['--pdf-engine', pdf_engine])
 
         # Paper size
         paper_size = options.get('paper_size', 'A4')
@@ -129,6 +139,10 @@ class ExportService:
         options: Optional[Dict[str, Any]] = None
     ) -> bytes:
         """Convert markdown to DOCX.
+
+        DOCX format natively supports Unicode through Office Open XML,
+        so all Unicode characters (including emojis, special symbols,
+        non-Latin scripts) are preserved correctly.
 
         Args:
             markdown_content: Markdown content

@@ -28,11 +28,13 @@ A modern, feature-rich markdown editor with GitHub Flavored Markdown support, LL
 - **Local Files** - Open/save using modern File System Access API
 - **GitHub Integration** - OAuth authentication to open/save files from repositories
 - **Drag & Drop** - Drop markdown files to open
-- **Multiple Export Formats**:
+- **Multiple Export Formats** with full Unicode support:
   - Markdown (.md)
   - HTML (.html)
-  - PDF (.pdf)
-  - Word (.docx)
+  - PDF (.pdf) - Uses XeLaTeX for Unicode characters, emojis, non-Latin scripts
+  - Word (.docx) - Native Unicode support
+
+  See [UNICODE_EXPORT_SUPPORT.md](UNICODE_EXPORT_SUPPORT.md) for details
 
 ### UI/UX
 - **Material Design 3** - Modern, accessible interface
