@@ -1,5 +1,5 @@
 # Claude Chat Export
-**Generated: 2025-11-20 21:23:22**
+**Generated: 2025-11-21 09:54:10**
 
 ---
 
@@ -2193,4 +2193,87 @@ All prompts are now documented with:
 - ✅ Testing guidelines
 
 You can now reference [LLM_PROMPTS.md](LLM_PROMPTS.md) for all prompt-related information! 📋
+
+---
+
+👤 **USER:**
+> update LLM_PROMPTS.md file. Prompts now show as a very long single string. like:
+```
+You are a markdown transformation assistant. Preserve ALL markdown syntax (headers, lists, links, code blocks, tables, images). Only modify the text content as requested. Return ONLY the transformed markdown with ZERO explanations, comments, or meta-commentary. NEVER add phrases like 'Would you like me to continue', 'Continue with...', '[Continue...]', etc. IMPORTANT: Complete the ENTIRE transformation from beginning to end - do not truncate or stop mid-way. Your response should START with the transformed content and END with the transformed content. Nothing else.
+```
+This useless and unreadable. Make it more readable. For example add newline after each dot/end of sentence
+
+I'll update the LLM_PROMPTS.md file to show the prompts in a more readable format with proper line breaks:
+
+Session limit reached ∙ resets 10pm
+
+---
+
+👤 **USER:**
+> continue
+
+Now let me continue updating the remaining sections with better formatting. Let me search for the troubleshooting section with the long prompt:
+
+Now let me find and update the "Good vs Bad" examples section:
+
+Perfect! Now let me add a note at the top of the document explaining the formatting:
+
+Excellent! Now let me create a summary of what was updated:
+
+## ✅ LLM_PROMPTS.md Updated - Much More Readable
+
+I've reformatted all the long prompt strings in [LLM_PROMPTS.md](LLM_PROMPTS.md) to be much more readable by adding line breaks after sentences.
+
+### **Changes Made:**
+
+#### **Before (Unreadable):**
+```
+You are a markdown transformation assistant. Preserve ALL markdown syntax (headers, lists, links, code blocks, tables, images). Only modify the text content as requested. Return ONLY the transformed markdown with ZERO explanations, comments, or meta-commentary. NEVER add phrases like 'Would you like me to continue', 'Continue with...', '[Continue...]', etc. IMPORTANT: Complete the ENTIRE transformation from beginning to end - do not truncate or stop mid-way. Your response should START with the transformed content and END with the transformed content. Nothing else.
+```
+
+#### **After (Readable):**
+```
+You are a markdown transformation assistant.
+Preserve ALL markdown syntax (headers, lists, links, code blocks, tables, images).
+Only modify the text content as requested.
+Return ONLY the transformed markdown with ZERO explanations, comments, or meta-commentary.
+NEVER add phrases like 'Would you like me to continue', 'Continue with...', '[Continue...]', etc.
+IMPORTANT: Complete the ENTIRE transformation from beginning to end - do not truncate or stop mid-way.
+Your response should START with the transformed content and END with the transformed content.
+Nothing else.
+```
+
+---
+
+### **Sections Updated:**
+
+1. ✅ **Main Transformation System Prompt** (lines 15-24)
+2. ✅ **Custom Prompt System Prompt** (lines 42-51)
+3. ✅ **Translation Prompt** (lines 69-77, 80-90)
+4. ✅ **Remove Newlines Prompts** (lines 109-127)
+5. ✅ **Troubleshooting Prompts** (lines 406-433)
+6. ✅ **Good vs Bad Examples** (lines 507-515)
+
+---
+
+### **Added Note:**
+
+At the top of the document (line 5):
+```
+**Note on Formatting:** Prompts in this document are shown with line breaks 
+for readability. In the actual code, these are concatenated into single 
+strings with spaces between sentences.
+```
+
+---
+
+### **Result:**
+
+Now each sentence in the prompts is on its own line, making it:
+- ✅ Easy to read
+- ✅ Easy to understand the structure
+- ✅ Easy to see each instruction clearly
+- ✅ Easy to identify what could be modified
+
+The document is now much more user-friendly! 📋
 

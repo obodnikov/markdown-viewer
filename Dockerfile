@@ -29,7 +29,7 @@ FROM nginx:alpine as frontend
 COPY public/ /usr/share/nginx/html/
 COPY styles/ /usr/share/nginx/html/styles/
 COPY scripts/ /usr/share/nginx/html/scripts/
-COPY assets/ /usr/share/nginx/html/assets/
+COPY icons/ /usr/share/nginx/html/icons/
 
 # Copy nginx config
 COPY nginx.conf /etc/nginx/conf.d/default.conf
@@ -49,7 +49,7 @@ COPY --from=frontend /etc/nginx/conf.d/default.conf /etc/nginx/sites-available/d
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
 # Expose ports
-EXPOSE 80 5000
+EXPOSE 80 5050
 
 # Set environment
 ENV FLASK_APP=backend/app.py

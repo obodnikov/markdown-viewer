@@ -50,12 +50,9 @@ export class ExportManager {
 
     async exportPDF(content, filename) {
         try {
-            const response = await fetch('http://localhost:5000/api/export/pdf', {
+            // Use APIClient which respects config.js port settings
+            const response = await APIClient.request('/export/pdf', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                credentials: 'include',
                 body: JSON.stringify({
                     content,
                     filename: `${filename}.pdf`,
@@ -64,7 +61,8 @@ export class ExportManager {
                         margin: '1in',
                         toc: false
                     }
-                })
+                }),
+                expectFile: true
             });
 
             if (!response.ok) {
@@ -82,19 +80,17 @@ export class ExportManager {
 
     async exportDOCX(content, filename) {
         try {
-            const response = await fetch('http://localhost:5000/api/export/docx', {
+            // Use APIClient which respects config.js port settings
+            const response = await APIClient.request('/export/docx', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                credentials: 'include',
                 body: JSON.stringify({
                     content,
                     filename: `${filename}.docx`,
                     options: {
                         toc: false
                     }
-                })
+                }),
+                expectFile: true
             });
 
             if (!response.ok) {
