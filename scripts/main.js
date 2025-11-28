@@ -9,6 +9,8 @@ import { FileManager } from './file/local.js';
 import { GitHubUI } from './file/github.js';
 import { ExportManager } from './file/export.js';
 import { StorageManager } from './utils/storage.js';
+import { EditableTitle } from './ui/editable-title.js';
+import { tokenizer } from './utils/tokenizer.js';
 
 class MarkdownViewerApp {
     constructor() {
@@ -19,6 +21,7 @@ class MarkdownViewerApp {
         this.githubUI = null;
         this.exportManager = null;
         this.storage = null;
+        this.editableTitle = null;
 
         this.currentDocument = {
             title: 'Untitled Document',
@@ -36,6 +39,12 @@ class MarkdownViewerApp {
         this.storage = new StorageManager();
         this.fileManager = new FileManager();
         this.exportManager = new ExportManager();
+
+        // Initialize editable title
+        this.editableTitle = new EditableTitle(
+            document.getElementById('document-title'),
+            this.onTitleChange.bind(this)
+        );
 
         // Initialize editor
         this.editor = new EditorManager(
@@ -118,6 +127,12 @@ class MarkdownViewerApp {
         this.updateStatus();
     }
 
+    onTitleChange(newTitle) {
+        this.currentDocument.title = newTitle;
+        this.currentDocument.modified = true;
+        this.updateStatus();
+    }
+
     getCurrentContent() {
         return this.currentDocument.content;
     }
@@ -135,19 +150,32 @@ class MarkdownViewerApp {
         document.getElementById('preview').innerHTML = html;
     }
 
-    updateStatus() {
+    async updateStatus() {
         const content = this.currentDocument.content;
         const chars = content.length;
         const words = content.trim() ? content.trim().split(/\s+/).length : 0;
         const lines = content.split('\n').length;
 
-        document.getElementById('status-chars').textContent = `${chars} characters`;
+        document.getElementById('status-chars').textContent = `${chars} chars`;
         document.getElementById('status-words').textContent = `${words} words`;
         document.getElementById('status-lines').textContent = `${lines} line${lines !== 1 ? 's' : ''}`;
 
-        // Update title
-        const titleEl = document.getElementById('document-title');
-        titleEl.textContent = this.currentDocument.title + (this.currentDocument.modified ? ' *' : '');
+        // Update title using editable title
+        this.editableTitle.setTitle(this.currentDocument.title, this.currentDocument.modified);
+
+        // Update token count asynchronously
+        this.updateTokenCount(content);
+    }
+
+    async updateTokenCount(content) {
+        try {
+            const tokenCount = await tokenizer.countTokens(content);
+            const formatted = tokenizer.formatTokenCount(tokenCount);
+            document.getElementById('status-tokens').textContent = formatted;
+        } catch (error) {
+            console.error('Token count error:', error);
+            document.getElementById('status-tokens').textContent = '0 tokens';
+        }
     }
 
     changeViewMode(mode) {
@@ -199,9 +227,12 @@ class MarkdownViewerApp {
     }
 
     async saveFile() {
+        // Get filename from editable title
+        const filename = this.editableTitle.getFilename('.md');
+
         const saved = await this.fileManager.saveFile(
             this.currentDocument.content,
-            this.currentDocument.filepath || 'document.md'
+            filename
         );
 
         if (saved) {
@@ -213,8 +244,11 @@ class MarkdownViewerApp {
     }
 
     loadDocument(title, content, filepath = null) {
+        // Remove file extension from title if present
+        const cleanTitle = title.replace(/\.(md|markdown|txt)$/i, '');
+
         this.currentDocument = {
-            title,
+            title: cleanTitle,
             content,
             filepath,
             modified: false
@@ -232,7 +266,11 @@ class MarkdownViewerApp {
     async exportDocument(format) {
         document.getElementById('export-dialog').close();
 
-        const filename = this.currentDocument.title.replace(/\s+/g, '-').toLowerCase();
+        // Get filename from editable title (without extension)
+        let filename = this.editableTitle.getTitle();
+        // Convert to filename-friendly format
+        filename = filename.replace(/\s+/g, '-').toLowerCase();
+
         const content = this.currentDocument.content;
 
         try {

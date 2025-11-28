@@ -18,6 +18,9 @@
     <!-- marked.js - GitHub Flavored Markdown parser -->
     <script src="https://cdn.jsdelivr.net/npm/marked@11.1.0/marked.min.js"></script>
 
+    <!-- js-tiktoken - GPT tokenizer for token counting -->
+    <script src="https://cdn.jsdelivr.net/npm/js-tiktoken@1.0.7/dist/tiktoken.js"></script>
+
     <!-- CodeMirror 6 - For future implementation -->
     <!-- Note: CodeMirror 6 is complex to load via CDN, using textarea fallback initially -->
 
@@ -210,11 +213,13 @@
                     </div>
 
                     <div class="view-controls__status" id="editor-status">
-                        <span id="status-chars">0 characters</span>
+                        <span id="status-chars">0 chars</span>
                         <span class="divider">•</span>
                         <span id="status-words">0 words</span>
                         <span class="divider">•</span>
                         <span id="status-lines">1 line</span>
+                        <span class="divider">•</span>
+                        <span id="status-tokens">0 tokens</span>
                     </div>
                 </div>
 
