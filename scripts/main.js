@@ -10,6 +10,7 @@ import { GitHubUI } from './file/github.js';
 import { ExportManager } from './file/export.js';
 import { StorageManager } from './utils/storage.js';
 import { EditableTitle } from './ui/editable-title.js';
+import { tokenizer } from './utils/tokenizer.js';
 
 class MarkdownViewerApp {
     constructor() {
@@ -149,18 +150,32 @@ class MarkdownViewerApp {
         document.getElementById('preview').innerHTML = html;
     }
 
-    updateStatus() {
+    async updateStatus() {
         const content = this.currentDocument.content;
         const chars = content.length;
         const words = content.trim() ? content.trim().split(/\s+/).length : 0;
         const lines = content.split('\n').length;
 
-        document.getElementById('status-chars').textContent = `${chars} characters`;
+        document.getElementById('status-chars').textContent = `${chars} chars`;
         document.getElementById('status-words').textContent = `${words} words`;
         document.getElementById('status-lines').textContent = `${lines} line${lines !== 1 ? 's' : ''}`;
 
         // Update title using editable title
         this.editableTitle.setTitle(this.currentDocument.title, this.currentDocument.modified);
+
+        // Update token count asynchronously
+        this.updateTokenCount(content);
+    }
+
+    async updateTokenCount(content) {
+        try {
+            const tokenCount = await tokenizer.countTokens(content);
+            const formatted = tokenizer.formatTokenCount(tokenCount);
+            document.getElementById('status-tokens').textContent = formatted;
+        } catch (error) {
+            console.error('Token count error:', error);
+            document.getElementById('status-tokens').textContent = '0 tokens';
+        }
     }
 
     changeViewMode(mode) {
