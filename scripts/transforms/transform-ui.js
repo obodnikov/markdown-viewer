@@ -346,6 +346,7 @@ export class TransformUI {
         const replaceAllBtn = document.getElementById('fr-replace-all-btn');
         const aiDescInput = document.getElementById('fr-ai-description');
         const aiGenerateBtn = document.getElementById('fr-ai-generate-btn');
+        const aiPreviewBtn = document.getElementById('fr-ai-preview-btn');
         const aiApplyBtn = document.getElementById('fr-ai-apply-btn');
 
         // Close dialog
@@ -366,6 +367,9 @@ export class TransformUI {
 
         // AI Generate
         aiGenerateBtn.addEventListener('click', () => this.handleAIGenerate());
+
+        // AI Preview
+        aiPreviewBtn.addEventListener('click', () => this.handleAIPreview());
 
         // AI Apply
         aiApplyBtn.addEventListener('click', () => this.handleAIApply());
@@ -545,6 +549,7 @@ export class TransformUI {
             document.getElementById('fr-ai-explanation').style.display = 'block';
             document.getElementById('fr-ai-pattern-group').style.display = 'block';
             document.getElementById('fr-ai-flags-group').style.display = 'block';
+            document.getElementById('fr-ai-preview-btn').style.display = 'inline-block';
 
             if (result.examples && result.examples.length > 0) {
                 const examplesEl = document.getElementById('fr-ai-examples');
@@ -558,6 +563,56 @@ export class TransformUI {
         } catch (error) {
             this.hideLoading();
             alert(`Failed to generate pattern: ${error.message}`);
+        }
+    }
+
+    handleAIPreview() {
+        const content = this.getContent();
+        if (!content.trim()) {
+            alert('No content to search');
+            return;
+        }
+
+        const pattern = document.getElementById('fr-ai-pattern').value;
+        const flags = document.getElementById('fr-ai-flags').value;
+
+        if (!pattern) {
+            alert('Please generate a pattern first');
+            return;
+        }
+
+        try {
+            const matches = this.findReplace.findMatches(content, pattern, flags);
+            const stats = this.findReplace.getMatchStats(matches, content);
+
+            const previewContainer = document.getElementById('fr-ai-preview');
+            const previewEl = document.getElementById('fr-ai-preview-stats');
+            const samplesEl = document.getElementById('fr-ai-preview-samples');
+
+            previewContainer.style.display = 'block';
+            previewEl.textContent = stats.message;
+
+            if (matches.length > 0) {
+                samplesEl.innerHTML = '';
+                matches.slice(0, 5).forEach(match => {
+                    const sample = document.createElement('div');
+                    sample.className = 'fr-preview-sample';
+
+                    const context = this.getMatchContext(match, content);
+                    sample.innerHTML = `
+                        <div class="fr-preview-line">Line ${match.line || '?'}</div>
+                        <div class="fr-preview-text">
+                            ${this.escapeHtml(context.before)}<mark>${this.escapeHtml(match.text)}</mark>${this.escapeHtml(context.after)}
+                        </div>
+                    `;
+
+                    samplesEl.appendChild(sample);
+                });
+            } else {
+                samplesEl.innerHTML = '';
+            }
+        } catch (error) {
+            alert(`Preview error: ${error.message}`);
         }
     }
 

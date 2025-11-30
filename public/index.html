@@ -349,7 +349,7 @@
             <div id="fr-ai-content" style="display: none;">
                 <div class="fr-form-group">
                     <label for="fr-ai-description">Describe what you want to find</label>
-                    <input type="text" id="fr-ai-description" placeholder="e.g., all email addresses, markdown headers, phone numbers...">
+                    <textarea id="fr-ai-description" rows="3" placeholder="e.g., all email addresses, markdown headers, phone numbers..."></textarea>
                 </div>
 
                 <div class="fr-buttons">
@@ -379,7 +379,13 @@
                     <input type="text" id="fr-ai-replacement" placeholder="Enter replacement text...">
                 </div>
 
+                <div class="fr-preview" style="display: none;" id="fr-ai-preview">
+                    <div class="fr-preview-stats" id="fr-ai-preview-stats">No matches</div>
+                    <div class="fr-preview-samples" id="fr-ai-preview-samples"></div>
+                </div>
+
                 <div class="fr-buttons">
+                    <button class="fr-btn fr-btn--secondary" id="fr-ai-preview-btn" style="display: none;">Preview</button>
                     <button class="fr-btn fr-btn--primary" id="fr-ai-apply-btn">Apply</button>
                 </div>
             </div>
