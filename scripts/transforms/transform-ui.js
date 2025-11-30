@@ -4,6 +4,8 @@
 
 import { LLMClient } from './llm-client.js';
 import { NewlineRemover } from './newline-remover.js';
+import { FindReplace } from './find-replace.js';
+import { AIRegex } from './ai-regex.js';
 
 export class TransformUI {
     constructor(getContent, setContent) {
@@ -11,16 +13,24 @@ export class TransformUI {
         this.setContent = setContent;
         this.llmClient = new LLMClient();
         this.newlineRemover = new NewlineRemover();
+        this.findReplace = new FindReplace();
+        this.aiRegex = new AIRegex();
 
         this.setupEventListeners();
         this.loadModels();
         this.loadLanguages();
+        this.setupFindReplaceDialog();
     }
 
     setupEventListeners() {
         // Newline removal
         document.getElementById('action-remove-newlines').addEventListener('click', () => {
             this.handleRemoveNewlines();
+        });
+
+        // Find & Replace
+        document.getElementById('action-find-replace').addEventListener('click', () => {
+            this.openFindReplaceDialog();
         });
 
         // Translation
@@ -319,5 +329,267 @@ export class TransformUI {
             .split(' ')
             .map(word => word.charAt(0).toUpperCase() + word.slice(1))
             .join(' ');
+    }
+
+    // Find & Replace Dialog Methods
+
+    setupFindReplaceDialog() {
+        const dialog = document.getElementById('find-replace-dialog');
+        const closeBtn = document.getElementById('close-find-replace-dialog');
+        const basicTab = document.getElementById('fr-tab-basic');
+        const aiTab = document.getElementById('fr-tab-ai');
+        const presetSelect = document.getElementById('fr-preset');
+        const findInput = document.getElementById('fr-find');
+        const replaceInput = document.getElementById('fr-replace');
+        const caseSensitive = document.getElementById('fr-case-sensitive');
+        const previewBtn = document.getElementById('fr-preview-btn');
+        const replaceAllBtn = document.getElementById('fr-replace-all-btn');
+        const aiDescInput = document.getElementById('fr-ai-description');
+        const aiGenerateBtn = document.getElementById('fr-ai-generate-btn');
+        const aiApplyBtn = document.getElementById('fr-ai-apply-btn');
+
+        // Close dialog
+        closeBtn.addEventListener('click', () => dialog.close());
+
+        // Tab switching
+        basicTab.addEventListener('click', () => this.switchFRTab('basic'));
+        aiTab.addEventListener('click', () => this.switchFRTab('ai'));
+
+        // Preset change
+        presetSelect.addEventListener('change', (e) => this.handlePresetChange(e.target.value));
+
+        // Preview
+        previewBtn.addEventListener('click', () => this.handleFRPreview());
+
+        // Replace All
+        replaceAllBtn.addEventListener('click', () => this.handleFRReplaceAll());
+
+        // AI Generate
+        aiGenerateBtn.addEventListener('click', () => this.handleAIGenerate());
+
+        // AI Apply
+        aiApplyBtn.addEventListener('click', () => this.handleAIApply());
+
+        // Populate presets
+        this.populatePresets();
+    }
+
+    openFindReplaceDialog() {
+        const dialog = document.getElementById('find-replace-dialog');
+        dialog.showModal();
+    }
+
+    switchFRTab(tab) {
+        const basicTab = document.getElementById('fr-tab-basic');
+        const aiTab = document.getElementById('fr-tab-ai');
+        const basicContent = document.getElementById('fr-basic-content');
+        const aiContent = document.getElementById('fr-ai-content');
+
+        if (tab === 'basic') {
+            basicTab.classList.add('fr-tab--active');
+            aiTab.classList.remove('fr-tab--active');
+            basicContent.style.display = 'block';
+            aiContent.style.display = 'none';
+        } else {
+            aiTab.classList.add('fr-tab--active');
+            basicTab.classList.remove('fr-tab--active');
+            aiContent.style.display = 'block';
+            basicContent.style.display = 'none';
+        }
+    }
+
+    populatePresets() {
+        const select = document.getElementById('fr-preset');
+        const presets = this.findReplace.getPresetList();
+
+        select.innerHTML = '';
+        presets.forEach(preset => {
+            const option = document.createElement('option');
+            option.value = preset.id;
+            option.textContent = preset.name;
+            select.appendChild(option);
+        });
+
+        // Trigger initial preset update
+        this.handlePresetChange(select.value);
+    }
+
+    handlePresetChange(presetId) {
+        const preset = this.findReplace.getPreset(presetId);
+        const findInput = document.getElementById('fr-find');
+        const exampleEl = document.getElementById('fr-example');
+
+        if (preset) {
+            findInput.placeholder = preset.placeholder;
+            exampleEl.textContent = `Example: ${preset.example}`;
+
+            if (preset.noInput) {
+                findInput.disabled = true;
+                findInput.value = '';
+            } else {
+                findInput.disabled = false;
+            }
+
+            if (preset.isRemove) {
+                document.getElementById('fr-replace').value = '';
+            }
+        }
+    }
+
+    handleFRPreview() {
+        const content = this.getContent();
+        if (!content.trim()) {
+            alert('No content to search');
+            return;
+        }
+
+        const presetId = document.getElementById('fr-preset').value;
+        const findText = document.getElementById('fr-find').value;
+        const caseSensitive = document.getElementById('fr-case-sensitive').checked;
+
+        try {
+            const { pattern, flags } = this.findReplace.generatePattern(presetId, findText);
+            const finalFlags = this.findReplace.getCaseFlags(caseSensitive, flags);
+            const matches = this.findReplace.findMatches(content, pattern, finalFlags);
+            const stats = this.findReplace.getMatchStats(matches, content);
+
+            const previewContainer = document.querySelector('.fr-preview');
+            const previewEl = document.getElementById('fr-preview-stats');
+            const samplesEl = document.getElementById('fr-preview-samples');
+
+            previewContainer.style.display = 'block';
+            previewEl.textContent = stats.message;
+
+            if (matches.length > 0) {
+                this.showFRPreviewSamples(matches.slice(0, 5), content);
+            } else {
+                samplesEl.innerHTML = '';
+            }
+        } catch (error) {
+            alert(`Preview error: ${error.message}`);
+        }
+    }
+
+    showFRPreviewSamples(matches, content) {
+        const container = document.getElementById('fr-preview-samples');
+        container.innerHTML = '';
+
+        matches.forEach(match => {
+            const sample = document.createElement('div');
+            sample.className = 'fr-preview-sample';
+
+            const context = this.getMatchContext(match, content);
+            sample.innerHTML = `
+                <div class="fr-preview-line">Line ${match.line || '?'}</div>
+                <div class="fr-preview-text">
+                    ${this.escapeHtml(context.before)}<mark>${this.escapeHtml(match.text)}</mark>${this.escapeHtml(context.after)}
+                </div>
+            `;
+
+            container.appendChild(sample);
+        });
+    }
+
+    getMatchContext(match, content, contextLength = 30) {
+        const start = Math.max(0, match.index - contextLength);
+        const end = Math.min(content.length, match.index + match.length + contextLength);
+
+        return {
+            before: content.substring(start, match.index),
+            after: content.substring(match.index + match.length, end)
+        };
+    }
+
+    handleFRReplaceAll() {
+        const content = this.getContent();
+        if (!content.trim()) {
+            alert('No content to replace');
+            return;
+        }
+
+        const presetId = document.getElementById('fr-preset').value;
+        const findText = document.getElementById('fr-find').value;
+        const replaceText = document.getElementById('fr-replace').value;
+        const caseSensitive = document.getElementById('fr-case-sensitive').checked;
+
+        try {
+            const { pattern, flags } = this.findReplace.generatePattern(presetId, findText);
+            const finalFlags = this.findReplace.getCaseFlags(caseSensitive, flags);
+            const result = this.findReplace.replace(content, pattern, replaceText, finalFlags);
+
+            this.setContent(result);
+            document.getElementById('find-replace-dialog').close();
+            this.showSuccess('Replace completed');
+        } catch (error) {
+            alert(`Replace error: ${error.message}`);
+        }
+    }
+
+    async handleAIGenerate() {
+        const description = document.getElementById('fr-ai-description').value.trim();
+        if (!description) {
+            alert('Please describe what you want to find');
+            return;
+        }
+
+        this.showLoading('Generating regex pattern...');
+
+        try {
+            const result = await this.aiRegex.generatePattern(description, 'find');
+
+            document.getElementById('fr-ai-pattern').value = result.pattern;
+            document.getElementById('fr-ai-flags').value = result.flags;
+            document.getElementById('fr-ai-explanation').textContent = result.explanation;
+
+            // Show the fields
+            document.getElementById('fr-ai-explanation').style.display = 'block';
+            document.getElementById('fr-ai-pattern-group').style.display = 'block';
+            document.getElementById('fr-ai-flags-group').style.display = 'block';
+
+            if (result.examples && result.examples.length > 0) {
+                const examplesEl = document.getElementById('fr-ai-examples');
+                examplesEl.innerHTML = result.examples.map(ex =>
+                    `<div class="fr-ai-example">• ${this.escapeHtml(ex)}</div>`
+                ).join('');
+                examplesEl.style.display = 'block';
+            }
+
+            this.hideLoading();
+        } catch (error) {
+            this.hideLoading();
+            alert(`Failed to generate pattern: ${error.message}`);
+        }
+    }
+
+    async handleAIApply() {
+        const content = this.getContent();
+        if (!content.trim()) {
+            alert('No content to search');
+            return;
+        }
+
+        const pattern = document.getElementById('fr-ai-pattern').value;
+        const flags = document.getElementById('fr-ai-flags').value;
+        const replacement = document.getElementById('fr-ai-replacement').value;
+
+        if (!pattern) {
+            alert('Please generate a pattern first');
+            return;
+        }
+
+        try {
+            const result = this.findReplace.replace(content, pattern, replacement, flags);
+            this.setContent(result);
+            document.getElementById('find-replace-dialog').close();
+            this.showSuccess('Pattern applied successfully');
+        } catch (error) {
+            alert(`Apply error: ${error.message}`);
+        }
+    }
+
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     }
 }

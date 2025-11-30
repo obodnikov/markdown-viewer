@@ -109,6 +109,11 @@
                                 <span>Aggressive</span>
                             </label>
                         </div>
+
+                        <button class="sidebar__action" id="action-find-replace">
+                            <span class="action__icon">&#128269;</span>
+                            <span class="action__label">Find & Replace</span>
+                        </button>
                     </section>
 
                     <!-- Translation -->
@@ -285,6 +290,99 @@
 
         <div class="dialog__content" id="github-content">
             <!-- Content loaded dynamically -->
+        </div>
+    </dialog>
+
+    <!-- Find & Replace Dialog -->
+    <dialog class="dialog" id="find-replace-dialog">
+        <div class="dialog__header">
+            <h2 class="dialog__title">Find & Replace</h2>
+            <button class="dialog__close" id="close-find-replace-dialog">×</button>
+        </div>
+
+        <div class="dialog__content">
+            <!-- Tabs -->
+            <div class="fr-tabs">
+                <button class="fr-tab fr-tab--active" id="fr-tab-basic">Basic</button>
+                <button class="fr-tab" id="fr-tab-ai">AI Assistant</button>
+            </div>
+
+            <!-- Basic Tab Content -->
+            <div id="fr-basic-content">
+                <div class="fr-form-group">
+                    <label for="fr-preset">Pattern Type</label>
+                    <select id="fr-preset">
+                        <!-- Options populated dynamically -->
+                    </select>
+                    <div class="fr-example" id="fr-example"></div>
+                </div>
+
+                <div class="fr-form-group">
+                    <label for="fr-find">Find</label>
+                    <input type="text" id="fr-find" placeholder="Enter text to find...">
+                </div>
+
+                <div class="fr-form-group">
+                    <label for="fr-replace">Replace with</label>
+                    <input type="text" id="fr-replace" placeholder="Enter replacement text...">
+                </div>
+
+                <div class="fr-checkbox-group">
+                    <label>
+                        <input type="checkbox" id="fr-case-sensitive">
+                        <span>Case sensitive</span>
+                    </label>
+                </div>
+
+                <div class="fr-preview" style="display: none;">
+                    <div class="fr-preview-stats" id="fr-preview-stats">No matches</div>
+                    <div class="fr-preview-samples" id="fr-preview-samples"></div>
+                </div>
+
+                <div class="fr-buttons">
+                    <button class="fr-btn fr-btn--secondary" id="fr-preview-btn">Preview</button>
+                    <button class="fr-btn fr-btn--primary" id="fr-replace-all-btn">Replace All</button>
+                </div>
+            </div>
+
+            <!-- AI Tab Content -->
+            <div id="fr-ai-content" style="display: none;">
+                <div class="fr-form-group">
+                    <label for="fr-ai-description">Describe what you want to find</label>
+                    <input type="text" id="fr-ai-description" placeholder="e.g., all email addresses, markdown headers, phone numbers...">
+                </div>
+
+                <div class="fr-buttons">
+                    <button class="fr-btn fr-btn--primary" id="fr-ai-generate-btn">✨ Generate Pattern</button>
+                </div>
+
+                <div class="fr-ai-explanation" id="fr-ai-explanation" style="display: none;">
+                    Pattern explanation will appear here
+                </div>
+
+                <div class="fr-ai-examples" id="fr-ai-examples" style="display: none;">
+                    <!-- Examples populated dynamically -->
+                </div>
+
+                <div class="fr-form-group" style="display: none;" id="fr-ai-pattern-group">
+                    <label for="fr-ai-pattern">Generated Pattern</label>
+                    <input type="text" id="fr-ai-pattern" readonly>
+                </div>
+
+                <div class="fr-form-group" style="display: none;" id="fr-ai-flags-group">
+                    <label for="fr-ai-flags">Flags</label>
+                    <input type="text" id="fr-ai-flags" readonly>
+                </div>
+
+                <div class="fr-form-group">
+                    <label for="fr-ai-replacement">Replace with</label>
+                    <input type="text" id="fr-ai-replacement" placeholder="Enter replacement text...">
+                </div>
+
+                <div class="fr-buttons">
+                    <button class="fr-btn fr-btn--primary" id="fr-ai-apply-btn">Apply</button>
+                </div>
+            </div>
         </div>
     </dialog>
 
