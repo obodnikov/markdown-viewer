@@ -195,7 +195,8 @@
 }
 
 .fr-form-group input,
-.fr-form-group select {
+.fr-form-group select,
+.fr-form-group textarea {
     width: 100%;
     padding: var(--space-2);
     border: 1px solid var(--color-outline);
@@ -203,10 +204,18 @@
     background-color: var(--color-surface);
     color: var(--color-on-surface);
     font-size: var(--font-size-base);
+    font-family: inherit;
+}
+
+.fr-form-group textarea {
+    resize: vertical;
+    min-height: 60px;
+    line-height: 1.5;
 }
 
 .fr-form-group input:focus,
-.fr-form-group select:focus {
+.fr-form-group select:focus,
+.fr-form-group textarea:focus {
     outline: 2px solid var(--color-primary);
     outline-offset: 2px;
 }
