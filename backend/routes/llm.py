@@ -170,3 +170,53 @@ def list_languages():
 
     except Exception as e:
         return jsonify({'error': f'Unexpected error: {str(e)}'}), 500
+
+
+@llm_bp.route('/generate-regex', methods=['POST'])
+def generate_regex():
+    """Generate regex pattern from natural language description using LLM.
+
+    Request JSON:
+        {
+            "description": "find all email addresses",
+            "mode": "find"  // or "replace"
+        }
+
+    Returns:
+        {
+            "success": true,
+            "pattern": "\\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Z|a-z]{2,}\\b",
+            "flags": "g",
+            "explanation": "Matches email addresses",
+            "examples": ["user@example.com", "name@domain.co.uk"],
+            "replacement": ""
+        }
+    """
+    try:
+        data = request.get_json()
+
+        if not data:
+            return jsonify({'error': 'No JSON data provided'}), 400
+
+        description = data.get('description')
+        mode = data.get('mode', 'find')
+
+        if not description:
+            return jsonify({'error': 'description is required'}), 400
+
+        service = get_openrouter_service()
+        result = service.generate_regex_pattern(description, mode)
+
+        return jsonify({
+            'success': True,
+            'pattern': result.get('pattern', ''),
+            'flags': result.get('flags', 'g'),
+            'explanation': result.get('explanation', ''),
+            'examples': result.get('examples', []),
+            'replacement': result.get('replacement', '')
+        })
+
+    except RuntimeError as e:
+        return jsonify({'error': str(e)}), 500
+    except Exception as e:
+        return jsonify({'error': f'Unexpected error: {str(e)}'}), 500
