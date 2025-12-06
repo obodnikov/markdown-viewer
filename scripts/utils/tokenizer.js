@@ -33,7 +33,8 @@ export class Tokenizer {
         try {
             // Check if tiktoken is available globally
             if (typeof tiktoken === 'undefined') {
-                console.warn('tiktoken library not loaded');
+                // tiktoken is optional - fallback to estimation
+                console.debug('tiktoken library not loaded, using token estimation fallback');
                 this.isInitialized = false;
                 return;
             }
@@ -41,8 +42,9 @@ export class Tokenizer {
             // Get cl100k_base encoding (GPT-3.5/GPT-4)
             this.encoding = tiktoken.get_encoding('cl100k_base');
             this.isInitialized = true;
+            console.debug('tiktoken library loaded successfully');
         } catch (error) {
-            console.error('Failed to initialize tokenizer:', error);
+            console.debug('Failed to initialize tokenizer, using estimation fallback:', error.message);
             this.isInitialized = false;
         }
     }
