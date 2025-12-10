@@ -139,4 +139,12 @@ export class FileManager {
         this.fileHandle = null;
         return this.saveFile(content, filename);
     }
+
+    /**
+     * Clear the stored file handle
+     * This forces the next save to show a "Save As" dialog
+     */
+    clearFileHandle() {
+        this.fileHandle = null;
+    }
 }

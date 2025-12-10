@@ -131,6 +131,9 @@ class MarkdownViewerApp {
         this.currentDocument.title = newTitle;
         this.currentDocument.modified = true;
         this.updateStatus();
+
+        // Clear the file handle so next save will prompt for new filename
+        this.fileManager.clearFileHandle();
     }
 
     getCurrentContent() {
