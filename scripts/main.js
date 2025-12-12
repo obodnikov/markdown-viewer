@@ -11,6 +11,7 @@ import { ExportManager } from './file/export.js';
 import { StorageManager } from './utils/storage.js';
 import { EditableTitle } from './ui/editable-title.js';
 import { tokenizer } from './utils/tokenizer.js';
+import { ScrollSync } from './editor/sync.js';
 
 class MarkdownViewerApp {
     constructor() {
@@ -22,6 +23,7 @@ class MarkdownViewerApp {
         this.exportManager = null;
         this.storage = null;
         this.editableTitle = null;
+        this.scrollSync = null;
 
         this.currentDocument = {
             title: 'Untitled Document',
@@ -63,6 +65,13 @@ class MarkdownViewerApp {
             this.loadDocument.bind(this)
         );
 
+        // Initialize scroll synchronization
+        // Note: preview-pane is the scrollable container, not preview element
+        this.scrollSync = new ScrollSync(
+            this.editor,
+            document.getElementById('preview-pane')
+        );
+
         // Setup event listeners
         this.setupEventListeners();
 
@@ -71,6 +80,9 @@ class MarkdownViewerApp {
 
         // Initial render
         this.updatePreview();
+
+        // Enable scroll sync for initial split view
+        this.scrollSync.enable();
 
         console.log('Markdown Viewer initialized');
     }
@@ -188,6 +200,15 @@ class MarkdownViewerApp {
         document.querySelectorAll('.view-tab').forEach(tab => {
             tab.classList.toggle('view-tab--active', tab.dataset.view === mode);
         });
+
+        // Enable/disable scroll sync based on view mode
+        if (this.scrollSync) {
+            if (mode === 'split') {
+                this.scrollSync.enable();
+            } else {
+                this.scrollSync.disable();
+            }
+        }
     }
 
     toggleSidebar() {

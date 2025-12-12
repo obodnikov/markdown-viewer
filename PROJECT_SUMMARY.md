@@ -1,5 +1,7 @@
 # Project Summary: Markdown Viewer & Editor
 
+## Version: 1.3.0
+
 ## Project Status: ✅ Complete - Ready for Development/Testing
 
 Full-stack markdown editor with LLM transformations, GitHub integration, and multi-format export capabilities.
@@ -60,7 +62,7 @@ scripts/
 ├── main.js                  # Application bootstrap
 ├── editor/
 │   ├── editor.js           # CodeMirror/textarea wrapper
-│   └── sync.js             # Scroll sync (future)
+│   └── sync.js             # Scroll synchronization (v1.3.0)
 ├── markdown/
 │   ├── parser.js           # marked.js wrapper
 │   └── renderer.js         # Custom renderer (future)
@@ -160,7 +162,7 @@ README.md                    # Full documentation
 
 #### Editor Enhancement
 - [ ] CodeMirror 6 full integration (textarea fallback works)
-- [ ] Scroll synchronization
+- [x] Scroll synchronization (v1.3.0)
 - [ ] Search and replace
 - [ ] Vim keybindings
 
@@ -340,14 +342,11 @@ All JavaScript files under 800 lines (per [AI.md](AI.md)):
    - Currently using textarea fallback
    - Add proper CodeMirror 6 bundle
 
-2. **Scroll Synchronization**
-   - Implement [sync.js](scripts/editor/sync.js)
-
-3. **Error Handling**
+2. **Error Handling**
    - Add retry logic for API failures
    - Better user feedback
 
-4. **Testing**
+3. **Testing**
    - Unit tests for services
    - E2E tests for UI flows
 

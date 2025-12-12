@@ -95,4 +95,22 @@ export class EditorManager {
             this.editor.focus();
         }
     }
+
+    getScrollContainer() {
+        if (this.editor instanceof HTMLTextAreaElement) {
+            return this.editor;
+        } else if (this.editor && this.editor.scrollDOM) {
+            // CodeMirror 6 uses scrollDOM for the scrollable container
+            return this.editor.scrollDOM;
+        }
+        return null;
+    }
+
+    setScrollPosition(scrollRatio) {
+        const scrollContainer = this.getScrollContainer();
+        if (!scrollContainer) return;
+
+        const maxScroll = scrollContainer.scrollHeight - scrollContainer.clientHeight;
+        scrollContainer.scrollTop = scrollRatio * maxScroll;
+    }
 }

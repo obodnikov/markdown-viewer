@@ -8,6 +8,7 @@ A modern, feature-rich markdown editor with GitHub Flavored Markdown support, LL
 - **GitHub Flavored Markdown** - Full GFM support with live preview
 - **Split-pane Editor** - CodeMirror 6 with syntax highlighting
 - **Multiple View Modes** - Split, edit-only, or preview-only
+- **Synchronized Scrolling** - Proportional bidirectional scroll sync in split view mode
 - **Auto-save** - Automatic local storage backup every 30 seconds
 
 ### LLM Transformations (via OpenRouter)
@@ -367,11 +368,12 @@ MIT License - see LICENSE file for details
 
 ## Roadmap
 
-### Phase 1 (Current)
+### Phase 1 (Current) - v1.3.0
 - ✅ Core editor with GFM support
 - ✅ LLM transformations
 - ✅ GitHub integration
 - ✅ Multiple export formats
+- ✅ Synchronized scrolling in split view (v1.3.0)
 
 ### Phase 2 (Future)
 - [ ] Real-time collaboration
