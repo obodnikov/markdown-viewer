@@ -135,7 +135,7 @@ Complete reference for all documentation in the Markdown Viewer project.
 
 #### Editor
 - **[scripts/editor/editor.js](scripts/editor/editor.js)** - Editor initialization and management
-- **[scripts/editor/sync.js](scripts/editor/sync.js)** - Editor-preview sync
+- **[scripts/editor/sync.js](scripts/editor/sync.js)** - Scroll synchronization (v1.1.0)
 
 #### File Operations
 - **[scripts/file/local.js](scripts/file/local.js)** - Local file operations
@@ -303,22 +303,27 @@ markdown-viewer/
 
 ### Latest Features
 
-1. **Configurable LLM Models** (Latest)
+1. **Synchronized Scrolling** (v1.1.0 - Latest)
+   - Proportional bidirectional scroll sync in split view mode
+   - Automatically enables/disables based on view mode
+   - Supports both CodeMirror and textarea editor
+
+2. **Configurable LLM Models**
    - Models now configured in .env file
    - Frontend auto-loads from backend API
    - [IMPLEMENTATION_COMPLETE.md](IMPLEMENTATION_COMPLETE.md)
 
-2. **Translation Truncation Fixed** (Latest)
+3. **Translation Truncation Fixed**
    - Enhanced prompts to prevent meta-commentary
    - Added temperature=0.3 for focused output
    - [TRANSLATION_DEEP_ANALYSIS.md](TRANSLATION_DEEP_ANALYSIS.md)
 
-3. **Port Configuration**
+4. **Port Configuration**
    - Backend port configurable via .env or CLI
    - Frontend config.js for backend URL
    - [PORT_CONFIGURATION.md](PORT_CONFIGURATION.md)
 
-4. **CORS Issues Resolved**
+5. **CORS Issues Resolved**
    - Enhanced CORS configuration with preflight support
    - [FIXES_PORT_AND_CORS.md](FIXES_PORT_AND_CORS.md)
 
@@ -365,6 +370,8 @@ See [README.md](README.md) for license information.
 
 ---
 
-**Last Updated:** 2025-01-20
+**Last Updated:** 2025-12-12
+
+**Version:** 1.1.0
 
 **Documentation Status:** ✅ Complete and current
