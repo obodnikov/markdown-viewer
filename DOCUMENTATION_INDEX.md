@@ -135,7 +135,7 @@ Complete reference for all documentation in the Markdown Viewer project.
 
 #### Editor
 - **[scripts/editor/editor.js](scripts/editor/editor.js)** - Editor initialization and management
-- **[scripts/editor/sync.js](scripts/editor/sync.js)** - Scroll synchronization (v1.1.0)
+- **[scripts/editor/sync.js](scripts/editor/sync.js)** - Scroll synchronization (v1.3.0)
 
 #### File Operations
 - **[scripts/file/local.js](scripts/file/local.js)** - Local file operations
@@ -303,10 +303,11 @@ markdown-viewer/
 
 ### Latest Features
 
-1. **Synchronized Scrolling** (v1.1.0 - Latest)
+1. **Synchronized Scrolling** (v1.3.0 - Latest)
    - Proportional bidirectional scroll sync in split view mode
    - Automatically enables/disables based on view mode
    - Supports both CodeMirror and textarea editor
+   - Fixed: Now correctly syncs with preview-pane scroll container
 
 2. **Configurable LLM Models**
    - Models now configured in .env file
@@ -372,6 +373,6 @@ See [README.md](README.md) for license information.
 
 **Last Updated:** 2025-12-12
 
-**Version:** 1.1.0
+**Version:** 1.3.0
 
 **Documentation Status:** ✅ Complete and current

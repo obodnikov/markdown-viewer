@@ -1,6 +1,6 @@
 # Project Summary: Markdown Viewer & Editor
 
-## Version: 1.1.0
+## Version: 1.3.0
 
 ## Project Status: ✅ Complete - Ready for Development/Testing
 
@@ -62,7 +62,7 @@ scripts/
 ├── main.js                  # Application bootstrap
 ├── editor/
 │   ├── editor.js           # CodeMirror/textarea wrapper
-│   └── sync.js             # Scroll synchronization (v1.1.0)
+│   └── sync.js             # Scroll synchronization (v1.3.0)
 ├── markdown/
 │   ├── parser.js           # marked.js wrapper
 │   └── renderer.js         # Custom renderer (future)
@@ -162,7 +162,7 @@ README.md                    # Full documentation
 
 #### Editor Enhancement
 - [ ] CodeMirror 6 full integration (textarea fallback works)
-- [x] Scroll synchronization (v1.1.0)
+- [x] Scroll synchronization (v1.3.0)
 - [ ] Search and replace
 - [ ] Vim keybindings
 

@@ -368,12 +368,12 @@ MIT License - see LICENSE file for details
 
 ## Roadmap
 
-### Phase 1 (Current) - v1.1.0
+### Phase 1 (Current) - v1.3.0
 - ✅ Core editor with GFM support
 - ✅ LLM transformations
 - ✅ GitHub integration
 - ✅ Multiple export formats
-- ✅ Synchronized scrolling in split view
+- ✅ Synchronized scrolling in split view (v1.3.0)
 
 ### Phase 2 (Future)
 - [ ] Real-time collaboration

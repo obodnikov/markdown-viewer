@@ -1,7 +1,7 @@
 # Synchronized Scrolling Implementation
 
 **Date:** 2025-12-12
-**Version:** 1.1.0
+**Version:** 1.3.0
 **Feature:** Proportional Bidirectional Scroll Synchronization in Split View Mode
 
 ---
@@ -52,9 +52,10 @@ otherPane.scrollTop = scrollRatio * (otherPane.scrollHeight - otherPane.clientHe
 **Initialization:**
 ```javascript
 // Initialize scroll synchronization
+// Note: preview-pane is the scrollable container, not preview element
 this.scrollSync = new ScrollSync(
     this.editor,
-    document.getElementById('preview')
+    document.getElementById('preview-pane')
 );
 
 // Enable for initial split view
@@ -197,12 +198,13 @@ requestAnimationFrame(() => {
 
 ## Version History
 
-### v1.1.0 (2025-12-12)
+### v1.3.0 (2025-12-12)
 - ✅ Implemented proportional bidirectional scroll synchronization
 - ✅ Automatic enable/disable based on view mode
 - ✅ Support for both CodeMirror and textarea editor
 - ✅ Performance optimizations with passive listeners
 - ✅ Loop prevention with syncing flag
+- ✅ Fixed: Corrected preview scroll container from `#preview` to `#preview-pane`
 
 ### v1.0.0 (Previous)
 - ❌ Scroll sync was placeholder only
