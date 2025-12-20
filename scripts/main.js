@@ -13,6 +13,7 @@ import { StorageManager } from './utils/storage.js';
 import { EditableTitle } from './ui/editable-title.js';
 import { tokenizer } from './utils/tokenizer.js';
 import { ScrollSync } from './editor/sync.js';
+import { APIClient } from './utils/api.js';
 
 class MarkdownViewerApp {
     constructor() {
@@ -345,6 +346,23 @@ class MarkdownViewerApp {
             // Open GitHub dialog for save
             this.showGitHubDialog();
         } else if (destination === 'bookstack') {
+            // Check if authenticated to BookStack first
+            try {
+                const status = await APIClient.get('/bookstack/status');
+
+                if (!status.authenticated) {
+                    // Not authenticated - show BookStack dialog for authentication
+                    this.showToast('Please authenticate to BookStack first', 'info');
+                    this.bookstackUI.show();
+                    return;
+                }
+            } catch (error) {
+                // Error checking status - assume not authenticated
+                this.showToast('Please authenticate to BookStack first', 'info');
+                this.bookstackUI.show();
+                return;
+            }
+
             // Show create page dialog
             const pageName = this.currentDocument.title;
 

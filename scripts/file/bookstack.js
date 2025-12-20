@@ -571,15 +571,24 @@ export class BookStackUI {
     async showCreateDialog(markdown, suggestedName) {
         return new Promise(async (resolve) => {
             const dialog = document.getElementById('bookstack-save-dialog');
-            const form = document.getElementById('bookstack-save-form');
-            const shelfSelect = document.getElementById('bookstack-shelf');
-            const bookSelect = document.getElementById('bookstack-book');
-            const chapterSelect = document.getElementById('bookstack-chapter');
-            const pageNameInput = document.getElementById('bookstack-page-name');
+            const shelfSelect = document.getElementById('bookstack-save-shelf');
+            const bookSelect = document.getElementById('bookstack-save-book');
+            const chapterSelect = document.getElementById('bookstack-save-chapter');
+            const pageNameInput = document.getElementById('bookstack-save-name');
 
-            // Reset form
-            form.reset();
+            // Verify all required elements exist
+            if (!dialog || !shelfSelect || !bookSelect || !chapterSelect || !pageNameInput) {
+                console.error('BookStack save dialog elements not found in DOM');
+                this.showToast('Error: Dialog elements not found', 'error');
+                resolve(null);
+                return;
+            }
+
+            // Reset form fields
             pageNameInput.value = suggestedName || 'Untitled Page';
+            shelfSelect.value = '';
+            bookSelect.value = '';
+            chapterSelect.value = '';
 
             // Load shelves and books
             try {
