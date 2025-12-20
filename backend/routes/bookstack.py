@@ -1,9 +1,14 @@
 """BookStack integration routes."""
 import logging
 from flask import Blueprint, request, jsonify, session
-from services.bookstack_service import BookStackService
-from config import Config
 import requests
+
+try:
+    from backend.services.bookstack_service import BookStackService
+    from backend.config import Config
+except ImportError:
+    from services.bookstack_service import BookStackService
+    from config import Config
 
 logger = logging.getLogger(__name__)
 bookstack_bp = Blueprint('bookstack', __name__, url_prefix='/api/bookstack')
