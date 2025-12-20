@@ -325,42 +325,44 @@
         </div>
 
         <div class="dialog__content">
-            <div class="form-group">
-                <label for="bookstack-save-name">Page Name</label>
-                <input type="text" id="bookstack-save-name" class="form-input" placeholder="Enter page name...">
-            </div>
+            <form id="bookstack-save-form">
+                <div class="form-group">
+                    <label for="bookstack-save-name">Page Name</label>
+                    <input type="text" id="bookstack-save-name" class="form-input" placeholder="Enter page name..." required>
+                </div>
 
-            <div class="form-group">
-                <label for="bookstack-save-shelf">Shelf</label>
-                <select id="bookstack-save-shelf" class="form-select">
-                    <option value="">Loading shelves...</option>
-                </select>
-            </div>
+                <div class="form-group">
+                    <label for="bookstack-save-shelf">Shelf</label>
+                    <select id="bookstack-save-shelf" class="form-select">
+                        <option value="">Loading shelves...</option>
+                    </select>
+                </div>
 
-            <div class="form-group">
-                <label for="bookstack-save-book">Book</label>
-                <select id="bookstack-save-book" class="form-select">
-                    <option value="">Select a shelf first</option>
-                </select>
-            </div>
+                <div class="form-group">
+                    <label for="bookstack-save-book">Book</label>
+                    <select id="bookstack-save-book" class="form-select" required>
+                        <option value="">Select a shelf first</option>
+                    </select>
+                </div>
 
-            <div class="form-group">
-                <label for="bookstack-save-chapter">Chapter (Optional)</label>
-                <select id="bookstack-save-chapter" class="form-select">
-                    <option value="">No chapter (top level)</option>
-                </select>
-            </div>
+                <div class="form-group">
+                    <label for="bookstack-save-chapter">Chapter (Optional)</label>
+                    <select id="bookstack-save-chapter" class="form-select">
+                        <option value="">No chapter (top level)</option>
+                    </select>
+                </div>
 
-            <div class="form-group">
-                <label for="bookstack-save-tags">Tags (Optional)</label>
-                <input type="text" id="bookstack-save-tags" class="form-input" placeholder="tag1, tag2, tag3">
-                <small class="form-help">Comma-separated tags</small>
-            </div>
+                <div class="form-group">
+                    <label for="bookstack-save-tags">Tags (Optional)</label>
+                    <input type="text" id="bookstack-save-tags" class="form-input" placeholder="tag1, tag2, tag3">
+                    <small class="form-help">Comma-separated tags</small>
+                </div>
 
-            <div class="dialog__actions">
-                <button class="btn btn--secondary" id="bookstack-save-cancel">Cancel</button>
-                <button class="btn btn--primary" id="bookstack-save-submit">Save</button>
-            </div>
+                <div class="dialog__actions">
+                    <button type="button" class="btn btn--secondary" id="bookstack-save-cancel">Cancel</button>
+                    <button type="submit" class="btn btn--primary" id="bookstack-save-submit">Save</button>
+                </div>
+            </form>
         </div>
     </dialog>
 

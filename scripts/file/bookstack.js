@@ -571,24 +571,25 @@ export class BookStackUI {
     async showCreateDialog(markdown, suggestedName) {
         return new Promise(async (resolve) => {
             const dialog = document.getElementById('bookstack-save-dialog');
+            const form = document.getElementById('bookstack-save-form');
             const shelfSelect = document.getElementById('bookstack-save-shelf');
             const bookSelect = document.getElementById('bookstack-save-book');
             const chapterSelect = document.getElementById('bookstack-save-chapter');
             const pageNameInput = document.getElementById('bookstack-save-name');
 
             // Verify all required elements exist
-            if (!dialog || !shelfSelect || !bookSelect || !chapterSelect || !pageNameInput) {
+            if (!dialog || !form || !shelfSelect || !bookSelect || !chapterSelect || !pageNameInput) {
                 console.error('BookStack save dialog elements not found in DOM');
                 this.showToast('Error: Dialog elements not found', 'error');
                 resolve(null);
                 return;
             }
 
-            // Reset form fields
+            // Reset form to clear all state (validation, values, etc.)
+            form.reset();
+
+            // Set the suggested page name after reset
             pageNameInput.value = suggestedName || 'Untitled Page';
-            shelfSelect.value = '';
-            bookSelect.value = '';
-            chapterSelect.value = '';
 
             // Load shelves and books
             try {
@@ -642,12 +643,16 @@ export class BookStackUI {
 
             dialog.showModal();
 
-            // Handle form submission
-            const handleSave = async () => {
+            // Handle form submission with native validation
+            const handleSubmit = async (e) => {
+                e.preventDefault(); // Prevent default form submission
+
+                // Native HTML5 validation has already run at this point
                 const bookId = parseInt(bookSelect.value);
                 const chapterId = chapterSelect.value ? parseInt(chapterSelect.value) : null;
                 const pageName = pageNameInput.value.trim();
 
+                // Additional validation (native validation should have caught these already)
                 if (!bookId || !pageName) {
                     this.showToast('Please select a book and enter a page name', 'error');
                     return;
@@ -662,6 +667,7 @@ export class BookStackUI {
                     });
 
                     dialog.close();
+                    form.removeEventListener('submit', handleSubmit);
                     resolve(response.page);
                 } catch (error) {
                     this.showToast(`Error creating page: ${error.message}`, 'error');
@@ -670,11 +676,13 @@ export class BookStackUI {
 
             const handleCancel = () => {
                 dialog.close();
+                form.removeEventListener('submit', handleSubmit);
                 resolve(null);
             };
 
-            document.getElementById('bookstack-save-submit').onclick = handleSave;
-            document.getElementById('bookstack-save-cancel').onclick = handleCancel;
+            // Use form submit event for native validation
+            form.addEventListener('submit', handleSubmit);
+            document.getElementById('bookstack-save-cancel').addEventListener('click', handleCancel);
         });
     }
 
