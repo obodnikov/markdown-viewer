@@ -576,11 +576,12 @@ export class BookStackUI {
             const bookSelect = document.getElementById('bookstack-save-book');
             const chapterSelect = document.getElementById('bookstack-save-chapter');
             const pageNameInput = document.getElementById('bookstack-save-name');
+            const cancelBtn = document.getElementById('bookstack-save-cancel');
 
-            // Verify all required elements exist
-            if (!dialog || !form || !shelfSelect || !bookSelect || !chapterSelect || !pageNameInput) {
+            // Verify all required elements exist before proceeding
+            if (!dialog || !form || !shelfSelect || !bookSelect || !chapterSelect || !pageNameInput || !cancelBtn) {
                 console.error('BookStack save dialog elements not found in DOM');
-                this.showToast('Error: Dialog elements not found', 'error');
+                this.showToast('Error: Dialog not properly initialized', 'error');
                 resolve(null);
                 return;
             }
@@ -643,6 +644,16 @@ export class BookStackUI {
 
             dialog.showModal();
 
+            // AbortController to cancel in-flight requests
+            const abortController = new AbortController();
+
+            // Cleanup function to remove all event listeners and abort requests
+            const cleanup = () => {
+                form.removeEventListener('submit', handleSubmit);
+                cancelBtn.removeEventListener('click', handleCancel);
+                dialog.removeEventListener('cancel', handleDialogCancel);
+            };
+
             // Handle form submission with native validation
             const handleSubmit = async (e) => {
                 e.preventDefault(); // Prevent default form submission
@@ -664,25 +675,42 @@ export class BookStackUI {
                         chapter_id: chapterId,
                         name: pageName,
                         markdown: markdown
-                    });
+                    }, { signal: abortController.signal });
 
+                    cleanup();
                     dialog.close();
-                    form.removeEventListener('submit', handleSubmit);
                     resolve(response.page);
                 } catch (error) {
-                    this.showToast(`Error creating page: ${error.message}`, 'error');
+                    // Don't show error toast if request was aborted by user
+                    if (error.name !== 'AbortError') {
+                        this.showToast(`Error creating page: ${error.message}`, 'error');
+                    }
+                    cleanup();
+                    dialog.close();
+                    resolve(null);
                 }
             };
 
             const handleCancel = () => {
+                abortController.abort(); // Cancel any in-flight request
+                cleanup();
                 dialog.close();
-                form.removeEventListener('submit', handleSubmit);
+                resolve(null);
+            };
+
+            // Handle native dialog cancel (Esc key)
+            const handleDialogCancel = () => {
+                abortController.abort(); // Cancel any in-flight request
+                cleanup();
                 resolve(null);
             };
 
             // Use form submit event for native validation
             form.addEventListener('submit', handleSubmit);
-            document.getElementById('bookstack-save-cancel').addEventListener('click', handleCancel);
+            cancelBtn.addEventListener('click', handleCancel);
+
+            // Handle native dialog cancel event (Esc key)
+            dialog.addEventListener('cancel', handleDialogCancel);
         });
     }
 
