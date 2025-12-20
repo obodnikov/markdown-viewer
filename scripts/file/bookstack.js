@@ -35,10 +35,20 @@ export class BookStackUI {
 
         dialog.showModal();
 
-        // Setup close button
-        dialog.querySelector('.dialog__close').addEventListener('click', () => {
+        // Setup close button with cleanup
+        const closeBtn = dialog.querySelector('.dialog__close');
+        const closeHandler = () => {
+            this.cleanupBreadcrumbHandlers();
             dialog.close();
-        });
+        };
+
+        // Remove old listener if exists
+        if (this._closeHandler) {
+            closeBtn.removeEventListener('click', this._closeHandler);
+        }
+
+        this._closeHandler = closeHandler;
+        closeBtn.addEventListener('click', this._closeHandler);
     }
 
     renderAuthForm() {
@@ -138,6 +148,9 @@ export class BookStackUI {
 
     async disconnect() {
         try {
+            // Clean up breadcrumb handler
+            this.cleanupBreadcrumbHandlers();
+
             await APIClient.post('/bookstack/logout');
             this.authenticated = false;
             this.breadcrumbs = [];
@@ -146,6 +159,14 @@ export class BookStackUI {
             this.renderAuthForm();
         } catch (error) {
             console.error('Logout error:', error);
+        }
+    }
+
+    cleanupBreadcrumbHandlers() {
+        const content = document.getElementById('bookstack-dialog-body');
+        if (content && this._breadcrumbHandler) {
+            content.removeEventListener('click', this._breadcrumbHandler);
+            this._breadcrumbHandler = null;
         }
     }
 
@@ -229,6 +250,9 @@ export class BookStackUI {
                 this.disconnect();
             });
 
+            // Setup breadcrumb click handlers
+            this.setupBreadcrumbHandlers();
+
         } catch (error) {
             content.innerHTML = `<div class="error-message">Error loading shelves: ${error.message}</div>`;
             footer.innerHTML = `<button class="button" id="bookstack-disconnect-btn">Disconnect</button>`;
@@ -293,6 +317,9 @@ export class BookStackUI {
                 this.disconnect();
             });
 
+            // Setup breadcrumb click handlers
+            this.setupBreadcrumbHandlers();
+
         } catch (error) {
             content.innerHTML = `<div class="error-message">Error loading shelf: ${error.message}</div>`;
         }
@@ -313,8 +340,20 @@ export class BookStackUI {
                 action: () => this.renderBookContents(bookId)
             });
 
-            const directPages = book.pages?.filter(p => !p.chapter_id) || [];
-            const chapters = book.chapters || [];
+            // BookStack API returns a 'contents' array with mixed chapters and pages
+            // Only top-level items appear in 'contents' - pages inside chapters are nested
+            // Fallback to legacy structure if contents is not available
+            let directPages, chapters;
+
+            if (book.contents && book.contents.length > 0) {
+                // Modern API response with contents array
+                directPages = book.contents.filter(item => item.type === 'page');
+                chapters = book.contents.filter(item => item.type === 'chapter');
+            } else {
+                // Fallback to legacy structure (if API behavior varies)
+                directPages = book.pages?.filter(p => !p.chapter_id) || [];
+                chapters = book.chapters || [];
+            }
 
             content.innerHTML = `
                 <div class="bookstack-browser">
@@ -328,6 +367,7 @@ export class BookStackUI {
                                     <div class="bookstack-item__content">
                                         <div class="bookstack-item__name">${this.escapeHtml(page.name)}</div>
                                     </div>
+                                    <span class="bookstack-item__arrow">→</span>
                                 </div>
                             `).join('')}
                         ` : ''}
@@ -379,6 +419,9 @@ export class BookStackUI {
             document.getElementById('bookstack-disconnect-btn').addEventListener('click', () => {
                 this.disconnect();
             });
+
+            // Setup breadcrumb click handlers
+            this.setupBreadcrumbHandlers();
 
         } catch (error) {
             content.innerHTML = `<div class="error-message">Error loading book: ${error.message}</div>`;
@@ -436,6 +479,9 @@ export class BookStackUI {
         document.getElementById('bookstack-disconnect-btn').addEventListener('click', () => {
             this.disconnect();
         });
+
+        // Setup breadcrumb click handlers
+        this.setupBreadcrumbHandlers();
     }
 
     async loadPage(pageId) {
@@ -459,16 +505,44 @@ export class BookStackUI {
 
     renderBreadcrumbs() {
         return `
-            <div class="bookstack-breadcrumbs">
+            <div class="bookstack-breadcrumbs" data-breadcrumb-container>
                 ${this.breadcrumbs.map((crumb, index) => `
                     <span class="bookstack-breadcrumb ${index === this.breadcrumbs.length - 1 ? 'bookstack-breadcrumb--active' : ''}"
-                          data-index="${index}">
+                          data-breadcrumb-index="${index}">
                         ${this.escapeHtml(crumb.name)}
                     </span>
-                    ${index < this.breadcrumbs.length - 1 ? '<span class="bookstack-breadcrumb__separator">›</span>' : ''}
+                    ${index < this.breadcrumbs.length - 1 ? '<span class="bookstack-breadcrumb-separator">›</span>' : ''}
                 `).join('')}
             </div>
         `;
+    }
+
+    setupBreadcrumbHandlers() {
+        // Use event delegation on the container to avoid duplicate handlers
+        const content = document.getElementById('bookstack-dialog-body');
+        if (!content) return;
+
+        // Remove old handler if it exists
+        if (this._breadcrumbHandler) {
+            content.removeEventListener('click', this._breadcrumbHandler);
+        }
+
+        // Create new handler using event delegation
+        this._breadcrumbHandler = (event) => {
+            const breadcrumb = event.target.closest('[data-breadcrumb-index]');
+            if (!breadcrumb) return;
+
+            const index = parseInt(breadcrumb.dataset.breadcrumbIndex);
+            const crumb = this.breadcrumbs[index];
+
+            // Don't navigate if clicking active breadcrumb
+            if (crumb && index < this.breadcrumbs.length - 1) {
+                this.breadcrumbs = this.breadcrumbs.slice(0, index + 1);
+                crumb.action();
+            }
+        };
+
+        content.addEventListener('click', this._breadcrumbHandler);
     }
 
     // Helper method to show toast notifications (expects global showToast function)
