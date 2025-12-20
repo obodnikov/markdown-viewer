@@ -571,24 +571,26 @@ export class BookStackUI {
     async showCreateDialog(markdown, suggestedName) {
         return new Promise(async (resolve) => {
             const dialog = document.getElementById('bookstack-save-dialog');
+            const form = document.getElementById('bookstack-save-form');
             const shelfSelect = document.getElementById('bookstack-save-shelf');
             const bookSelect = document.getElementById('bookstack-save-book');
             const chapterSelect = document.getElementById('bookstack-save-chapter');
             const pageNameInput = document.getElementById('bookstack-save-name');
+            const cancelBtn = document.getElementById('bookstack-save-cancel');
 
-            // Verify all required elements exist
-            if (!dialog || !shelfSelect || !bookSelect || !chapterSelect || !pageNameInput) {
+            // Verify all required elements exist before proceeding
+            if (!dialog || !form || !shelfSelect || !bookSelect || !chapterSelect || !pageNameInput || !cancelBtn) {
                 console.error('BookStack save dialog elements not found in DOM');
-                this.showToast('Error: Dialog elements not found', 'error');
+                this.showToast('Error: Dialog not properly initialized', 'error');
                 resolve(null);
                 return;
             }
 
-            // Reset form fields
+            // Reset form to clear all state (validation, values, etc.)
+            form.reset();
+
+            // Set the suggested page name after reset
             pageNameInput.value = suggestedName || 'Untitled Page';
-            shelfSelect.value = '';
-            bookSelect.value = '';
-            chapterSelect.value = '';
 
             // Load shelves and books
             try {
@@ -642,12 +644,26 @@ export class BookStackUI {
 
             dialog.showModal();
 
-            // Handle form submission
-            const handleSave = async () => {
+            // AbortController to cancel in-flight requests
+            const abortController = new AbortController();
+
+            // Cleanup function to remove all event listeners and abort requests
+            const cleanup = () => {
+                form.removeEventListener('submit', handleSubmit);
+                cancelBtn.removeEventListener('click', handleCancel);
+                dialog.removeEventListener('cancel', handleDialogCancel);
+            };
+
+            // Handle form submission with native validation
+            const handleSubmit = async (e) => {
+                e.preventDefault(); // Prevent default form submission
+
+                // Native HTML5 validation has already run at this point
                 const bookId = parseInt(bookSelect.value);
                 const chapterId = chapterSelect.value ? parseInt(chapterSelect.value) : null;
                 const pageName = pageNameInput.value.trim();
 
+                // Additional validation (native validation should have caught these already)
                 if (!bookId || !pageName) {
                     this.showToast('Please select a book and enter a page name', 'error');
                     return;
@@ -659,22 +675,51 @@ export class BookStackUI {
                         chapter_id: chapterId,
                         name: pageName,
                         markdown: markdown
-                    });
+                    }, { signal: abortController.signal });
 
+                    cleanup();
                     dialog.close();
                     resolve(response.page);
                 } catch (error) {
+                    // Handle aborted requests - close dialog without error
+                    if (error.name === 'AbortError') {
+                        cleanup();
+                        dialog.close();
+                        resolve(null);
+                        return;
+                    }
+
+                    // For real errors, show toast but keep dialog open
+                    // so user can retry without re-entering their selections.
+                    // The promise will resolve when:
+                    // - User clicks Submit again and succeeds
+                    // - User clicks Cancel button
+                    // - User presses Esc key
                     this.showToast(`Error creating page: ${error.message}`, 'error');
+                    // Note: Promise intentionally not resolved here - waiting for user action
                 }
             };
 
             const handleCancel = () => {
+                abortController.abort(); // Cancel any in-flight request
+                cleanup();
                 dialog.close();
                 resolve(null);
             };
 
-            document.getElementById('bookstack-save-submit').onclick = handleSave;
-            document.getElementById('bookstack-save-cancel').onclick = handleCancel;
+            // Handle native dialog cancel (Esc key)
+            const handleDialogCancel = () => {
+                abortController.abort(); // Cancel any in-flight request
+                cleanup();
+                resolve(null);
+            };
+
+            // Use form submit event for native validation
+            form.addEventListener('submit', handleSubmit);
+            cancelBtn.addEventListener('click', handleCancel);
+
+            // Handle native dialog cancel event (Esc key)
+            dialog.addEventListener('cancel', handleDialogCancel);
         });
     }
 

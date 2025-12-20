@@ -1,6 +1,27 @@
 # Markdown Viewer & Editor
 
-A modern, feature-rich markdown editor with GitHub Flavored Markdown support, LLM-powered transformations, and GitHub integration.
+**Version 1.4.0**
+
+A modern, feature-rich markdown editor with GitHub Flavored Markdown support, LLM-powered transformations, GitHub integration, and BookStack wiki integration.
+
+## What's New in v1.4.0
+
+🎉 **BookStack Wiki Integration**
+- Browse and edit pages from your BookStack wiki
+- Hierarchical navigation through shelves, books, chapters, and pages
+- Automatic HTML to Markdown conversion
+- Smart save with conflict detection
+- Session-based authentication
+
+💾 **Smart Save**
+- Save button now contextually saves to the document source (BookStack, GitHub, or local file)
+- No more confusion about where files are saved
+- Consistent Ctrl/Cmd+S behavior across all sources
+
+🔐 **Enhanced Security**
+- Session-based credential management for BookStack
+- 24-hour session expiry for automatic logout
+- Secure backend proxy for all API calls
 
 ## Features
 
@@ -28,11 +49,13 @@ A modern, feature-rich markdown editor with GitHub Flavored Markdown support, LL
 ### File Management
 - **Local Files** - Open/save using modern File System Access API
 - **GitHub Integration** - OAuth authentication to open/save files from repositories
-- **BookStack Integration** - Load/save pages from BookStack wiki with conflict detection
-  - Browse shelves, books, chapters, and pages
+- **BookStack Integration** - Load/save pages from BookStack wiki with smart save and conflict detection
+  - Browse hierarchical structure: shelves, books, chapters, and pages
   - HTML to Markdown conversion for existing pages
-  - Smart save with automatic conflict detection
-  - Session-based authentication
+  - **Smart Save** - Save button automatically saves back to the source (BookStack, GitHub, or local)
+  - Conflict detection with overwrite option when pages are modified remotely
+  - Session-based authentication (24-hour expiry)
+  - Create new pages or update existing ones
 - **Drag & Drop** - Drop markdown files to open
 - **Multiple Export Formats** with full Unicode support:
   - Markdown (.md)
@@ -388,11 +411,12 @@ markdown-viewer/
 
 ## Keyboard Shortcuts
 
-- `Ctrl/Cmd + S` - Save document (smart save to source)
+- `Ctrl/Cmd + S` - Save document (smart save to source - BookStack, GitHub, or local)
 - `Ctrl/Cmd + O` - Open file
 - `Ctrl/Cmd + N` - New document
 - `Ctrl/Cmd + E` - Export dialog
-- `Ctrl/Cmd + K` - BookStack dialog
+- `Ctrl/Cmd + K` - BookStack browser dialog
+- `Ctrl/Cmd + G` - GitHub browser dialog
 
 ## Troubleshooting
 
@@ -432,15 +456,15 @@ MIT License - see LICENSE file for details
 
 ## Roadmap
 
-### Phase 1 (Current) - v1.4.0
+### Phase 1 (Completed) - v1.4.0 ✅
 - ✅ Core editor with GFM support
-- ✅ LLM transformations
-- ✅ GitHub integration
-- ✅ Multiple export formats
-- ✅ Synchronized scrolling in split view (v1.3.0)
-- ✅ BookStack integration with smart save (v1.4.0)
+- ✅ LLM transformations (translation, tone adjustment, summarization, expansion)
+- ✅ GitHub integration with OAuth
+- ✅ Multiple export formats (MD, HTML, PDF, DOCX)
+- ✅ Synchronized scrolling in split view
+- ✅ BookStack integration with smart save and conflict detection
 
-### Phase 2 (Future)
+### Phase 2 (Future) - v1.5.0+
 - [ ] Real-time collaboration
 - [ ] More cloud storage providers (Dropbox, Google Drive)
 - [ ] Custom markdown extensions
