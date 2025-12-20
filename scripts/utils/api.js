@@ -64,11 +64,12 @@ export class APIClient {
             return await response.json();
 
         } catch (error) {
-            // Don't log expected authentication failures (401) unless explicitly requested
-            if (error.status !== 401 || options.logErrors !== false) {
-                if (error.status !== 401) {
-                    console.error('API request failed:', error);
-                }
+            // Log errors unless explicitly disabled via options.logErrors = false
+            // By default, suppress 401 (authentication) errors to reduce console noise
+            const shouldLog = options.logErrors !== false && (options.logErrors === true || error.status !== 401);
+
+            if (shouldLog) {
+                console.error('API request failed:', error);
             }
             throw error;
         }
