@@ -105,7 +105,7 @@ class BookStackService:
         we use /api/shelves as a lightweight authentication test.
 
         Returns:
-            Success indicator with basic info
+            Authentication info with basic metadata
 
         Raises:
             requests.exceptions.HTTPError: If authentication fails
@@ -113,10 +113,13 @@ class BookStackService:
         # Test authentication with a simple shelves request
         result = self._request('GET', '/api/shelves', params={'count': 1})
 
-        # Return a simplified response indicating successful authentication
+        # Return a user-like structure for compatibility with existing code
+        # that expects user info in session
         return {
             'authenticated': True,
-            'message': 'Authentication successful'
+            'message': 'Authentication successful',
+            'name': 'BookStack User',  # Generic name since API doesn't provide user info
+            'total_shelves': result.get('total', 0)  # Include some useful metadata
         }
 
     def list_shelves(self, count: int = 100, offset: int = 0, sort: str = '+name') -> Dict[str, Any]:

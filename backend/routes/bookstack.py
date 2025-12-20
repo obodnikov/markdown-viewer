@@ -90,7 +90,7 @@ def authenticate():
         session['bookstack_authenticated'] = True
         session['bookstack_user'] = auth_result
 
-        logger.info(f"BookStack authentication successful | message={auth_result.get('message')}")
+        logger.info(f"BookStack authentication successful | name={auth_result.get('name')} shelves={auth_result.get('total_shelves')}")
 
         return jsonify({
             'success': True,
