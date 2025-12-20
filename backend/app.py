@@ -13,11 +13,13 @@ try:
     from backend.routes.llm import llm_bp
     from backend.routes.github import github_bp
     from backend.routes.export import export_bp
+    from backend.routes.bookstack import bookstack_bp
 except ImportError:
     from config import Config
     from routes.llm import llm_bp
     from routes.github import github_bp
     from routes.export import export_bp
+    from routes.bookstack import bookstack_bp
 
 
 def create_app(config_class=Config):
@@ -43,6 +45,7 @@ def create_app(config_class=Config):
     app.register_blueprint(llm_bp)
     app.register_blueprint(github_bp)
     app.register_blueprint(export_bp)
+    app.register_blueprint(bookstack_bp)
 
     # Health check endpoint
     @app.route('/api/health', methods=['GET'])
