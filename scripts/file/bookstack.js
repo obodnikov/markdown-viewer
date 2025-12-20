@@ -47,8 +47,10 @@ export class BookStackUI {
 
         content.innerHTML = `
             <div class="bookstack-auth">
-                <div class="bookstack-auth__icon">📚</div>
-                <h3>Connect to BookStack</h3>
+                <div class="bookstack-auth__header">
+                    <span class="bookstack-auth__icon">📚</span>
+                    <h3>Connect to BookStack</h3>
+                </div>
                 <p class="bookstack-auth__text">
                     Enter your BookStack API credentials to access your pages.
                 </p>
@@ -81,16 +83,16 @@ export class BookStackUI {
         `;
 
         footer.innerHTML = `
-            <button class="button" onclick="document.getElementById('bookstack-dialog').close()">Cancel</button>
-            <button class="button button--primary" id="bookstack-connect-btn">Connect</button>
+            <button type="button" class="button" id="bookstack-cancel-btn">Cancel</button>
+            <button type="submit" class="button button--primary" form="bookstack-auth-form" id="bookstack-connect-btn">Connect</button>
         `;
 
-        // Setup form submission
-        document.getElementById('bookstack-connect-btn').addEventListener('click', async (e) => {
-            e.preventDefault();
-            await this.authenticate();
+        // Setup event handlers
+        document.getElementById('bookstack-cancel-btn').addEventListener('click', () => {
+            document.getElementById('bookstack-dialog').close();
         });
 
+        // Handle form submission (supports both button click and Enter key)
         document.getElementById('bookstack-auth-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             await this.authenticate();
