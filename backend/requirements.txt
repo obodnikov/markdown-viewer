@@ -14,8 +14,11 @@ python-dotenv==1.0.0
 # Pandoc wrapper
 pypandoc==1.12
 
-# Requests for OAuth
+# Requests for OAuth and BookStack API
 requests==2.31.0
+
+# HTML to Markdown conversion (for BookStack)
+html2text==2024.2.26
 
 # Production server
 gunicorn==21.2.0
