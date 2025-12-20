@@ -279,8 +279,8 @@ class MarkdownViewerApp {
             // Document from BookStack - save back to BookStack
             await this.saveToBookStack();
         } else if (source === 'github') {
-            // Document from GitHub - delegate to GitHub UI
-            this.showToast('Use GitHub button to save changes to repository', 'info');
+            // Document from GitHub - open GitHub dialog for save
+            this.showGitHubDialog();
         } else if (source === 'local') {
             // Document from local file - save back to local
             await this.saveToLocal();
@@ -312,7 +312,10 @@ class MarkdownViewerApp {
     async saveToBookStack() {
         // Save back to the BookStack page it was loaded from
         const { pageId, pageName, updatedAt } = this.currentDocument.sourceInfo;
-        const markdown = this.currentDocument.content;
+
+        // Get fresh content from editor to avoid stale data
+        const markdown = this.editor.getContent();
+        this.currentDocument.content = markdown;
 
         try {
             const result = await this.bookstackUI.updatePage(pageId, markdown, updatedAt);
@@ -324,6 +327,7 @@ class MarkdownViewerApp {
                 this.currentDocument.modified = false;
                 this.currentDocument.sourceInfo.updatedAt = result.page.updated_at;
                 this.updateStatus();
+                this.updateSourceIndicator();
                 this.showToast('Saved to BookStack', 'success');
             }
         } catch (error) {
@@ -338,12 +342,15 @@ class MarkdownViewerApp {
         if (destination === 'local') {
             await this.saveToLocal();
         } else if (destination === 'github') {
-            this.showToast('GitHub save not yet implemented', 'info');
-            // TODO: Implement GitHub save flow
+            // Open GitHub dialog for save
+            this.showGitHubDialog();
         } else if (destination === 'bookstack') {
             // Show create page dialog
             const pageName = this.currentDocument.title;
-            const markdown = this.currentDocument.content;
+
+            // Get fresh content from editor to avoid stale data
+            const markdown = this.editor.getContent();
+            this.currentDocument.content = markdown;
 
             try {
                 const page = await this.bookstackUI.showCreateDialog(markdown, pageName);
@@ -548,13 +555,17 @@ class MarkdownViewerApp {
                 cleanup();
                 // Overwrite server version
                 const { pageId } = this.currentDocument.sourceInfo;
-                const markdown = this.currentDocument.content;
+
+                // Get fresh content from editor to avoid stale data
+                const markdown = this.editor.getContent();
+                this.currentDocument.content = markdown;
 
                 try {
                     const result = await this.bookstackUI.updatePage(pageId, markdown, null, true);
                     this.currentDocument.modified = false;
                     this.currentDocument.sourceInfo.updatedAt = result.page.updated_at;
                     this.updateStatus();
+                    this.updateSourceIndicator();
                     this.showToast('Saved to BookStack (overwritten)', 'success');
                     resolve({ action: 'overwrite', page: result.page });
                 } catch (error) {
