@@ -1,7 +1,11 @@
 """BookStack API integration service."""
+import logging
+import time
 import requests
 import html2text
 from typing import Dict, List, Optional, Any
+
+logger = logging.getLogger(__name__)
 
 
 class BookStackService:
@@ -21,6 +25,8 @@ class BookStackService:
         self.token_id = token_id
         self.token_secret = token_secret
         self.timeout = timeout
+
+        logger.debug(f"BookStackService initialized | base_url={self.base_url} timeout={timeout}")
 
         # Configure html2text for markdown conversion
         self.html_converter = html2text.HTML2Text()
@@ -59,15 +65,37 @@ class BookStackService:
         url = f'{self.base_url}{endpoint}'
         headers = self._get_headers()
 
-        response = requests.request(
-            method=method,
-            url=url,
-            headers=headers,
-            timeout=self.timeout,
-            **kwargs
-        )
-        response.raise_for_status()
-        return response.json()
+        start_time = time.time()
+        logger.debug(f"BookStack API request | method={method} endpoint={endpoint}")
+
+        try:
+            response = requests.request(
+                method=method,
+                url=url,
+                headers=headers,
+                timeout=self.timeout,
+                **kwargs
+            )
+            elapsed = time.time() - start_time
+
+            response.raise_for_status()
+
+            logger.debug(f"BookStack API response | method={method} endpoint={endpoint} status_code={response.status_code} elapsed={elapsed:.2f}s")
+
+            return response.json()
+
+        except requests.exceptions.Timeout as e:
+            elapsed = time.time() - start_time
+            logger.error(f"BookStack API timeout | method={method} endpoint={endpoint} timeout={self.timeout}s elapsed={elapsed:.2f}s")
+            raise
+        except requests.exceptions.HTTPError as e:
+            elapsed = time.time() - start_time
+            logger.error(f"BookStack API HTTP error | method={method} endpoint={endpoint} status_code={e.response.status_code} elapsed={elapsed:.2f}s")
+            raise
+        except requests.exceptions.RequestException as e:
+            elapsed = time.time() - start_time
+            logger.error(f"BookStack API request error | method={method} endpoint={endpoint} elapsed={elapsed:.2f}s error={str(e)}")
+            raise
 
     def authenticate(self) -> Dict[str, Any]:
         """
@@ -162,7 +190,9 @@ class BookStackService:
 
         # Convert HTML to markdown if needed
         if page.get('html') and not page.get('markdown'):
+            logger.info(f"Converting HTML to Markdown | page_id={page_id} html_length={len(page.get('html', ''))}")
             page['markdown'] = self.html_to_markdown(page['html'])
+            logger.debug(f"HTML conversion complete | page_id={page_id} markdown_length={len(page.get('markdown', ''))}")
 
         return page
 
@@ -247,11 +277,12 @@ class BookStackService:
 
         try:
             markdown = self.html_converter.handle(html)
+            logger.debug(f"HTML to Markdown conversion successful | input_length={len(html)} output_length={len(markdown)}")
             return markdown.strip()
         except Exception as e:
             # If conversion fails, return HTML as-is with warning
-            print(f"Warning: HTML to Markdown conversion failed: {e}")
-            return f"<!-- HTML conversion failed -->\n\n{html}"
+            logger.error(f"HTML to Markdown conversion failed | error={str(e)} html_length={len(html)}", exc_info=True)
+            return f"<!-- HTML conversion failed: {str(e)} -->\n\n{html}"
 
     def search_pages(self, query: str, count: int = 20) -> Dict[str, Any]:
         """

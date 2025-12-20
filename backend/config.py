@@ -75,6 +75,10 @@ class Config:
     # Export settings
     PANDOC_PATH = os.getenv('PANDOC_PATH', 'pandoc')
 
+    # Logging
+    LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO').upper()
+    LOG_FORMAT = os.getenv('LOG_FORMAT', 'detailed')  # 'simple' or 'detailed'
+
     @classmethod
     def validate(cls):
         """Validate required configuration."""
