@@ -58,7 +58,7 @@ export class BookStackUI {
                     <div class="form-group">
                         <label for="bookstack-token-id">Token ID</label>
                         <input
-                            type="text"
+                            type="password"
                             id="bookstack-token-id"
                             class="form-control"
                             placeholder="Enter your token ID"

@@ -82,19 +82,21 @@ def authenticate():
             Config.BOOKSTACK_API_TIMEOUT
         )
 
-        user = service.authenticate()
+        auth_result = service.authenticate()
 
         # Store credentials in session
         session['bookstack_token_id'] = token_id
         session['bookstack_token_secret'] = token_secret
         session['bookstack_authenticated'] = True
-        session['bookstack_user'] = user
+        session['bookstack_user'] = auth_result
 
-        logger.info(f"BookStack authentication successful | user_id={user.get('id')} user_name={user.get('name')}")
+        # Log authentication with instance info and sanitized token ID
+        token_id_masked = f"{token_id[:8]}...{token_id[-4:]}" if len(token_id) > 12 else "***"
+        logger.info(f"BookStack authentication successful | instance={auth_result.get('instance')} token_id={token_id_masked} api_version={auth_result.get('api_version')}")
 
         return jsonify({
             'success': True,
-            'user': user
+            'user': auth_result
         })
 
     except requests.exceptions.HTTPError as e:
