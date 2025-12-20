@@ -84,19 +84,15 @@ export class BookStackUI {
 
         footer.innerHTML = `
             <button type="button" class="button" id="bookstack-cancel-btn">Cancel</button>
-            <button type="button" class="button button--primary" id="bookstack-connect-btn">Connect</button>
+            <button type="submit" class="button button--primary" form="bookstack-auth-form" id="bookstack-connect-btn">Connect</button>
         `;
 
-        // Setup form submission
+        // Setup event handlers
         document.getElementById('bookstack-cancel-btn').addEventListener('click', () => {
             document.getElementById('bookstack-dialog').close();
         });
 
-        document.getElementById('bookstack-connect-btn').addEventListener('click', async (e) => {
-            e.preventDefault();
-            await this.authenticate();
-        });
-
+        // Handle form submission (supports both button click and Enter key)
         document.getElementById('bookstack-auth-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             await this.authenticate();
