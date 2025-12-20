@@ -35,10 +35,20 @@ export class BookStackUI {
 
         dialog.showModal();
 
-        // Setup close button
-        dialog.querySelector('.dialog__close').addEventListener('click', () => {
+        // Setup close button with cleanup
+        const closeBtn = dialog.querySelector('.dialog__close');
+        const closeHandler = () => {
+            this.cleanupBreadcrumbHandlers();
             dialog.close();
-        });
+        };
+
+        // Remove old listener if exists
+        if (this._closeHandler) {
+            closeBtn.removeEventListener('click', this._closeHandler);
+        }
+
+        this._closeHandler = closeHandler;
+        closeBtn.addEventListener('click', this._closeHandler);
     }
 
     renderAuthForm() {
@@ -138,6 +148,9 @@ export class BookStackUI {
 
     async disconnect() {
         try {
+            // Clean up breadcrumb handler
+            this.cleanupBreadcrumbHandlers();
+
             await APIClient.post('/bookstack/logout');
             this.authenticated = false;
             this.breadcrumbs = [];
@@ -146,6 +159,14 @@ export class BookStackUI {
             this.renderAuthForm();
         } catch (error) {
             console.error('Logout error:', error);
+        }
+    }
+
+    cleanupBreadcrumbHandlers() {
+        const content = document.getElementById('bookstack-dialog-body');
+        if (content && this._breadcrumbHandler) {
+            content.removeEventListener('click', this._breadcrumbHandler);
+            this._breadcrumbHandler = null;
         }
     }
 
@@ -321,9 +342,18 @@ export class BookStackUI {
 
             // BookStack API returns a 'contents' array with mixed chapters and pages
             // Only top-level items appear in 'contents' - pages inside chapters are nested
-            const contents = book.contents || [];
-            const directPages = contents.filter(item => item.type === 'page');
-            const chapters = contents.filter(item => item.type === 'chapter');
+            // Fallback to legacy structure if contents is not available
+            let directPages, chapters;
+
+            if (book.contents && book.contents.length > 0) {
+                // Modern API response with contents array
+                directPages = book.contents.filter(item => item.type === 'page');
+                chapters = book.contents.filter(item => item.type === 'chapter');
+            } else {
+                // Fallback to legacy structure (if API behavior varies)
+                directPages = book.pages?.filter(p => !p.chapter_id) || [];
+                chapters = book.chapters || [];
+            }
 
             content.innerHTML = `
                 <div class="bookstack-browser">
