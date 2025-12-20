@@ -1,6 +1,8 @@
 """Flask application for markdown viewer backend."""
 import sys
 import os
+import logging
+from logging.handlers import RotatingFileHandler
 
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -22,6 +24,69 @@ except ImportError:
     from routes.bookstack import bookstack_bp
 
 
+def setup_logging(app, config_class):
+    """
+    Configure application logging.
+
+    Args:
+        app: Flask application instance
+        config_class: Configuration class with LOG_LEVEL and LOG_FORMAT
+    """
+    # Determine log level
+    log_level = getattr(logging, config_class.LOG_LEVEL, logging.INFO)
+
+    # Create formatters
+    if config_class.LOG_FORMAT == 'simple':
+        formatter = logging.Formatter(
+            '[%(asctime)s] %(levelname)s - %(message)s',
+            datefmt='%Y-%m-%d %H:%M:%S'
+        )
+    else:  # detailed
+        formatter = logging.Formatter(
+            '[%(asctime)s] %(levelname)s [%(name)s.%(funcName)s:%(lineno)d] - %(message)s',
+            datefmt='%Y-%m-%d %H:%M:%S'
+        )
+
+    # Configure root logger
+    root_logger = logging.getLogger()
+    root_logger.setLevel(log_level)
+
+    # Remove existing handlers
+    root_logger.handlers = []
+
+    # Console handler (stdout)
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setLevel(log_level)
+    console_handler.setFormatter(formatter)
+    root_logger.addHandler(console_handler)
+
+    # File handler (rotating log file) - optional
+    logs_dir = os.path.join(os.path.dirname(__file__), 'logs')
+    if not os.path.exists(logs_dir):
+        try:
+            os.makedirs(logs_dir)
+            file_handler = RotatingFileHandler(
+                os.path.join(logs_dir, 'app.log'),
+                maxBytes=10485760,  # 10MB
+                backupCount=5
+            )
+            file_handler.setLevel(log_level)
+            file_handler.setFormatter(formatter)
+            root_logger.addHandler(file_handler)
+        except (OSError, PermissionError) as e:
+            # If we can't create logs directory (e.g., in Docker), just log to console
+            app.logger.warning(f"Could not create log file: {e}. Logging to console only.")
+
+    # Set Flask app logger
+    app.logger.setLevel(log_level)
+
+    # Reduce noise from third-party libraries
+    logging.getLogger('werkzeug').setLevel(logging.WARNING)
+    logging.getLogger('urllib3').setLevel(logging.WARNING)
+
+    app.logger.info(f"Logging configured: level={config_class.LOG_LEVEL}, format={config_class.LOG_FORMAT}")
+
+
 def create_app(config_class=Config):
     """Create and configure Flask application.
 
@@ -34,6 +99,9 @@ def create_app(config_class=Config):
     app = Flask(__name__)
     app.config.from_object(config_class)
 
+    # Setup logging
+    setup_logging(app, config_class)
+
     # Enable CORS with proper preflight support
     CORS(app,
          origins=config_class.CORS_ORIGINS,
@@ -42,10 +110,12 @@ def create_app(config_class=Config):
          methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'])
 
     # Register blueprints
+    app.logger.info("Registering blueprints...")
     app.register_blueprint(llm_bp)
     app.register_blueprint(github_bp)
     app.register_blueprint(export_bp)
     app.register_blueprint(bookstack_bp)
+    app.logger.info("All blueprints registered successfully")
 
     # Health check endpoint
     @app.route('/api/health', methods=['GET'])
@@ -93,11 +163,16 @@ if __name__ == '__main__':
     port = args.port or Config.PORT
     debug = args.debug or Config.DEBUG
 
-    print(f"🚀 Starting Markdown Viewer Backend")
-    print(f"   Host: {host}")
-    print(f"   Port: {port}")
-    print(f"   Debug: {debug}")
-    print(f"   URL: http://localhost:{port}")
-
     app = create_app()
+
+    app.logger.info("=" * 60)
+    app.logger.info("🚀 Starting Markdown Viewer Backend")
+    app.logger.info(f"   Host: {host}")
+    app.logger.info(f"   Port: {port}")
+    app.logger.info(f"   Debug: {debug}")
+    app.logger.info(f"   Log Level: {Config.LOG_LEVEL}")
+    app.logger.info(f"   BookStack URL: {Config.BOOKSTACK_URL or 'Not configured'}")
+    app.logger.info(f"   URL: http://localhost:{port}")
+    app.logger.info("=" * 60)
+
     app.run(host=host, port=port, debug=debug)

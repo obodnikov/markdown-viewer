@@ -1,10 +1,16 @@
 """BookStack integration routes."""
+import logging
 from flask import Blueprint, request, jsonify, session
-from services.bookstack_service import BookStackService
-from config import Config
 import requests
 
+try:
+    from backend.services.bookstack_service import BookStackService
+    from backend.config import Config
+except ImportError:
+    from services.bookstack_service import BookStackService
+    from config import Config
 
+logger = logging.getLogger(__name__)
 bookstack_bp = Blueprint('bookstack', __name__, url_prefix='/api/bookstack')
 
 
@@ -19,11 +25,14 @@ def get_bookstack_service():
     token_secret = session.get('bookstack_token_secret')
 
     if not token_id or not token_secret:
+        logger.debug("No BookStack credentials found in session")
         return None
 
     if not Config.BOOKSTACK_URL:
+        logger.error("BookStack URL not configured in environment")
         return None
 
+    logger.debug(f"Creating BookStack service for URL: {Config.BOOKSTACK_URL}")
     return BookStackService(
         Config.BOOKSTACK_URL,
         token_id,
@@ -49,16 +58,21 @@ def authenticate():
             "user": {...}
         }
     """
+    logger.info("BookStack authentication attempt started")
     try:
         data = request.get_json()
         token_id = data.get('token_id')
         token_secret = data.get('token_secret')
 
         if not token_id or not token_secret:
+            logger.warning("Authentication failed: Missing token_id or token_secret")
             return jsonify({'error': 'Token ID and secret are required'}), 400
 
         if not Config.BOOKSTACK_URL:
+            logger.error("Authentication failed: BookStack URL not configured")
             return jsonify({'error': 'BookStack URL not configured'}), 500
+
+        logger.debug(f"Attempting to authenticate with BookStack at {Config.BOOKSTACK_URL}")
 
         # Create service and validate credentials
         service = BookStackService(
@@ -76,6 +90,8 @@ def authenticate():
         session['bookstack_authenticated'] = True
         session['bookstack_user'] = user
 
+        logger.info(f"BookStack authentication successful | user_id={user.get('id')} user_name={user.get('name')}")
+
         return jsonify({
             'success': True,
             'user': user
@@ -83,9 +99,12 @@ def authenticate():
 
     except requests.exceptions.HTTPError as e:
         if e.response.status_code == 401:
+            logger.warning(f"BookStack authentication failed: Invalid credentials | status_code=401")
             return jsonify({'error': 'Invalid credentials'}), 401
+        logger.error(f"BookStack authentication failed: HTTP error | status_code={e.response.status_code} error={str(e)}")
         return jsonify({'error': f'Authentication failed: {str(e)}'}), 500
     except Exception as e:
+        logger.error(f"BookStack authentication failed: Unexpected error | error={str(e)}", exc_info=True)
         return jsonify({'error': str(e)}), 500
 
 
@@ -103,6 +122,8 @@ def status():
     authenticated = session.get('bookstack_authenticated', False)
     user = session.get('bookstack_user')
 
+    logger.debug(f"BookStack authentication status check | authenticated={authenticated}")
+
     return jsonify({
         'authenticated': authenticated,
         'user': user if authenticated else None
@@ -119,10 +140,15 @@ def logout():
             "success": true
         }
     """
+    user = session.get('bookstack_user', {})
+    user_name = user.get('name', 'unknown')
+
     session.pop('bookstack_token_id', None)
     session.pop('bookstack_token_secret', None)
     session.pop('bookstack_authenticated', None)
     session.pop('bookstack_user', None)
+
+    logger.info(f"BookStack logout successful | user={user_name}")
 
     return jsonify({'success': True})
 
@@ -145,6 +171,7 @@ def list_shelves():
     """
     service = get_bookstack_service()
     if not service:
+        logger.warning("List shelves request rejected: Not authenticated")
         return jsonify({'error': 'Not authenticated'}), 401
 
     try:
@@ -152,12 +179,16 @@ def list_shelves():
         offset = request.args.get('offset', 0, type=int)
         sort = request.args.get('sort', '+name')
 
+        logger.debug(f"Listing shelves | count={count} offset={offset} sort={sort}")
         result = service.list_shelves(count, offset, sort)
+        logger.info(f"Shelves listed successfully | total={result.get('total', 0)}")
         return jsonify(result)
 
     except requests.exceptions.HTTPError as e:
+        logger.error(f"Failed to list shelves | status_code={e.response.status_code} error={str(e)}")
         return jsonify({'error': f'BookStack API error: {str(e)}'}), e.response.status_code
     except Exception as e:
+        logger.error(f"Failed to list shelves | error={str(e)}", exc_info=True)
         return jsonify({'error': str(e)}), 500
 
 
@@ -251,15 +282,20 @@ def get_page(page_id):
     """
     service = get_bookstack_service()
     if not service:
+        logger.warning(f"Get page request rejected: Not authenticated | page_id={page_id}")
         return jsonify({'error': 'Not authenticated'}), 401
 
     try:
+        logger.debug(f"Fetching page | page_id={page_id}")
         page = service.get_page(page_id)
+        logger.info(f"Page fetched successfully | page_id={page_id} title={page.get('name', 'untitled')} has_markdown={bool(page.get('markdown'))}")
         return jsonify(page)
 
     except requests.exceptions.HTTPError as e:
+        logger.error(f"Failed to fetch page | page_id={page_id} status_code={e.response.status_code} error={str(e)}")
         return jsonify({'error': f'BookStack API error: {str(e)}'}), e.response.status_code
     except Exception as e:
+        logger.error(f"Failed to fetch page | page_id={page_id} error={str(e)}", exc_info=True)
         return jsonify({'error': str(e)}), 500
 
 
@@ -285,6 +321,7 @@ def create_page():
     """
     service = get_bookstack_service()
     if not service:
+        logger.warning("Create page request rejected: Not authenticated")
         return jsonify({'error': 'Not authenticated'}), 401
 
     try:
@@ -296,9 +333,12 @@ def create_page():
         tags = data.get('tags')
 
         if not book_id or not name or markdown is None:
+            logger.warning(f"Create page request rejected: Missing required fields | book_id={book_id} name={name} has_markdown={markdown is not None}")
             return jsonify({'error': 'book_id, name, and markdown are required'}), 400
 
+        logger.info(f"Creating new page | book_id={book_id} chapter_id={chapter_id} name={name}")
         page = service.create_page(book_id, name, markdown, chapter_id, tags)
+        logger.info(f"Page created successfully | page_id={page.get('id')} name={name}")
 
         return jsonify({
             'success': True,
@@ -306,8 +346,10 @@ def create_page():
         })
 
     except requests.exceptions.HTTPError as e:
+        logger.error(f"Failed to create page | book_id={book_id} name={name} status_code={e.response.status_code} error={str(e)}")
         return jsonify({'error': f'BookStack API error: {str(e)}'}), e.response.status_code
     except Exception as e:
+        logger.error(f"Failed to create page | book_id={book_id} name={name} error={str(e)}", exc_info=True)
         return jsonify({'error': str(e)}), 500
 
 
@@ -334,6 +376,7 @@ def update_page(page_id):
     """
     service = get_bookstack_service()
     if not service:
+        logger.warning(f"Update page request rejected: Not authenticated | page_id={page_id}")
         return jsonify({'error': 'Not authenticated'}), 401
 
     try:
@@ -345,16 +388,19 @@ def update_page(page_id):
         conflict_resolution = data.get('conflict_resolution')
 
         if markdown is None:
+            logger.warning(f"Update page request rejected: Missing markdown | page_id={page_id}")
             return jsonify({'error': 'markdown is required'}), 400
 
         # Check for conflicts if client provided updated_at
         conflict = False
         if client_updated_at and conflict_resolution != 'overwrite':
+            logger.debug(f"Checking for conflicts | page_id={page_id} client_updated_at={client_updated_at}")
             current_page = service.get_page(page_id)
             server_updated_at = current_page.get('updated_at')
 
             if server_updated_at and server_updated_at != client_updated_at:
                 # Conflict detected
+                logger.warning(f"Conflict detected | page_id={page_id} client_updated_at={client_updated_at} server_updated_at={server_updated_at}")
                 return jsonify({
                     'success': False,
                     'conflict': True,
@@ -362,7 +408,9 @@ def update_page(page_id):
                 })
 
         # No conflict or overwrite requested - proceed with update
+        logger.info(f"Updating page | page_id={page_id} name={name} conflict_resolution={conflict_resolution}")
         page = service.update_page(page_id, markdown, name, tags)
+        logger.info(f"Page updated successfully | page_id={page_id} name={page.get('name')}")
 
         return jsonify({
             'success': True,
@@ -371,8 +419,10 @@ def update_page(page_id):
         })
 
     except requests.exceptions.HTTPError as e:
+        logger.error(f"Failed to update page | page_id={page_id} status_code={e.response.status_code} error={str(e)}")
         return jsonify({'error': f'BookStack API error: {str(e)}'}), e.response.status_code
     except Exception as e:
+        logger.error(f"Failed to update page | page_id={page_id} error={str(e)}", exc_info=True)
         return jsonify({'error': str(e)}), 500
 
 
