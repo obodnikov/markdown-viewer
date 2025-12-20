@@ -28,6 +28,11 @@ A modern, feature-rich markdown editor with GitHub Flavored Markdown support, LL
 ### File Management
 - **Local Files** - Open/save using modern File System Access API
 - **GitHub Integration** - OAuth authentication to open/save files from repositories
+- **BookStack Integration** - Load/save pages from BookStack wiki with conflict detection
+  - Browse shelves, books, chapters, and pages
+  - HTML to Markdown conversion for existing pages
+  - Smart save with automatic conflict detection
+  - Session-based authentication
 - **Drag & Drop** - Drop markdown files to open
 - **Multiple Export Formats** with full Unicode support:
   - Markdown (.md)
@@ -72,6 +77,10 @@ A modern, feature-rich markdown editor with GitHub Flavored Markdown support, LL
    # Optional: GitHub OAuth (for GitHub integration)
    GITHUB_CLIENT_ID=your-client-id
    GITHUB_CLIENT_SECRET=your-client-secret
+
+   # Optional: BookStack Integration
+   BOOKSTACK_URL=https://your-bookstack-instance.com
+   BOOKSTACK_API_TIMEOUT=30
    ```
 
 4. **Start with Docker Compose**
@@ -238,6 +247,37 @@ Update your GitHub OAuth app callback URL to match your domain:
    GITHUB_CLIENT_SECRET=your-client-secret
    ```
 
+### BookStack Integration (Optional)
+
+1. **Set up your BookStack instance**
+   - Ensure you have a BookStack instance running
+   - Enable the markdown editor in Settings > Preferences
+
+2. **Generate API tokens** (per user)
+   - Go to your BookStack profile > API Tokens
+   - Create a new token pair (Token ID and Token Secret)
+   - Keep these credentials secure
+
+3. **Configure the application**
+   ```bash
+   # In .env file
+   BOOKSTACK_URL=https://your-bookstack-instance.com
+   BOOKSTACK_API_TIMEOUT=30
+   ```
+
+4. **Authenticate in the app**
+   - Click the BookStack button (or press Ctrl+K)
+   - Enter your Token ID and Token Secret
+   - Credentials are stored in session (24-hour expiry)
+
+5. **Security considerations**
+   - Use HTTPS in production (see [SECURITY.md](SECURITY.md))
+   - Store BookStack URL in `.env` (team-wide setting)
+   - Each user enters their own API tokens (not stored in `.env`)
+   - Tokens are kept in secure Flask sessions with httpOnly cookies
+
+**Note:** BookStack integration is designed for team environments with trusted users. For production deployment, ensure HTTPS is properly configured via reverse proxy.
+
 ## API Endpoints
 
 ### LLM Transformations
@@ -259,6 +299,20 @@ Update your GitHub OAuth app callback URL to match your domain:
 - `GET /api/github/file` - Get file content
 - `POST /api/github/file` - Save file to repo
 
+### BookStack
+- `POST /api/bookstack/authenticate` - Authenticate with API tokens
+- `GET /api/bookstack/status` - Check authentication status
+- `POST /api/bookstack/logout` - Logout and clear session
+- `GET /api/bookstack/shelves` - List all shelves
+- `GET /api/bookstack/shelves/:id` - Get shelf details with books
+- `GET /api/bookstack/books` - List all books
+- `GET /api/bookstack/books/:id` - Get book details with chapters and pages
+- `GET /api/bookstack/pages/:id` - Get page content (converted to markdown)
+- `POST /api/bookstack/pages` - Create new page
+- `PUT /api/bookstack/pages/:id` - Update page (with conflict detection)
+- `DELETE /api/bookstack/pages/:id` - Delete page
+- `GET /api/bookstack/search` - Search for pages
+
 ## Architecture
 
 ```
@@ -269,11 +323,13 @@ markdown-viewer/
 │   ├── routes/          # API endpoints
 │   │   ├── llm.py      # LLM transformations
 │   │   ├── github.py   # GitHub integration
+│   │   ├── bookstack.py # BookStack integration
 │   │   └── export.py   # Export functionality
 │   └── services/        # Business logic
-│       ├── openrouter.py    # OpenRouter client
-│       ├── github_service.py # GitHub API wrapper
-│       └── export_service.py # Pandoc wrapper
+│       ├── openrouter.py      # OpenRouter client
+│       ├── github_service.py  # GitHub API wrapper
+│       ├── bookstack_service.py # BookStack API wrapper
+│       └── export_service.py  # Pandoc wrapper
 ├── public/              # Frontend HTML
 ├── styles/              # CSS (Material Design)
 │   ├── base.css        # Design tokens
@@ -332,10 +388,11 @@ markdown-viewer/
 
 ## Keyboard Shortcuts
 
-- `Ctrl/Cmd + S` - Save document
+- `Ctrl/Cmd + S` - Save document (smart save to source)
 - `Ctrl/Cmd + O` - Open file
 - `Ctrl/Cmd + N` - New document
 - `Ctrl/Cmd + E` - Export dialog
+- `Ctrl/Cmd + K` - BookStack dialog
 
 ## Troubleshooting
 
@@ -356,6 +413,13 @@ Install pandoc: https://pandoc.org/installing.html
 1. Ensure frontend is served from `localhost:8000`
 2. Check `CORS_ORIGINS` in `.env` includes your frontend URL
 
+### BookStack connection issues
+1. Verify `BOOKSTACK_URL` is correct and accessible
+2. Ensure BookStack instance allows API access
+3. Check Token ID and Token Secret are valid
+4. Verify your BookStack user has permission to access pages
+5. For HTTPS issues, see [SECURITY.md](SECURITY.md) for production setup
+
 ## License
 
 MIT License - see LICENSE file for details
@@ -368,12 +432,13 @@ MIT License - see LICENSE file for details
 
 ## Roadmap
 
-### Phase 1 (Current) - v1.3.0
+### Phase 1 (Current) - v1.4.0
 - ✅ Core editor with GFM support
 - ✅ LLM transformations
 - ✅ GitHub integration
 - ✅ Multiple export formats
 - ✅ Synchronized scrolling in split view (v1.3.0)
+- ✅ BookStack integration with smart save (v1.4.0)
 
 ### Phase 2 (Future)
 - [ ] Real-time collaboration
@@ -383,6 +448,7 @@ MIT License - see LICENSE file for details
 - [ ] Advanced search and replace
 - [ ] Vim keybindings
 - [ ] Templates library
+- [ ] BookStack diff viewer for conflicts
 
 ## Support
 

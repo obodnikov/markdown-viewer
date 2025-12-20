@@ -7,6 +7,7 @@ import { MarkdownParser } from './markdown/parser.js';
 import { TransformUI } from './transforms/transform-ui.js';
 import { FileManager } from './file/local.js';
 import { GitHubUI } from './file/github.js';
+import { BookStackUI } from './file/bookstack.js';
 import { ExportManager } from './file/export.js';
 import { StorageManager } from './utils/storage.js';
 import { EditableTitle } from './ui/editable-title.js';
@@ -20,6 +21,7 @@ class MarkdownViewerApp {
         this.transform = null;
         this.fileManager = null;
         this.githubUI = null;
+        this.bookstackUI = null;
         this.exportManager = null;
         this.storage = null;
         this.editableTitle = null;
@@ -29,7 +31,9 @@ class MarkdownViewerApp {
             title: 'Untitled Document',
             content: '',
             filepath: null,
-            modified: false
+            modified: false,
+            source: null,           // 'local', 'github', 'bookstack', or null
+            sourceInfo: null        // Additional info about source (e.g., pageId, repo, etc.)
         };
     }
 
@@ -62,7 +66,12 @@ class MarkdownViewerApp {
 
         // Initialize GitHub UI
         this.githubUI = new GitHubUI(
-            this.loadDocument.bind(this)
+            this.loadDocumentFromGitHub.bind(this)
+        );
+
+        // Initialize BookStack UI
+        this.bookstackUI = new BookStackUI(
+            this.loadDocumentFromBookStack.bind(this)
         );
 
         // Initialize scroll synchronization
@@ -94,6 +103,7 @@ class MarkdownViewerApp {
         document.getElementById('btn-save').addEventListener('click', () => this.saveFile());
         document.getElementById('btn-export').addEventListener('click', () => this.showExportDialog());
         document.getElementById('btn-github').addEventListener('click', () => this.showGitHubDialog());
+        document.getElementById('btn-bookstack').addEventListener('click', () => this.showBookStackDialog());
         document.getElementById('btn-toggle-sidebar').addEventListener('click', () => this.toggleSidebar());
         document.getElementById('btn-theme').addEventListener('click', () => this.toggleTheme());
 
@@ -121,6 +131,14 @@ class MarkdownViewerApp {
         document.getElementById('close-github-dialog').addEventListener('click', () => {
             document.getElementById('github-dialog').close();
         });
+
+        // BookStack dialog
+        document.getElementById('close-bookstack-dialog').addEventListener('click', () => {
+            document.getElementById('bookstack-dialog').close();
+        });
+
+        // Save destination dialog
+        this.setupSaveDestinationDialog();
 
         // Auto-save interval
         setInterval(() => this.autoSave(), 30000);
@@ -235,12 +253,15 @@ class MarkdownViewerApp {
             title: 'Untitled Document',
             content: '',
             filepath: null,
-            modified: false
+            modified: false,
+            source: null,
+            sourceInfo: null
         };
 
         this.editor.setContent('');
         this.updatePreview();
         this.updateStatus();
+        this.updateSourceIndicator();
     }
 
     async openFile() {
@@ -251,6 +272,25 @@ class MarkdownViewerApp {
     }
 
     async saveFile() {
+        // Smart Save: Contextual behavior based on document source
+        const source = this.currentDocument.source;
+
+        if (source === 'bookstack') {
+            // Document from BookStack - save back to BookStack
+            await this.saveToBookStack();
+        } else if (source === 'github') {
+            // Document from GitHub - open GitHub dialog for save
+            this.showGitHubDialog();
+        } else if (source === 'local') {
+            // Document from local file - save back to local
+            await this.saveToLocal();
+        } else {
+            // New document - show destination dialog
+            await this.saveNewDocument();
+        }
+    }
+
+    async saveToLocal() {
         // Get filename from editable title
         const filename = this.editableTitle.getFilename('.md');
 
@@ -262,8 +302,76 @@ class MarkdownViewerApp {
         if (saved) {
             this.currentDocument.modified = false;
             this.currentDocument.filepath = saved.filepath;
+            this.currentDocument.source = 'local';
             this.updateStatus();
+            this.updateSourceIndicator();
             this.showToast('File saved successfully', 'success');
+        }
+    }
+
+    async saveToBookStack() {
+        // Save back to the BookStack page it was loaded from
+        const { pageId, pageName, updatedAt } = this.currentDocument.sourceInfo;
+
+        // Get fresh content from editor to avoid stale data
+        const markdown = this.editor.getContent();
+        this.currentDocument.content = markdown;
+
+        try {
+            const result = await this.bookstackUI.updatePage(pageId, markdown, updatedAt);
+
+            if (result.conflict) {
+                // Show conflict dialog
+                await this.handleBookStackConflict(result.remotePage);
+            } else {
+                this.currentDocument.modified = false;
+                this.currentDocument.sourceInfo.updatedAt = result.page.updated_at;
+                this.updateStatus();
+                this.updateSourceIndicator();
+                this.showToast('Saved to BookStack', 'success');
+            }
+        } catch (error) {
+            this.showToast(`Failed to save: ${error.message}`, 'error');
+        }
+    }
+
+    async saveNewDocument() {
+        // Show dialog to choose destination
+        const destination = await this.showSaveDestinationDialog();
+
+        if (destination === 'local') {
+            await this.saveToLocal();
+        } else if (destination === 'github') {
+            // Open GitHub dialog for save
+            this.showGitHubDialog();
+        } else if (destination === 'bookstack') {
+            // Show create page dialog
+            const pageName = this.currentDocument.title;
+
+            // Get fresh content from editor to avoid stale data
+            const markdown = this.editor.getContent();
+            this.currentDocument.content = markdown;
+
+            try {
+                const page = await this.bookstackUI.showCreateDialog(markdown, pageName);
+
+                if (page) {
+                    // Update document source to BookStack
+                    this.currentDocument.source = 'bookstack';
+                    this.currentDocument.sourceInfo = {
+                        pageId: page.id,
+                        pageName: page.name,
+                        bookId: page.book_id,
+                        updatedAt: page.updated_at
+                    };
+                    this.currentDocument.modified = false;
+                    this.updateStatus();
+                    this.updateSourceIndicator();
+                    this.showToast('Page created in BookStack', 'success');
+                }
+            } catch (error) {
+                this.showToast(`Failed to create page: ${error.message}`, 'error');
+            }
         }
     }
 
@@ -275,12 +383,61 @@ class MarkdownViewerApp {
             title: cleanTitle,
             content,
             filepath,
-            modified: false
+            modified: false,
+            source: 'local',
+            sourceInfo: { filepath }
         };
 
         this.editor.setContent(content);
         this.updatePreview();
         this.updateStatus();
+        this.updateSourceIndicator();
+    }
+
+    loadDocumentFromGitHub(title, content, repoInfo) {
+        // Load document from GitHub
+        const cleanTitle = title.replace(/\.(md|markdown|txt)$/i, '');
+
+        this.currentDocument = {
+            title: cleanTitle,
+            content,
+            filepath: null,
+            modified: false,
+            source: 'github',
+            sourceInfo: repoInfo
+        };
+
+        this.editor.setContent(content);
+        this.updatePreview();
+        this.updateStatus();
+        this.updateSourceIndicator();
+    }
+
+    loadDocumentFromBookStack(title, content, pageInfo) {
+        // Load document from BookStack
+        const cleanTitle = title.replace(/\.(md|markdown|txt)$/i, '');
+
+        this.currentDocument = {
+            title: cleanTitle,
+            content,
+            filepath: null,
+            modified: false,
+            source: 'bookstack',
+            sourceInfo: {
+                pageId: pageInfo.id,
+                pageName: pageInfo.name,
+                bookId: pageInfo.book_id,
+                updatedAt: pageInfo.updated_at
+            }
+        };
+
+        this.editor.setContent(content);
+        this.updatePreview();
+        this.updateStatus();
+        this.updateSourceIndicator();
+
+        // Close the BookStack dialog
+        document.getElementById('bookstack-dialog').close();
     }
 
     showExportDialog() {
@@ -307,6 +464,154 @@ class MarkdownViewerApp {
 
     showGitHubDialog() {
         this.githubUI.show();
+    }
+
+    showBookStackDialog() {
+        this.bookstackUI.show();
+    }
+
+    setupSaveDestinationDialog() {
+        // Setup event listeners for save destination dialog
+        document.getElementById('close-save-destination-dialog').addEventListener('click', () => {
+            document.getElementById('save-destination-dialog').close();
+        });
+
+        document.getElementById('destination-cancel').addEventListener('click', () => {
+            document.getElementById('save-destination-dialog').close();
+        });
+
+        // Destination option handlers are set up in showSaveDestinationDialog()
+    }
+
+    showSaveDestinationDialog() {
+        // Returns a promise that resolves with the chosen destination
+        return new Promise((resolve) => {
+            const dialog = document.getElementById('save-destination-dialog');
+
+            // Setup one-time click handlers
+            const handleDestination = (destination) => {
+                dialog.close();
+                resolve(destination);
+            };
+
+            // Remove any existing listeners by cloning elements
+            const localBtn = document.getElementById('destination-local');
+            const githubBtn = document.getElementById('destination-github');
+            const bookstackBtn = document.getElementById('destination-bookstack');
+
+            const newLocalBtn = localBtn.cloneNode(true);
+            const newGithubBtn = githubBtn.cloneNode(true);
+            const newBookstackBtn = bookstackBtn.cloneNode(true);
+
+            localBtn.parentNode.replaceChild(newLocalBtn, localBtn);
+            githubBtn.parentNode.replaceChild(newGithubBtn, githubBtn);
+            bookstackBtn.parentNode.replaceChild(newBookstackBtn, bookstackBtn);
+
+            newLocalBtn.addEventListener('click', () => handleDestination('local'));
+            newGithubBtn.addEventListener('click', () => handleDestination('github'));
+            newBookstackBtn.addEventListener('click', () => handleDestination('bookstack'));
+
+            // Handle dialog close without selection
+            const onClose = () => {
+                resolve(null);
+                dialog.removeEventListener('close', onClose);
+            };
+            dialog.addEventListener('close', onClose);
+
+            dialog.showModal();
+        });
+    }
+
+    async handleBookStackConflict(remotePage) {
+        // Show conflict dialog and handle user choice
+        return new Promise((resolve) => {
+            const dialog = document.getElementById('bookstack-conflict-dialog');
+
+            // Populate conflict information
+            document.getElementById('conflict-page-name').textContent = remotePage.name;
+            document.getElementById('conflict-updated-at').textContent = new Date(remotePage.updated_at).toLocaleString();
+
+            // Setup one-time handlers
+            const cleanup = () => {
+                dialog.close();
+                cancelBtn.removeEventListener('click', onCancel);
+                viewDiffBtn.removeEventListener('click', onViewDiff);
+                overwriteBtn.removeEventListener('click', onOverwrite);
+            };
+
+            const onCancel = () => {
+                cleanup();
+                resolve({ action: 'cancel' });
+            };
+
+            const onViewDiff = () => {
+                cleanup();
+                // TODO: Implement diff viewer
+                this.showToast('Diff viewer not yet implemented', 'info');
+                resolve({ action: 'cancel' });
+            };
+
+            const onOverwrite = async () => {
+                cleanup();
+                // Overwrite server version
+                const { pageId } = this.currentDocument.sourceInfo;
+
+                // Get fresh content from editor to avoid stale data
+                const markdown = this.editor.getContent();
+                this.currentDocument.content = markdown;
+
+                try {
+                    const result = await this.bookstackUI.updatePage(pageId, markdown, null, true);
+                    this.currentDocument.modified = false;
+                    this.currentDocument.sourceInfo.updatedAt = result.page.updated_at;
+                    this.updateStatus();
+                    this.updateSourceIndicator();
+                    this.showToast('Saved to BookStack (overwritten)', 'success');
+                    resolve({ action: 'overwrite', page: result.page });
+                } catch (error) {
+                    this.showToast(`Failed to save: ${error.message}`, 'error');
+                    resolve({ action: 'error', error });
+                }
+            };
+
+            const cancelBtn = document.getElementById('conflict-cancel');
+            const viewDiffBtn = document.getElementById('conflict-view-diff');
+            const overwriteBtn = document.getElementById('conflict-overwrite');
+
+            cancelBtn.addEventListener('click', onCancel);
+            viewDiffBtn.addEventListener('click', onViewDiff);
+            overwriteBtn.addEventListener('click', onOverwrite);
+
+            dialog.showModal();
+        });
+    }
+
+    updateSourceIndicator() {
+        const indicator = document.getElementById('document-source');
+        const label = indicator.querySelector('.source-label');
+        const source = this.currentDocument.source;
+
+        if (!source || source === null) {
+            indicator.style.display = 'none';
+            return;
+        }
+
+        indicator.style.display = 'block';
+
+        switch (source) {
+            case 'local':
+                label.textContent = '📁 Local File';
+                break;
+            case 'github':
+                label.textContent = '🔗 GitHub';
+                break;
+            case 'bookstack':
+                const pageName = this.currentDocument.sourceInfo?.pageName || 'BookStack';
+                label.textContent = `📚 ${pageName}`;
+                break;
+            default:
+                indicator.style.display = 'none';
+        }
     }
 
     autoSave() {
@@ -351,6 +656,12 @@ class MarkdownViewerApp {
         if ((e.ctrlKey || e.metaKey) && e.key === 'e') {
             e.preventDefault();
             this.showExportDialog();
+        }
+
+        // Ctrl/Cmd + K: BookStack
+        if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+            e.preventDefault();
+            this.showBookStackDialog();
         }
     }
 

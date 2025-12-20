@@ -57,12 +57,20 @@
 
             <div class="toolbar__section toolbar__section--center">
                 <h1 class="toolbar__title" id="document-title">Untitled Document</h1>
+                <div class="toolbar__source" id="document-source" style="display: none;">
+                    <span class="source-label"></span>
+                </div>
             </div>
 
             <div class="toolbar__section toolbar__section--right">
                 <button class="toolbar__button" id="btn-github" title="GitHub">
                     <span class="icon">&#128279;</span>
                     <span class="label">GitHub</span>
+                </button>
+
+                <button class="toolbar__button" id="btn-bookstack" title="BookStack (Ctrl+K)">
+                    <span class="icon">&#128218;</span>
+                    <span class="label">BookStack</span>
                 </button>
 
                 <button class="toolbar__button" id="btn-toggle-sidebar" title="Toggle Transform Panel">
@@ -290,6 +298,147 @@
 
         <div class="dialog__content" id="github-content">
             <!-- Content loaded dynamically -->
+        </div>
+    </dialog>
+
+    <!-- BookStack Dialog -->
+    <dialog class="dialog" id="bookstack-dialog">
+        <div class="dialog__header">
+            <h2 class="dialog__title">BookStack Integration</h2>
+            <button class="dialog__close" id="close-bookstack-dialog">×</button>
+        </div>
+
+        <div class="dialog__content" id="bookstack-content">
+            <!-- Content loaded dynamically -->
+        </div>
+    </dialog>
+
+    <!-- BookStack Save Dialog -->
+    <dialog class="dialog" id="bookstack-save-dialog">
+        <div class="dialog__header">
+            <h2 class="dialog__title" id="bookstack-save-title">Save to BookStack</h2>
+            <button class="dialog__close" id="close-bookstack-save-dialog">×</button>
+        </div>
+
+        <div class="dialog__content">
+            <div class="form-group">
+                <label for="bookstack-save-name">Page Name</label>
+                <input type="text" id="bookstack-save-name" class="form-input" placeholder="Enter page name...">
+            </div>
+
+            <div class="form-group">
+                <label for="bookstack-save-shelf">Shelf</label>
+                <select id="bookstack-save-shelf" class="form-select">
+                    <option value="">Loading shelves...</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="bookstack-save-book">Book</label>
+                <select id="bookstack-save-book" class="form-select">
+                    <option value="">Select a shelf first</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="bookstack-save-chapter">Chapter (Optional)</label>
+                <select id="bookstack-save-chapter" class="form-select">
+                    <option value="">No chapter (top level)</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="bookstack-save-tags">Tags (Optional)</label>
+                <input type="text" id="bookstack-save-tags" class="form-input" placeholder="tag1, tag2, tag3">
+                <small class="form-help">Comma-separated tags</small>
+            </div>
+
+            <div class="dialog__actions">
+                <button class="btn btn--secondary" id="bookstack-save-cancel">Cancel</button>
+                <button class="btn btn--primary" id="bookstack-save-submit">Save</button>
+            </div>
+        </div>
+    </dialog>
+
+    <!-- BookStack Conflict Dialog -->
+    <dialog class="dialog" id="bookstack-conflict-dialog">
+        <div class="dialog__header">
+            <h2 class="dialog__title">⚠️ Conflict Detected</h2>
+            <button class="dialog__close" id="close-bookstack-conflict-dialog">×</button>
+        </div>
+
+        <div class="dialog__content">
+            <p class="conflict-message">
+                This page has been modified on the server since you loaded it.
+            </p>
+
+            <div class="conflict-details">
+                <div class="conflict-info">
+                    <strong>Page:</strong> <span id="conflict-page-name"></span>
+                </div>
+                <div class="conflict-info">
+                    <strong>Last Updated:</strong> <span id="conflict-updated-at"></span>
+                </div>
+            </div>
+
+            <div class="conflict-options">
+                <div class="conflict-option">
+                    <h4>Your Changes</h4>
+                    <p>Your local version will overwrite the server version.</p>
+                </div>
+                <div class="conflict-option">
+                    <h4>Server Version</h4>
+                    <p>Discard your changes and keep the server version.</p>
+                </div>
+            </div>
+
+            <div class="dialog__actions">
+                <button class="btn btn--secondary" id="conflict-cancel">Cancel</button>
+                <button class="btn btn--warning" id="conflict-view-diff">View Differences</button>
+                <button class="btn btn--primary" id="conflict-overwrite">Overwrite Server</button>
+            </div>
+        </div>
+    </dialog>
+
+    <!-- Save Destination Dialog (for new documents) -->
+    <dialog class="dialog" id="save-destination-dialog">
+        <div class="dialog__header">
+            <h2 class="dialog__title">Save Document</h2>
+            <button class="dialog__close" id="close-save-destination-dialog">×</button>
+        </div>
+
+        <div class="dialog__content">
+            <p class="destination-message">Where would you like to save this document?</p>
+
+            <div class="destination-options">
+                <button class="destination-option" id="destination-local">
+                    <span class="destination-icon">&#128190;</span>
+                    <div class="destination-info">
+                        <h4>Local File</h4>
+                        <p>Save to your computer</p>
+                    </div>
+                </button>
+
+                <button class="destination-option" id="destination-github">
+                    <span class="destination-icon">&#128279;</span>
+                    <div class="destination-info">
+                        <h4>GitHub</h4>
+                        <p>Save to a GitHub repository</p>
+                    </div>
+                </button>
+
+                <button class="destination-option" id="destination-bookstack">
+                    <span class="destination-icon">&#128218;</span>
+                    <div class="destination-info">
+                        <h4>BookStack</h4>
+                        <p>Save to BookStack wiki</p>
+                    </div>
+                </button>
+            </div>
+
+            <div class="dialog__actions">
+                <button class="btn btn--secondary" id="destination-cancel">Cancel</button>
+            </div>
         </div>
     </dialog>
 
