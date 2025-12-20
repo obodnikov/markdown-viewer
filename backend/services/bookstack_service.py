@@ -99,15 +99,25 @@ class BookStackService:
 
     def authenticate(self) -> Dict[str, Any]:
         """
-        Validate credentials by fetching current user info.
+        Validate credentials by making a simple API request.
+
+        Since BookStack API doesn't have a /api/users/me endpoint,
+        we use /api/shelves as a lightweight authentication test.
 
         Returns:
-            User information dictionary
+            Success indicator with basic info
 
         Raises:
             requests.exceptions.HTTPError: If authentication fails
         """
-        return self._request('GET', '/api/users/me')
+        # Test authentication with a simple shelves request
+        result = self._request('GET', '/api/shelves', params={'count': 1})
+
+        # Return a simplified response indicating successful authentication
+        return {
+            'authenticated': True,
+            'message': 'Authentication successful'
+        }
 
     def list_shelves(self, count: int = 100, offset: int = 0, sort: str = '+name') -> Dict[str, Any]:
         """
