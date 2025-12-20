@@ -499,6 +499,12 @@ class MarkdownViewerApp {
             const githubBtn = document.getElementById('destination-github');
             const bookstackBtn = document.getElementById('destination-bookstack');
 
+            if (!localBtn || !githubBtn || !bookstackBtn) {
+                console.error('Destination buttons not found in DOM');
+                resolve(null);
+                return;
+            }
+
             const newLocalBtn = localBtn.cloneNode(true);
             const newGithubBtn = githubBtn.cloneNode(true);
             const newBookstackBtn = bookstackBtn.cloneNode(true);
@@ -507,9 +513,21 @@ class MarkdownViewerApp {
             githubBtn.parentNode.replaceChild(newGithubBtn, githubBtn);
             bookstackBtn.parentNode.replaceChild(newBookstackBtn, bookstackBtn);
 
-            newLocalBtn.addEventListener('click', () => handleDestination('local'));
-            newGithubBtn.addEventListener('click', () => handleDestination('github'));
-            newBookstackBtn.addEventListener('click', () => handleDestination('bookstack'));
+            newLocalBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                handleDestination('local');
+            });
+            newGithubBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                handleDestination('github');
+            });
+            newBookstackBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                handleDestination('bookstack');
+            });
 
             // Handle dialog close without selection
             const onClose = () => {
