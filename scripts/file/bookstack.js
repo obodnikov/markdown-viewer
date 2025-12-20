@@ -491,9 +491,15 @@ export class BookStackUI {
             // Close dialog
             document.getElementById('bookstack-dialog').close();
 
-            // Call the loadDocument callback with page data
+            // Call the loadDocument callback with correct parameters
             if (this.loadDocument) {
-                this.loadDocument(page);
+                try {
+                    this.loadDocument(page.name, page.markdown, page);
+                } catch (callbackError) {
+                    console.error('Error in loadDocument callback:', callbackError);
+                    this.showToast(`Error loading document: ${callbackError.message}`, 'error');
+                    return;
+                }
             }
 
             this.showToast(`Loaded: ${page.name}`, 'success');
