@@ -50,7 +50,10 @@ export class APIClient {
 
             if (!response.ok) {
                 const error = await response.json().catch(() => ({ error: 'Unknown error' }));
-                throw new Error(error.error || `HTTP ${response.status}`);
+                const errorMessage = error.error || `HTTP ${response.status}`;
+                const httpError = new Error(errorMessage);
+                httpError.status = response.status;
+                throw httpError;
             }
 
             // Handle file downloads
@@ -61,7 +64,12 @@ export class APIClient {
             return await response.json();
 
         } catch (error) {
-            console.error('API request failed:', error);
+            // Don't log expected authentication failures (401) unless explicitly requested
+            if (error.status !== 401 || options.logErrors !== false) {
+                if (error.status !== 401) {
+                    console.error('API request failed:', error);
+                }
+            }
             throw error;
         }
     }
