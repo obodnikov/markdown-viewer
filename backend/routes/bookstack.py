@@ -90,7 +90,9 @@ def authenticate():
         session['bookstack_authenticated'] = True
         session['bookstack_user'] = auth_result
 
-        logger.info(f"BookStack authentication successful | name={auth_result.get('name')} shelves={auth_result.get('total_shelves')}")
+        # Log authentication with instance info and sanitized token ID
+        token_id_masked = f"{token_id[:8]}...{token_id[-4:]}" if len(token_id) > 12 else "***"
+        logger.info(f"BookStack authentication successful | instance={auth_result.get('instance')} token_id={token_id_masked} api_version={auth_result.get('api_version')}")
 
         return jsonify({
             'success': True,

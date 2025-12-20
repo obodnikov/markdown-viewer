@@ -102,24 +102,30 @@ class BookStackService:
         Validate credentials by making a simple API request.
 
         Since BookStack API doesn't have a /api/users/me endpoint,
-        we use /api/shelves as a lightweight authentication test.
+        we use /api/docs.json which requires only basic API access permission
+        (no shelf/book/page-specific permissions needed).
 
         Returns:
-            Authentication info with basic metadata
+            Authentication info with instance metadata
 
         Raises:
             requests.exceptions.HTTPError: If authentication fails
         """
-        # Test authentication with a simple shelves request
-        result = self._request('GET', '/api/shelves', params={'count': 1})
+        # Test authentication with the most basic endpoint that requires no special permissions
+        # /api/docs.json only requires the basic "Access System API" permission
+        result = self._request('GET', '/api/docs.json')
+
+        # Extract instance info from docs endpoint
+        instance_name = result.get('base_url', 'BookStack').split('//')[-1].split('/')[0]
 
         # Return a user-like structure for compatibility with existing code
         # that expects user info in session
         return {
             'authenticated': True,
             'message': 'Authentication successful',
-            'name': 'BookStack User',  # Generic name since API doesn't provide user info
-            'total_shelves': result.get('total', 0)  # Include some useful metadata
+            'name': f'User @ {instance_name}',  # Show instance to help identify which BookStack
+            'instance': instance_name,
+            'api_version': result.get('version', 'unknown')
         }
 
     def list_shelves(self, count: int = 100, offset: int = 0, sort: str = '+name') -> Dict[str, Any]:
