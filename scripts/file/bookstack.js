@@ -681,13 +681,22 @@ export class BookStackUI {
                     dialog.close();
                     resolve(response.page);
                 } catch (error) {
-                    // Don't show error toast if request was aborted by user
-                    if (error.name !== 'AbortError') {
-                        this.showToast(`Error creating page: ${error.message}`, 'error');
+                    // Handle aborted requests - close dialog without error
+                    if (error.name === 'AbortError') {
+                        cleanup();
+                        dialog.close();
+                        resolve(null);
+                        return;
                     }
-                    cleanup();
-                    dialog.close();
-                    resolve(null);
+
+                    // For real errors, show toast but keep dialog open
+                    // so user can retry without re-entering their selections.
+                    // The promise will resolve when:
+                    // - User clicks Submit again and succeeds
+                    // - User clicks Cancel button
+                    // - User presses Esc key
+                    this.showToast(`Error creating page: ${error.message}`, 'error');
+                    // Note: Promise intentionally not resolved here - waiting for user action
                 }
             };
 
