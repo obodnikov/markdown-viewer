@@ -128,6 +128,120 @@
     padding: var(--space-3);
 }
 
+/* BookStack Browser */
+.bookstack-browser {
+    min-height: 300px;
+}
+
+.bookstack-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+}
+
+.bookstack-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-2);
+    border-radius: var(--radius-sm);
+    background-color: var(--color-surface-variant);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.bookstack-item:hover {
+    background-color: var(--color-secondary-container);
+    transform: translateX(4px);
+}
+
+.bookstack-item__icon {
+    font-size: 24px;
+    flex-shrink: 0;
+}
+
+.bookstack-item__content {
+    flex: 1;
+    min-width: 0;
+}
+
+.bookstack-item__name {
+    font-weight: var(--font-weight-medium);
+    color: var(--color-on-surface);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.bookstack-item__meta {
+    font-size: var(--font-size-sm);
+    color: var(--color-on-surface-variant);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.bookstack-item__arrow {
+    font-size: 20px;
+    color: var(--color-on-surface-variant);
+    flex-shrink: 0;
+}
+
+.bookstack-section-title {
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-on-surface);
+    margin-top: var(--space-3);
+    margin-bottom: var(--space-1);
+    padding: var(--space-1) 0;
+    border-bottom: 1px solid var(--color-outline-variant);
+}
+
+.bookstack-breadcrumbs {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+    margin-bottom: var(--space-2);
+    padding: var(--space-2);
+    background-color: var(--color-surface-variant);
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-sm);
+}
+
+.bookstack-breadcrumb {
+    color: var(--color-primary);
+    cursor: pointer;
+    transition: color var(--transition-fast);
+}
+
+.bookstack-breadcrumb:hover:not(.bookstack-breadcrumb--active) {
+    color: var(--color-on-primary-container);
+    text-decoration: underline;
+}
+
+.bookstack-breadcrumb--active {
+    color: var(--color-on-surface);
+    cursor: default;
+    font-weight: var(--font-weight-semibold);
+}
+
+.bookstack-breadcrumb-separator {
+    color: var(--color-on-surface-variant);
+    margin: 0 var(--space-1);
+}
+
+.loading {
+    text-align: center;
+    padding: var(--space-4);
+    color: var(--color-on-surface-variant);
+}
+
+.empty-state {
+    text-align: center;
+    padding: var(--space-4);
+    color: var(--color-on-surface-variant);
+    font-style: italic;
+}
+
 .bookstack-auth__header {
     display: flex;
     align-items: center;

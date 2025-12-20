@@ -313,8 +313,10 @@ export class BookStackUI {
                 action: () => this.renderBookContents(bookId)
             });
 
-            const directPages = book.pages?.filter(p => !p.chapter_id) || [];
-            const chapters = book.chapters || [];
+            // BookStack API returns a 'contents' array with mixed chapters and pages
+            const contents = book.contents || [];
+            const directPages = contents.filter(item => item.type === 'page');
+            const chapters = contents.filter(item => item.type === 'chapter');
 
             content.innerHTML = `
                 <div class="bookstack-browser">
@@ -328,6 +330,7 @@ export class BookStackUI {
                                     <div class="bookstack-item__content">
                                         <div class="bookstack-item__name">${this.escapeHtml(page.name)}</div>
                                     </div>
+                                    <span class="bookstack-item__arrow">→</span>
                                 </div>
                             `).join('')}
                         ` : ''}
@@ -458,17 +461,33 @@ export class BookStackUI {
     }
 
     renderBreadcrumbs() {
-        return `
+        const html = `
             <div class="bookstack-breadcrumbs">
                 ${this.breadcrumbs.map((crumb, index) => `
                     <span class="bookstack-breadcrumb ${index === this.breadcrumbs.length - 1 ? 'bookstack-breadcrumb--active' : ''}"
                           data-index="${index}">
                         ${this.escapeHtml(crumb.name)}
                     </span>
-                    ${index < this.breadcrumbs.length - 1 ? '<span class="bookstack-breadcrumb__separator">›</span>' : ''}
+                    ${index < this.breadcrumbs.length - 1 ? '<span class="bookstack-breadcrumb-separator">›</span>' : ''}
                 `).join('')}
             </div>
         `;
+
+        // Setup breadcrumb click handlers after rendering
+        setTimeout(() => {
+            document.querySelectorAll('.bookstack-breadcrumb').forEach((el) => {
+                el.addEventListener('click', () => {
+                    const index = parseInt(el.dataset.index);
+                    const crumb = this.breadcrumbs[index];
+                    if (crumb && index < this.breadcrumbs.length - 1) {
+                        this.breadcrumbs = this.breadcrumbs.slice(0, index + 1);
+                        crumb.action();
+                    }
+                });
+            });
+        }, 0);
+
+        return html;
     }
 
     // Helper method to show toast notifications (expects global showToast function)
