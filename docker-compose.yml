@@ -19,6 +19,8 @@ services:
       - GITHUB_CLIENT_SECRET=${GITHUB_CLIENT_SECRET}
       - GITHUB_REDIRECT_URI=${GITHUB_REDIRECT_URI:-http://localhost:5050/api/github/callback}
       - CORS_ORIGINS=http://localhost:8000,http://127.0.0.1:8000
+      - DISABLE_FILE_LOGGING=true
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
     volumes:
       - ./backend:/app/backend
       - ./public:/var/www/html

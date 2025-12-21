@@ -288,6 +288,9 @@ Check these:
 | `BACKEND_PORT` | `5000` | Port to bind to |
 | `DEBUG` | `False` | Enable debug mode |
 | `SECRET_KEY` | (random) | Flask session secret |
+| `LOG_LEVEL` | `INFO` | Logging level (DEBUG, INFO, WARNING, ERROR) |
+| `LOG_FORMAT` | `detailed` | Log format (`simple` or `detailed`) |
+| `DISABLE_FILE_LOGGING` | `False` | Disable file logging (use for Docker) |
 
 ### API Configuration
 
@@ -356,6 +359,143 @@ curl http://localhost:3000/api/health
 
 ---
 
+## Logging Configuration
+
+### Overview
+
+The application supports both console (stdout/stderr) and file-based logging. Configuration can be adjusted for different environments.
+
+### Logging Levels
+
+Set via `LOG_LEVEL` environment variable:
+- `DEBUG` - Detailed debugging information
+- `INFO` - General informational messages (default)
+- `WARNING` - Warning messages
+- `ERROR` - Error messages only
+
+### Log Formats
+
+Set via `LOG_FORMAT` environment variable:
+
+**Simple format:**
+```
+[2025-12-21 10:30:45] INFO - Application started
+```
+
+**Detailed format (default):**
+```
+[2025-12-21 10:30:45] INFO [app.create_app:106] - Application started
+```
+
+### File Logging Control
+
+By default, logs are written to both:
+- **Console (stdout/stderr)** - Always enabled
+- **File (`backend/logs/app.log`)** - Enabled by default, can be disabled
+
+### Docker Logging (Recommended)
+
+For Docker deployments, disable file logging to ensure logs appear in `docker logs`:
+
+**In `docker-compose.yml`:**
+```yaml
+environment:
+  - DISABLE_FILE_LOGGING=true
+  - LOG_LEVEL=INFO
+```
+
+**Why?** Docker best practices recommend logging to stdout/stderr so that:
+- Logs are visible via `docker logs <container>`
+- No disk I/O overhead for log files
+- Easier integration with log aggregation tools
+- Follows 12-factor app principles
+
+### Local Development Logging
+
+For local development, keep file logging enabled:
+
+**In `.env`:**
+```bash
+DISABLE_FILE_LOGGING=false  # or omit (defaults to false)
+LOG_LEVEL=DEBUG
+LOG_FORMAT=detailed
+```
+
+Logs will be written to:
+- Console: stdout/stderr
+- File: `backend/logs/app.log` (rotates at 10MB, keeps 5 backups)
+
+### Viewing Docker Logs
+
+```bash
+# Follow logs in real-time
+docker logs -f markdown-viewer
+
+# Last 100 lines
+docker logs --tail 100 markdown-viewer
+
+# Logs since 1 hour ago
+docker logs --since 1h markdown-viewer
+
+# Timestamps
+docker logs -t markdown-viewer
+```
+
+### Supervisor Output
+
+The `supervisord.conf` is configured to send all process output to stdout/stderr:
+
+```ini
+[program:flask]
+stdout_logfile=/dev/stdout
+stdout_logfile_maxbytes=0
+stderr_logfile=/dev/stderr
+stderr_logfile_maxbytes=0
+```
+
+This ensures Flask application logs flow through Docker's logging system.
+
+### Configuration Examples
+
+**Production Docker:**
+```bash
+LOG_LEVEL=INFO
+LOG_FORMAT=simple
+DISABLE_FILE_LOGGING=true
+```
+
+**Development Local:**
+```bash
+LOG_LEVEL=DEBUG
+LOG_FORMAT=detailed
+DISABLE_FILE_LOGGING=false
+```
+
+**Debugging Issues:**
+```bash
+LOG_LEVEL=DEBUG
+LOG_FORMAT=detailed
+DISABLE_FILE_LOGGING=false  # Keep files for analysis
+```
+
+### Troubleshooting
+
+**Logs not appearing in Docker:**
+1. Check `DISABLE_FILE_LOGGING=true` is set
+2. Verify `supervisord.conf` uses `/dev/stdout` and `/dev/stderr`
+3. Restart container: `docker-compose restart`
+
+**Too much log noise:**
+1. Set `LOG_LEVEL=WARNING` or `LOG_LEVEL=ERROR`
+2. Use `LOG_FORMAT=simple` for cleaner output
+
+**Need more details:**
+1. Set `LOG_LEVEL=DEBUG`
+2. Use `LOG_FORMAT=detailed`
+3. Check `backend/logs/app.log` (if file logging enabled)
+
+---
+
 ## Best Practices
 
 1. **Development:** Use default port 5000
@@ -363,6 +503,7 @@ curl http://localhost:3000/api/health
 3. **Security:** Use `127.0.0.1` for local-only access
 4. **Docker:** Keep internal port 5000, map external as needed
 5. **Documentation:** Always update CORS and callback URIs when changing ports
+6. **Logging:** Use `DISABLE_FILE_LOGGING=true` in Docker environments
 
 ---
 

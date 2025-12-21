@@ -78,6 +78,7 @@ class Config:
     # Logging
     LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO').upper()
     LOG_FORMAT = os.getenv('LOG_FORMAT', 'detailed')  # 'simple' or 'detailed'
+    DISABLE_FILE_LOGGING = os.getenv('DISABLE_FILE_LOGGING', 'False').lower() == 'true'
 
     @classmethod
     def validate(cls):

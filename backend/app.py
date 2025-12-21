@@ -60,25 +60,29 @@ def setup_logging(app, config_class):
     console_handler.setFormatter(formatter)
     root_logger.addHandler(console_handler)
 
-    # File handler (rotating log file) - optional
-    logs_dir = os.path.join(os.path.dirname(__file__), 'logs')
-    try:
-        # Create logs directory if it doesn't exist
-        if not os.path.exists(logs_dir):
-            os.makedirs(logs_dir)
+    # File handler (rotating log file) - optional, disabled in Docker
+    if not config_class.DISABLE_FILE_LOGGING:
+        logs_dir = os.path.join(os.path.dirname(__file__), 'logs')
+        try:
+            # Create logs directory if it doesn't exist
+            if not os.path.exists(logs_dir):
+                os.makedirs(logs_dir)
 
-        # Always create file handler (not just on first run)
-        file_handler = RotatingFileHandler(
-            os.path.join(logs_dir, 'app.log'),
-            maxBytes=10485760,  # 10MB
-            backupCount=5
-        )
-        file_handler.setLevel(log_level)
-        file_handler.setFormatter(formatter)
-        root_logger.addHandler(file_handler)
-    except (OSError, PermissionError) as e:
-        # If we can't create logs directory (e.g., in Docker), just log to console
-        app.logger.warning(f"Could not create log file: {e}. Logging to console only.")
+            # Always create file handler (not just on first run)
+            file_handler = RotatingFileHandler(
+                os.path.join(logs_dir, 'app.log'),
+                maxBytes=10485760,  # 10MB
+                backupCount=5
+            )
+            file_handler.setLevel(log_level)
+            file_handler.setFormatter(formatter)
+            root_logger.addHandler(file_handler)
+            app.logger.info("File logging enabled: logs/app.log")
+        except (OSError, PermissionError) as e:
+            # If we can't create logs directory, just log to console
+            app.logger.warning(f"Could not create log file: {e}. Logging to console only.")
+    else:
+        app.logger.info("File logging disabled (DISABLE_FILE_LOGGING=true)")
 
     # Set Flask app logger
     app.logger.setLevel(log_level)
