@@ -61,6 +61,12 @@ def authenticate():
     logger.info("BookStack authentication attempt started")
     try:
         data = request.get_json()
+
+        # Validate JSON body exists
+        if data is None:
+            logger.warning("Authentication failed: Invalid or missing JSON body")
+            return jsonify({'error': 'Invalid or missing JSON body'}), 400
+
         token_id = data.get('token_id')
         token_secret = data.get('token_secret')
 
