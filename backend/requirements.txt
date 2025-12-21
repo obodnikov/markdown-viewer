@@ -17,8 +17,11 @@ pypandoc==1.12
 # Requests for OAuth and BookStack API
 requests==2.31.0
 
-# HTML to Markdown conversion (for BookStack)
+# HTML to Markdown conversion (for BookStack and Chat imports)
 html2text==2024.2.26
+
+# HTML parsing (for Chat imports)
+beautifulsoup4==4.12.3
 
 # Production server
 gunicorn==21.2.0
