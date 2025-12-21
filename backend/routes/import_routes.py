@@ -5,7 +5,11 @@ API endpoints for importing content from external sources (ChatGPT, Claude, Perp
 """
 
 from flask import Blueprint, request, jsonify
-from services.chat_import_service import ChatImportService
+
+try:
+    from backend.services.chat_import_service import ChatImportService
+except ImportError:
+    from services.chat_import_service import ChatImportService
 
 import_bp = Blueprint('import', __name__, url_prefix='/api/import')
 
