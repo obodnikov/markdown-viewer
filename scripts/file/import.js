@@ -81,8 +81,9 @@ export class ImportManager {
 
         url = url.trim();
 
-        if (!url.startsWith('http://') && !url.startsWith('https://')) {
-            return { isValid: false, error: 'URL must start with http:// or https://' };
+        // Require HTTPS for security (share links should always be HTTPS)
+        if (!url.startsWith('https://')) {
+            return { isValid: false, error: 'URL must use HTTPS for security. HTTP is not allowed.' };
         }
 
         // Detect platform

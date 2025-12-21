@@ -188,11 +188,12 @@ class ChatImportService:
             Dictionary with conversation data
         """
         try:
-            # Fetch the page
+            # Fetch the page (disable redirects to prevent SSRF bypass)
             response = requests.get(
                 url,
                 headers={'User-Agent': self.USER_AGENT},
-                timeout=self.REQUEST_TIMEOUT
+                timeout=self.REQUEST_TIMEOUT,
+                allow_redirects=False  # Prevent redirect-based SSRF attacks
             )
             response.raise_for_status()
 

@@ -49,10 +49,10 @@ class TestChatImportService:
 
     def test_validate_url_ip_address(self):
         """Test URL validation rejects IP addresses"""
-        url = 'http://192.168.1.1/test'
+        url = 'https://192.168.1.1/test'  # Use HTTPS to test IP blocking specifically
         result = self.service._validate_url(url)
         assert result['valid'] is False
-        assert 'not allowed' in result['error'].lower()
+        assert 'not allowed' in result['error'].lower() or 'ip address' in result['error'].lower()
 
     def test_validate_url_invalid_scheme(self):
         """Test URL validation rejects invalid schemes"""
@@ -180,6 +180,31 @@ class TestChatImportService:
 
         assert result['success'] is False
         assert 'timeout' in result['error'].lower() or 'split' in result['error'].lower()
+
+    @patch('services.chat_import_service.requests.get')
+    def test_import_chatgpt_prevents_redirects(self, mock_get):
+        """Test ChatGPT import prevents redirect-based SSRF attacks"""
+        # Mock a successful response
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.text = '''
+        <html>
+            <head><title>Test</title></head>
+            <body>
+                <div class="message user">Test message</div>
+            </body>
+        </html>
+        '''
+        mock_get.return_value = mock_response
+
+        url = 'https://chatgpt.com/share/abc123'
+        self.service.import_chat(url)
+
+        # Verify requests.get was called with allow_redirects=False
+        mock_get.assert_called_once()
+        call_kwargs = mock_get.call_args[1]
+        assert 'allow_redirects' in call_kwargs
+        assert call_kwargs['allow_redirects'] is False
 
     def test_extract_message_content_filters_ui_elements(self):
         """Test that UI elements are filtered from content"""
