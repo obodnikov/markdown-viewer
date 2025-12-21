@@ -62,6 +62,10 @@ class Config:
     GITHUB_CLIENT_SECRET = os.getenv('GITHUB_CLIENT_SECRET')
     GITHUB_REDIRECT_URI = os.getenv('GITHUB_REDIRECT_URI', 'http://localhost:5000/api/github/callback')
 
+    # BookStack Integration
+    BOOKSTACK_URL = os.getenv('BOOKSTACK_URL', '')
+    BOOKSTACK_API_TIMEOUT = int(os.getenv('BOOKSTACK_API_TIMEOUT', '30'))
+
     # CORS
     CORS_ORIGINS = os.getenv('CORS_ORIGINS', 'http://localhost:8000,http://127.0.0.1:8000').split(',')
 
@@ -70,6 +74,10 @@ class Config:
 
     # Export settings
     PANDOC_PATH = os.getenv('PANDOC_PATH', 'pandoc')
+
+    # Logging
+    LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO').upper()
+    LOG_FORMAT = os.getenv('LOG_FORMAT', 'detailed')  # 'simple' or 'detailed'
 
     @classmethod
     def validate(cls):
