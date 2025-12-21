@@ -1,0 +1,128 @@
+{
+  "openrouter": {
+    "translate": {
+      "choices": [{
+        "message": {
+          "content": "# Documento de Prueba\n\nEste es un documento de **prueba**."
+        }
+      }]
+    },
+    "summarize": {
+      "choices": [{
+        "message": {
+          "content": "This document is a test file containing various markdown elements."
+        }
+      }]
+    },
+    "change_tone": {
+      "choices": [{
+        "message": {
+          "content": "# Yo, Check Out This Test Doc\n\nThis is like, totally a **test** document, dude."
+        }
+      }]
+    },
+    "regex_generate": {
+      "choices": [{
+        "message": {
+          "content": "{\"pattern\": \"\\\\d{3}-\\\\d{2}-\\\\d{4}\", \"explanation\": \"Matches SSN format\"}"
+        }
+      }]
+    }
+  },
+  "github": {
+    "user": {
+      "login": "testuser",
+      "id": 12345,
+      "name": "Test User",
+      "email": "test@example.com",
+      "avatar_url": "https://avatars.githubusercontent.com/u/12345"
+    },
+    "repos": [
+      {
+        "id": 1,
+        "name": "test-repo-1",
+        "full_name": "testuser/test-repo-1",
+        "description": "First test repository",
+        "private": false
+      },
+      {
+        "id": 2,
+        "name": "test-repo-2",
+        "full_name": "testuser/test-repo-2",
+        "description": "Second test repository",
+        "private": false
+      }
+    ],
+    "files": [
+      {
+        "name": "README.md",
+        "path": "README.md",
+        "type": "file",
+        "size": 1234
+      },
+      {
+        "name": "docs",
+        "path": "docs",
+        "type": "dir"
+      }
+    ],
+    "file_content": {
+      "content": "IyBUZXN0IERvY3VtZW50CgpUaGlzIGlzIGEgdGVzdCBmaWxlLg==",
+      "encoding": "base64",
+      "sha": "abc123def456"
+    }
+  },
+  "bookstack": {
+    "shelves": {
+      "data": [
+        {
+          "id": 1,
+          "name": "Development",
+          "slug": "development",
+          "description": "Development documentation"
+        },
+        {
+          "id": 2,
+          "name": "Testing",
+          "slug": "testing",
+          "description": "Testing documentation"
+        }
+      ],
+      "total": 2
+    },
+    "books": {
+      "data": [
+        {
+          "id": 1,
+          "name": "API Documentation",
+          "slug": "api-documentation",
+          "description": "API reference"
+        }
+      ],
+      "total": 1
+    },
+    "pages": {
+      "data": [
+        {
+          "id": 1,
+          "name": "Getting Started",
+          "slug": "getting-started",
+          "book_id": 1,
+          "chapter_id": null
+        }
+      ],
+      "total": 1
+    },
+    "page": {
+      "id": 1,
+      "name": "Getting Started",
+      "slug": "getting-started",
+      "html": "<h1>Getting Started</h1><p>Welcome to our documentation.</p>",
+      "markdown": "# Getting Started\n\nWelcome to our documentation.",
+      "book_id": 1,
+      "chapter_id": null,
+      "created_at": "2024-01-01 00:00:00",
+      "updated_at": "2024-01-01 00:00:00"
+    }
+  }
+}

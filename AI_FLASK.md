@@ -11,9 +11,23 @@
 - Separate **business logic from routes** (e.g., `services/`).
 - Limit files to ~800 lines.
 
-## Testing
-- Use `pytest` or Django/Flask/FastAPI test client.
-- Add at least **smoke tests** for routes.
+## Testing (MANDATORY)
+- **REQUIRED**: Write tests for all new features and bug fixes BEFORE marking work as complete.
+- Use `pytest` with Flask test client for backend testing.
+- **Test coverage requirement**: Aim for 80%+ coverage on services and routes.
+- **Test structure**:
+  - `backend/tests/unit/` - Unit tests for all services (business logic)
+  - `backend/tests/integration/` - Integration tests for all routes (API endpoints)
+  - `backend/tests/fixtures/` - Test data and mock responses
+  - Mock external APIs (OpenRouter, GitHub, BookStack, pandoc, etc.)
+- **Test-Driven Development (TDD) strongly encouraged**: Write tests before or alongside implementation.
+- **CI/CD**: All tests must pass before deployment.
+- Add at least **smoke tests** for all routes.
+- **When implementing features**:
+  1. Write tests for the feature
+  2. Implement the feature
+  3. Verify all tests pass
+  4. Check coverage reports
 
 ## Error Handling
 - Centralize HTTP error handlers (e.g., `404`, `500`).
