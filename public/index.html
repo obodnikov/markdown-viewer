@@ -53,6 +53,11 @@
                     <span class="icon">&#8595;</span>
                     <span class="label">Export</span>
                 </button>
+
+                <button class="toolbar__button" id="btn-import" title="Import">
+                    <span class="icon">&#8593;</span>
+                    <span class="label">Import</span>
+                </button>
             </div>
 
             <div class="toolbar__section toolbar__section--center">
@@ -284,6 +289,40 @@
                 <button class="export-option" data-format="docx">
                     <span class="export-option__icon">&#128196;</span>
                     <span class="export-option__label">Word (.docx)</span>
+                </button>
+            </div>
+        </div>
+    </dialog>
+
+    <!-- Import Dialog -->
+    <dialog class="dialog" id="import-dialog">
+        <div class="dialog__header">
+            <h2 class="dialog__title">Import Conversation</h2>
+            <button class="dialog__close" id="close-import-dialog">×</button>
+        </div>
+
+        <div class="dialog__content">
+            <p class="dialog__description">
+                Import a ChatGPT conversation from a share link. The conversation will be loaded as a new document.
+            </p>
+
+            <div class="form-group">
+                <label for="import-url-input" class="form-label">ChatGPT Share URL</label>
+                <input
+                    type="url"
+                    id="import-url-input"
+                    class="form-input"
+                    placeholder="https://chatgpt.com/share/..."
+                    required
+                >
+            </div>
+
+            <div id="import-error-message" class="error-message" style="display: none;"></div>
+            <div id="import-progress" class="progress-message" style="display: none;"></div>
+
+            <div class="dialog__actions">
+                <button id="import-execute-btn" class="button button--primary">
+                    Import Conversation
                 </button>
             </div>
         </div>

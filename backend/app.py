@@ -16,12 +16,14 @@ try:
     from backend.routes.github import github_bp
     from backend.routes.export import export_bp
     from backend.routes.bookstack import bookstack_bp
+    from backend.routes.import_routes import import_bp
 except ImportError:
     from config import Config
     from routes.llm import llm_bp
     from routes.github import github_bp
     from routes.export import export_bp
     from routes.bookstack import bookstack_bp
+    from routes.import_routes import import_bp
 
 
 def setup_logging(app, config_class):
@@ -122,6 +124,7 @@ def create_app(config_class=Config):
     app.register_blueprint(github_bp)
     app.register_blueprint(export_bp)
     app.register_blueprint(bookstack_bp)
+    app.register_blueprint(import_bp)
     app.logger.info("All blueprints registered successfully")
 
     # Health check endpoint

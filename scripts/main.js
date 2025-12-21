@@ -9,6 +9,7 @@ import { FileManager } from './file/local.js';
 import { GitHubUI } from './file/github.js';
 import { BookStackUI } from './file/bookstack.js';
 import { ExportManager } from './file/export.js';
+import { ImportManager } from './file/import.js';
 import { StorageManager } from './utils/storage.js';
 import { EditableTitle } from './ui/editable-title.js';
 import { tokenizer } from './utils/tokenizer.js';
@@ -24,6 +25,7 @@ class MarkdownViewerApp {
         this.githubUI = null;
         this.bookstackUI = null;
         this.exportManager = null;
+        this.importManager = null;
         this.storage = null;
         this.editableTitle = null;
         this.scrollSync = null;
@@ -46,6 +48,7 @@ class MarkdownViewerApp {
         this.storage = new StorageManager();
         this.fileManager = new FileManager();
         this.exportManager = new ExportManager();
+        this.importManager = new ImportManager();
 
         // Initialize editable title
         this.editableTitle = new EditableTitle(
@@ -75,6 +78,10 @@ class MarkdownViewerApp {
             this.loadDocumentFromBookStack.bind(this)
         );
 
+        // Initialize Import Manager
+        this.importManager.onImportComplete = this.loadImportedContent.bind(this);
+        this.importManager.init();
+
         // Initialize scroll synchronization
         // Note: preview-pane is the scrollable container, not preview element
         this.scrollSync = new ScrollSync(
@@ -103,6 +110,7 @@ class MarkdownViewerApp {
         document.getElementById('btn-open').addEventListener('click', () => this.openFile());
         document.getElementById('btn-save').addEventListener('click', () => this.saveFile());
         document.getElementById('btn-export').addEventListener('click', () => this.showExportDialog());
+        document.getElementById('btn-import').addEventListener('click', () => this.showImportDialog());
         document.getElementById('btn-github').addEventListener('click', () => this.showGitHubDialog());
         document.getElementById('btn-bookstack').addEventListener('click', () => this.showBookStackDialog());
         document.getElementById('btn-toggle-sidebar').addEventListener('click', () => this.toggleSidebar());
@@ -478,6 +486,33 @@ class MarkdownViewerApp {
         } catch (error) {
             this.showToast(`Export failed: ${error.message}`, 'error');
         }
+    }
+
+    showImportDialog() {
+        this.importManager.showDialog();
+    }
+
+    loadImportedContent(content, metadata) {
+        // Load imported content as a new document
+        this.currentDocument = {
+            title: metadata.title || 'Imported Conversation',
+            content: content,
+            filepath: null,
+            modified: true,
+            source: null,
+            sourceInfo: null
+        };
+
+        // Update UI
+        this.editableTitle.setTitle(this.currentDocument.title);
+        this.editor.setContent(content);
+        this.updatePreview();
+        this.updateStatus();
+        this.updateSourceIndicator();
+
+        // Show success message
+        const messageCount = metadata.message_count || 0;
+        this.showToast(`Imported ${messageCount} messages from ${metadata.platform}`, 'success');
     }
 
     showGitHubDialog() {
