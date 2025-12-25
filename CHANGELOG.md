@@ -14,11 +14,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Better handling of BookStack versions < v21.05 (graceful degradation)
   - Improved logging for tracking which method (export vs fallback) was used
   - Enhanced compatibility with different BookStack versions and configurations
+  - Refactored to use shared `_request_raw()` helper for consistent request structure (URL building, headers, timeout, error handling)
+
+### Added
+- **Comprehensive Test Suite**
+  - Added 17 unit tests for BookStack export functionality ([test_bookstack_export.py](backend/tests/unit/test_bookstack_export.py))
+  - Tests cover success paths, all fallback scenarios (404, 403, timeout, empty), and edge cases
+  - 99% code coverage for new export logic
+  - Regression protection for future refactoring
 
 ### Documentation
 - Added comprehensive [BOOKSTACK_API_INTEGRATION.md](docs/BOOKSTACK_API_INTEGRATION.md) documentation
 - Updated README.md with details about native markdown export
 - Updated implementation plan with dual-strategy approach
+- Added [CODE_REVIEW_RESPONSE_2025-12-25.md](docs/CODE_REVIEW_RESPONSE_2025-12-25.md) documenting code review fixes
 
 ## [1.4.0] - 2025-12-20
 
