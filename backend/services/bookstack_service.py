@@ -199,21 +199,104 @@ class BookStackService:
         """
         Get page content and metadata.
 
+        Strategy:
+        1. Get page metadata (for id, name, updated_at, etc.)
+        2. Try to get markdown using export endpoint (recommended)
+        3. Fallback to HTML→Markdown conversion if export fails
+
         Args:
             page_id: Page ID
 
         Returns:
             Page dictionary with content (markdown or HTML)
         """
+        # First, get page metadata (needed for all fields like id, name, updated_at, etc.)
         page = self._request('GET', f'/api/pages/{page_id}')
 
-        # Convert HTML to markdown if needed
+        # Try the recommended export/markdown endpoint first
+        try:
+            logger.debug(f"Attempting to fetch page using export/markdown endpoint | page_id={page_id}")
+
+            markdown_content = self._export_markdown(page_id)
+
+            if markdown_content and len(markdown_content.strip()) > 0:
+                page['markdown'] = markdown_content
+                logger.info(f"Successfully retrieved page via export/markdown endpoint | page_id={page_id} markdown_length={len(markdown_content)}")
+                return page
+            else:
+                logger.warning(f"Export endpoint returned empty content | page_id={page_id}")
+
+        except requests.exceptions.HTTPError as e:
+            # Export endpoint might not be available or permission denied
+            if e.response.status_code == 404:
+                logger.info(f"Export endpoint not available (404) | page_id={page_id} - falling back to HTML conversion")
+            elif e.response.status_code == 403:
+                logger.warning(f"Export endpoint forbidden (403) | page_id={page_id} - falling back to HTML conversion")
+            else:
+                logger.warning(f"Export endpoint failed with status {e.response.status_code} | page_id={page_id} - falling back to HTML conversion")
+        except Exception as e:
+            logger.warning(f"Export endpoint failed | page_id={page_id} error={str(e)} - falling back to HTML conversion")
+
+        # Fallback: Convert HTML to markdown if needed
         if page.get('html') and not page.get('markdown'):
-            logger.info(f"Converting HTML to Markdown | page_id={page_id} html_length={len(page.get('html', ''))}")
+            logger.info(f"Converting HTML to Markdown (fallback method) | page_id={page_id} html_length={len(page.get('html', ''))}")
             page['markdown'] = self.html_to_markdown(page['html'])
             logger.debug(f"HTML conversion complete | page_id={page_id} markdown_length={len(page.get('markdown', ''))}")
 
         return page
+
+    def _export_markdown(self, page_id: int) -> str:
+        """
+        Export page as markdown using BookStack's export endpoint.
+
+        The /export/markdown endpoint returns plain text (not JSON),
+        so we need special handling.
+
+        Args:
+            page_id: Page ID
+
+        Returns:
+            Markdown content as string
+
+        Raises:
+            requests.exceptions.HTTPError: On HTTP error
+            requests.exceptions.RequestException: On request error
+        """
+        url = f'{self.base_url}/api/pages/{page_id}/export/markdown'
+        headers = self._get_headers()
+
+        start_time = time.time()
+        logger.debug(f"BookStack export API request | page_id={page_id} endpoint=/api/pages/{page_id}/export/markdown")
+
+        try:
+            response = requests.get(
+                url=url,
+                headers=headers,
+                timeout=self.timeout
+            )
+            elapsed = time.time() - start_time
+
+            response.raise_for_status()
+
+            # Export endpoint returns plain text, not JSON
+            markdown_content = response.text
+
+            logger.debug(f"BookStack export API response | page_id={page_id} status_code={response.status_code} elapsed={elapsed:.2f}s content_length={len(markdown_content)}")
+
+            return markdown_content
+
+        except requests.exceptions.Timeout as e:
+            elapsed = time.time() - start_time
+            logger.error(f"BookStack export API timeout | page_id={page_id} timeout={self.timeout}s elapsed={elapsed:.2f}s")
+            raise
+        except requests.exceptions.HTTPError as e:
+            elapsed = time.time() - start_time
+            logger.error(f"BookStack export API HTTP error | page_id={page_id} status_code={e.response.status_code} elapsed={elapsed:.2f}s")
+            raise
+        except requests.exceptions.RequestException as e:
+            elapsed = time.time() - start_time
+            logger.error(f"BookStack export API request error | page_id={page_id} elapsed={elapsed:.2f}s error={str(e)}")
+            raise
 
     def create_page(self, book_id: int, name: str, markdown: str,
                    chapter_id: Optional[int] = None,
