@@ -571,7 +571,10 @@ class BookStackService:
 
     def get_page(self, page_id):
         """Get page content with metadata"""
-        # GET /api/pages/{id}
+        # Strategy:
+        # 1. GET /api/pages/{id} - Get metadata
+        # 2. Try GET /api/pages/{id}/export/markdown - Native export (RECOMMENDED)
+        # 3. Fallback to HTML→Markdown conversion if export unavailable
         # Returns: {"id": 1, "name": "...", "markdown": "...", "html": "...", "updated_at": "..."}
 
     def create_page(self, book_id, name, markdown, chapter_id=None, tags=[]):

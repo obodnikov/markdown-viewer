@@ -107,10 +107,12 @@ Complete reference for all documentation in the Markdown Viewer project.
 #### Services
 - **[backend/services/openrouter.py](backend/services/openrouter.py)** - OpenRouter LLM integration
 - **[backend/services/github_service.py](backend/services/github_service.py)** - GitHub API integration
+- **[backend/services/bookstack_service.py](backend/services/bookstack_service.py)** - BookStack API integration
 
 #### Routes
 - **[backend/routes/llm.py](backend/routes/llm.py)** - LLM transformation endpoints
 - **[backend/routes/github.py](backend/routes/github.py)** - GitHub integration endpoints
+- **[backend/routes/bookstack.py](backend/routes/bookstack.py)** - BookStack integration endpoints
 - **[backend/routes/export.py](backend/routes/export.py)** - Export endpoints (PDF, DOCX, HTML)
 
 ### Frontend
@@ -140,6 +142,7 @@ Complete reference for all documentation in the Markdown Viewer project.
 #### File Operations
 - **[scripts/file/local.js](scripts/file/local.js)** - Local file operations
 - **[scripts/file/github.js](scripts/file/github.js)** - GitHub file operations
+- **[scripts/file/bookstack.js](scripts/file/bookstack.js)** - BookStack file operations
 - **[scripts/file/export.js](scripts/file/export.js)** - Export functionality
 
 ---
@@ -202,6 +205,28 @@ scripts/config.js BACKEND_URL
 
 ---
 
+## Integration Guides
+
+### BookStack Integration
+
+- **[docs/BOOKSTACK_API_INTEGRATION.md](docs/BOOKSTACK_API_INTEGRATION.md)** - 📚 **Complete BookStack API integration guide**
+  - API endpoints used (export/markdown + fallback)
+  - Bidirectional sync flow (read/write)
+  - Authentication and credential management
+  - Conflict detection strategy
+  - Error handling and fallback mechanisms
+  - BookStack version compatibility
+  - Configuration and setup
+  - Troubleshooting guide
+
+### GitHub Integration
+
+- **[backend/routes/github.py](backend/routes/github.py)** - GitHub OAuth and API routes
+- **[backend/services/github_service.py](backend/services/github_service.py)** - GitHub API wrapper
+- **[scripts/file/github.js](scripts/file/github.js)** - GitHub UI and file browser
+
+---
+
 ## Quick Reference by Task
 
 ### "I want to configure the backend port"
@@ -230,6 +255,12 @@ scripts/config.js BACKEND_URL
 
 ### "How do I start the application?"
 → [QUICKSTART.md](QUICKSTART.md)
+
+### "I want to integrate with BookStack wiki"
+→ [docs/BOOKSTACK_API_INTEGRATION.md](docs/BOOKSTACK_API_INTEGRATION.md)
+
+### "BookStack pages loading incorrectly"
+→ [docs/BOOKSTACK_API_INTEGRATION.md](docs/BOOKSTACK_API_INTEGRATION.md) (Error Handling section)
 
 ---
 
@@ -303,28 +334,40 @@ markdown-viewer/
 
 ### Latest Features
 
-1. **Synchronized Scrolling** (v1.3.0 - Latest)
+1. **BookStack Native Markdown Export** (v1.4.1 - Latest)
+   - Uses BookStack's `/api/pages/{id}/export/markdown` endpoint
+   - Smart fallback to HTML→Markdown conversion
+   - Better compatibility with BookStack versions
+   - [docs/BOOKSTACK_API_INTEGRATION.md](docs/BOOKSTACK_API_INTEGRATION.md)
+
+2. **BookStack Wiki Integration** (v1.4.0)
+   - Full bidirectional sync with BookStack
+   - Hierarchical navigation (shelves/books/chapters/pages)
+   - Smart save with conflict detection
+   - Session-based authentication
+
+3. **Synchronized Scrolling** (v1.3.0)
    - Proportional bidirectional scroll sync in split view mode
    - Automatically enables/disables based on view mode
    - Supports both CodeMirror and textarea editor
    - Fixed: Now correctly syncs with preview-pane scroll container
 
-2. **Configurable LLM Models**
+4. **Configurable LLM Models**
    - Models now configured in .env file
    - Frontend auto-loads from backend API
    - [IMPLEMENTATION_COMPLETE.md](IMPLEMENTATION_COMPLETE.md)
 
-3. **Translation Truncation Fixed**
+5. **Translation Truncation Fixed**
    - Enhanced prompts to prevent meta-commentary
    - Added temperature=0.3 for focused output
    - [TRANSLATION_DEEP_ANALYSIS.md](TRANSLATION_DEEP_ANALYSIS.md)
 
-4. **Port Configuration**
+6. **Port Configuration**
    - Backend port configurable via .env or CLI
    - Frontend config.js for backend URL
    - [PORT_CONFIGURATION.md](PORT_CONFIGURATION.md)
 
-5. **CORS Issues Resolved**
+7. **CORS Issues Resolved**
    - Enhanced CORS configuration with preflight support
    - [FIXES_PORT_AND_CORS.md](FIXES_PORT_AND_CORS.md)
 
@@ -371,8 +414,8 @@ See [README.md](README.md) for license information.
 
 ---
 
-**Last Updated:** 2025-12-12
+**Last Updated:** 2025-12-25
 
-**Version:** 1.3.0
+**Version:** 1.4.1
 
 **Documentation Status:** ✅ Complete and current

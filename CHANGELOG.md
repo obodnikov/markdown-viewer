@@ -5,6 +5,21 @@ All notable changes to the Markdown Viewer & Editor project will be documented i
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.1] - 2025-12-25
+
+### Changed
+- **BookStack Integration Improvements**
+  - Now uses BookStack's native `/api/pages/{id}/export/markdown` endpoint for optimal markdown extraction
+  - Smart fallback to HTML→Markdown conversion if export endpoint unavailable (404/403)
+  - Better handling of BookStack versions < v21.05 (graceful degradation)
+  - Improved logging for tracking which method (export vs fallback) was used
+  - Enhanced compatibility with different BookStack versions and configurations
+
+### Documentation
+- Added comprehensive [BOOKSTACK_API_INTEGRATION.md](docs/BOOKSTACK_API_INTEGRATION.md) documentation
+- Updated README.md with details about native markdown export
+- Updated implementation plan with dual-strategy approach
+
 ## [1.4.0] - 2025-12-20
 
 ### Added

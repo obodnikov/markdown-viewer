@@ -51,11 +51,13 @@ A modern, feature-rich markdown editor with GitHub Flavored Markdown support, LL
 - **GitHub Integration** - OAuth authentication to open/save files from repositories
 - **BookStack Integration** - Load/save pages from BookStack wiki with smart save and conflict detection
   - Browse hierarchical structure: shelves, books, chapters, and pages
-  - HTML to Markdown conversion for existing pages
+  - **Native Markdown Export** - Uses BookStack's `/api/pages/{id}/export/markdown` endpoint for accurate conversion
+  - Smart fallback to HTML→Markdown conversion if export endpoint unavailable
   - **Smart Save** - Save button automatically saves back to the source (BookStack, GitHub, or local)
   - Conflict detection with overwrite option when pages are modified remotely
   - Session-based authentication (24-hour expiry)
   - Create new pages or update existing ones
+  - Bidirectional sync: Read from BookStack, edit locally, write back with `PUT /api/pages/{id}`
 - **Drag & Drop** - Drop markdown files to open
 - **Multiple Export Formats** with full Unicode support:
   - Markdown (.md)
