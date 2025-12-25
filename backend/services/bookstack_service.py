@@ -262,40 +262,68 @@ class BookStackService:
             requests.exceptions.HTTPError: On HTTP error
             requests.exceptions.RequestException: On request error
         """
-        url = f'{self.base_url}/api/pages/{page_id}/export/markdown'
+        # Use shared _request_raw helper to maintain consistency
+        # with URL building, headers, timeout, and error handling
+        endpoint = f'/api/pages/{page_id}/export/markdown'
+        response_text = self._request_raw(endpoint)
+        return response_text
+
+    def _request_raw(self, endpoint: str, **kwargs) -> str:
+        """
+        Make HTTP request to BookStack API and return raw text response.
+
+        Similar to _request() but returns plain text instead of parsing JSON.
+        Maintains identical structure with URL building, headers, timeout,
+        error handling, and logging. Any future enhancements to _request()
+        (SSL verification, proxies, retries) should be mirrored here.
+
+        Args:
+            endpoint: API endpoint (e.g., '/api/pages/123/export/markdown')
+            **kwargs: Additional arguments for requests
+
+        Returns:
+            Raw text response
+
+        Raises:
+            requests.exceptions.HTTPError: On HTTP error
+            requests.exceptions.RequestException: On request error
+        """
+        url = f'{self.base_url}{endpoint}'
         headers = self._get_headers()
 
         start_time = time.time()
-        logger.debug(f"BookStack export API request | page_id={page_id} endpoint=/api/pages/{page_id}/export/markdown")
+        logger.debug(f"BookStack API request (raw) | endpoint={endpoint}")
 
         try:
-            response = requests.get(
+            response = requests.request(
+                method='GET',
                 url=url,
                 headers=headers,
-                timeout=self.timeout
+                timeout=self.timeout,
+                **kwargs
             )
             elapsed = time.time() - start_time
 
             response.raise_for_status()
 
-            # Export endpoint returns plain text, not JSON
-            markdown_content = response.text
+            # Return raw text instead of JSON
+            content = response.text
 
-            logger.debug(f"BookStack export API response | page_id={page_id} status_code={response.status_code} elapsed={elapsed:.2f}s content_length={len(markdown_content)}")
+            logger.debug(f"BookStack API response (raw) | endpoint={endpoint} status_code={response.status_code} elapsed={elapsed:.2f}s content_length={len(content)}")
 
-            return markdown_content
+            return content
 
         except requests.exceptions.Timeout as e:
             elapsed = time.time() - start_time
-            logger.error(f"BookStack export API timeout | page_id={page_id} timeout={self.timeout}s elapsed={elapsed:.2f}s")
+            logger.error(f"BookStack API timeout (raw) | endpoint={endpoint} timeout={self.timeout}s elapsed={elapsed:.2f}s")
             raise
         except requests.exceptions.HTTPError as e:
             elapsed = time.time() - start_time
-            logger.error(f"BookStack export API HTTP error | page_id={page_id} status_code={e.response.status_code} elapsed={elapsed:.2f}s")
+            logger.error(f"BookStack API HTTP error (raw) | endpoint={endpoint} status_code={e.response.status_code} elapsed={elapsed:.2f}s")
             raise
         except requests.exceptions.RequestException as e:
             elapsed = time.time() - start_time
-            logger.error(f"BookStack export API request error | page_id={page_id} elapsed={elapsed:.2f}s error={str(e)}")
+            logger.error(f"BookStack API request error (raw) | endpoint={endpoint} elapsed={elapsed:.2f}s error={str(e)}")
             raise
 
     def create_page(self, book_id: int, name: str, markdown: str,
