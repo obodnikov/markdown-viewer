@@ -20,13 +20,13 @@ The initial implementation added dual-strategy `get_page()` logic with BookStack
 **Location:** `backend/services/bookstack_service.py`
 
 **Description:**
-The `_export_markdown()` method built a raw `requests.get()` call rather than reusing the shared `_request()` helper. This bypassed any centralized behavior like:
-- Custom SSL verification
-- Proxy settings
-- Retry logic
-- Custom session configuration
-- Consistent telemetry/logging
+The `_export_markdown()` method built a raw `requests.get()` call rather than reusing the shared `_request()` helper. This bypassed centralized behavior like:
+- URL building with base_url
+- Authorization header management
 - Timeout handling
+- Consistent telemetry/logging
+- Uniform error handling
+- Potential future enhancements
 
 **Impact:**
 - Inconsistent behavior across endpoints
@@ -46,15 +46,15 @@ def _export_markdown(self, page_id: int) -> str:
     """Export page as markdown using BookStack's export endpoint."""
     # Use shared _request_raw helper to maintain consistency
     endpoint = f'/api/pages/{page_id}/export/markdown'
-    response_text = self._request_raw(endpoint)
+    response_text = self._request_raw('GET', endpoint)
     return response_text
 
-def _request_raw(self, endpoint: str, **kwargs) -> str:
+def _request_raw(self, method: str, endpoint: str, **kwargs) -> str:
     """
     Make HTTP request to BookStack API and return raw text response.
 
     Similar to _request() but returns plain text instead of parsing JSON.
-    Maintains consistency with SSL, proxy, timeout, and logging settings.
+    Maintains consistency with URL building, headers, timeout, and error handling.
     """
     url = f'{self.base_url}{endpoint}'
     headers = self._get_headers()
@@ -75,8 +75,8 @@ def _request_raw(self, endpoint: str, **kwargs) -> str:
 
 ✅ **Consistent Configuration:**
 - Timeout settings apply to export calls
-- SSL verification settings apply uniformly
-- Proxy settings (if configured) work for exports
+- URL building with base_url is consistent
+- Authorization headers managed uniformly
 - Any future centralized configuration automatically applies
 
 ✅ **Shared Error Handling:**
@@ -91,9 +91,9 @@ def _request_raw(self, endpoint: str, **kwargs) -> str:
 - Easier to add features (e.g., retry logic)
 
 ✅ **Future-Proof:**
-- If retry logic is added to `_request()`, create similar for `_request_raw()`
-- If custom session is introduced, both methods use it
-- If telemetry is added, both paths get instrumented
+- If additional features are added to `_request()`, similar enhancements can be added to `_request_raw()`
+- Both methods share the same request structure
+- Easier to maintain and extend in the future
 
 **Files Modified:**
 - [backend/services/bookstack_service.py](../backend/services/bookstack_service.py) - Lines 248-325

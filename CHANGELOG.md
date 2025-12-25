@@ -14,7 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Better handling of BookStack versions < v21.05 (graceful degradation)
   - Improved logging for tracking which method (export vs fallback) was used
   - Enhanced compatibility with different BookStack versions and configurations
-  - Refactored to use shared `_request_raw()` helper for consistent behavior (SSL, proxy, timeout)
+  - Refactored to use shared `_request_raw()` helper for consistent request structure (URL building, headers, timeout, error handling)
 
 ### Added
 - **Comprehensive Test Suite**

@@ -265,19 +265,18 @@ class BookStackService:
         # Use shared _request_raw helper to maintain consistency
         # with URL building, headers, timeout, and error handling
         endpoint = f'/api/pages/{page_id}/export/markdown'
-        response_text = self._request_raw(endpoint)
+        response_text = self._request_raw('GET', endpoint)
         return response_text
 
-    def _request_raw(self, endpoint: str, **kwargs) -> str:
+    def _request_raw(self, method: str, endpoint: str, **kwargs) -> str:
         """
         Make HTTP request to BookStack API and return raw text response.
 
         Similar to _request() but returns plain text instead of parsing JSON.
-        Maintains identical structure with URL building, headers, timeout,
-        error handling, and logging. Any future enhancements to _request()
-        (SSL verification, proxies, retries) should be mirrored here.
+        Maintains identical structure and signature with _request() for consistency.
 
         Args:
+            method: HTTP method (GET, POST, PUT, DELETE)
             endpoint: API endpoint (e.g., '/api/pages/123/export/markdown')
             **kwargs: Additional arguments for requests
 
@@ -292,11 +291,11 @@ class BookStackService:
         headers = self._get_headers()
 
         start_time = time.time()
-        logger.debug(f"BookStack API request (raw) | endpoint={endpoint}")
+        logger.debug(f"BookStack API request (raw) | method={method} endpoint={endpoint}")
 
         try:
             response = requests.request(
-                method='GET',
+                method=method,
                 url=url,
                 headers=headers,
                 timeout=self.timeout,
@@ -309,21 +308,21 @@ class BookStackService:
             # Return raw text instead of JSON
             content = response.text
 
-            logger.debug(f"BookStack API response (raw) | endpoint={endpoint} status_code={response.status_code} elapsed={elapsed:.2f}s content_length={len(content)}")
+            logger.debug(f"BookStack API response (raw) | method={method} endpoint={endpoint} status_code={response.status_code} elapsed={elapsed:.2f}s content_length={len(content)}")
 
             return content
 
         except requests.exceptions.Timeout as e:
             elapsed = time.time() - start_time
-            logger.error(f"BookStack API timeout (raw) | endpoint={endpoint} timeout={self.timeout}s elapsed={elapsed:.2f}s")
+            logger.error(f"BookStack API timeout (raw) | method={method} endpoint={endpoint} timeout={self.timeout}s elapsed={elapsed:.2f}s")
             raise
         except requests.exceptions.HTTPError as e:
             elapsed = time.time() - start_time
-            logger.error(f"BookStack API HTTP error (raw) | endpoint={endpoint} status_code={e.response.status_code} elapsed={elapsed:.2f}s")
+            logger.error(f"BookStack API HTTP error (raw) | method={method} endpoint={endpoint} status_code={e.response.status_code} elapsed={elapsed:.2f}s")
             raise
         except requests.exceptions.RequestException as e:
             elapsed = time.time() - start_time
-            logger.error(f"BookStack API request error (raw) | endpoint={endpoint} elapsed={elapsed:.2f}s error={str(e)}")
+            logger.error(f"BookStack API request error (raw) | method={method} endpoint={endpoint} elapsed={elapsed:.2f}s error={str(e)}")
             raise
 
     def create_page(self, book_id: int, name: str, markdown: str,

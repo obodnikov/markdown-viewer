@@ -61,7 +61,7 @@ class TestBookStackExportEndpoint:
 
             # Verify both calls were made
             mock_request.assert_called_once_with('GET', '/api/pages/123')
-            mock_request_raw.assert_called_once_with('/api/pages/123/export/markdown')
+            mock_request_raw.assert_called_once_with('GET', '/api/pages/123/export/markdown')
 
     def test_export_markdown_returns_plain_text(self, service):
         """Test that _export_markdown returns plain text correctly."""
@@ -72,7 +72,7 @@ class TestBookStackExportEndpoint:
             result = service._export_markdown(123)
 
             assert result == expected_markdown
-            mock_request_raw.assert_called_once_with('/api/pages/123/export/markdown')
+            mock_request_raw.assert_called_once_with('GET', '/api/pages/123/export/markdown')
 
     # ===== FALLBACK SCENARIOS =====
 
@@ -285,7 +285,7 @@ class TestBookStackExportEndpoint:
             mock_response.raise_for_status = Mock()
             mock_requests.return_value = mock_response
 
-            result = service._request_raw('/api/test/endpoint')
+            result = service._request_raw('GET', '/api/test/endpoint')
 
             assert result == 'Plain text content'
             assert mock_requests.call_count == 1
@@ -296,7 +296,7 @@ class TestBookStackExportEndpoint:
             mock_requests.side_effect = requests.exceptions.Timeout()
 
             with pytest.raises(requests.exceptions.Timeout):
-                service._request_raw('/api/test/endpoint')
+                service._request_raw('GET', '/api/test/endpoint')
 
     def test_request_raw_http_error(self, service):
         """Test _request_raw raises HTTP error."""
@@ -309,7 +309,7 @@ class TestBookStackExportEndpoint:
             mock_requests.return_value = mock_response
 
             with pytest.raises(requests.exceptions.HTTPError):
-                service._request_raw('/api/test/endpoint')
+                service._request_raw('GET', '/api/test/endpoint')
 
     def test_request_raw_uses_timeout_setting(self, service):
         """Test that _request_raw respects timeout configuration."""
@@ -319,7 +319,7 @@ class TestBookStackExportEndpoint:
             mock_response.raise_for_status = Mock()
             mock_requests.return_value = mock_response
 
-            service._request_raw('/api/test')
+            service._request_raw('GET', '/api/test')
 
             # Verify timeout was passed
             call_kwargs = mock_requests.call_args[1]
@@ -333,7 +333,7 @@ class TestBookStackExportEndpoint:
             mock_response.raise_for_status = Mock()
             mock_requests.return_value = mock_response
 
-            service._request_raw('/api/test')
+            service._request_raw('GET', '/api/test')
 
             # Verify auth headers were included
             call_kwargs = mock_requests.call_args[1]
