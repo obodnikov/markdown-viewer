@@ -73,3 +73,6 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 package-lock.json
+
+# macOS thumbnails and Apple metadata (recursive)
+**/._*
