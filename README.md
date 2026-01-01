@@ -1,8 +1,24 @@
 # Markdown Viewer & Editor
 
-**Version 1.4.0**
+**Version 1.4.3**
 
 A modern, feature-rich markdown editor with GitHub Flavored Markdown support, LLM-powered transformations, GitHub integration, and BookStack wiki integration.
+
+## What's New in v1.4.1
+
+📚 **BookStack Export from Any Source**
+- Export locally-opened markdown files directly to BookStack
+- Export button now includes BookStack as an export format option
+- Works with any document source: local files, GitHub files, or new documents
+- Smart shelf/book/chapter selection with accurate book counts
+- Fixed bugs in shelf and chapter loading
+
+🐛 **BookStack Bug Fixes**
+- Fixed books not appearing when shelf is selected in save dialog
+- Fixed chapters not loading from BookStack API
+- Fixed browse dialog showing incorrect "0 books" for shelves
+- Improved error handling with race condition prevention
+- Better user feedback for partial API failures
 
 ## What's New in v1.4.0
 
@@ -54,6 +70,7 @@ A modern, feature-rich markdown editor with GitHub Flavored Markdown support, LL
   - **Native Markdown Export** - Uses BookStack's `/api/pages/{id}/export/markdown` endpoint for accurate conversion
   - Smart fallback to HTML→Markdown conversion if export endpoint unavailable
   - **Smart Save** - Save button automatically saves back to the source (BookStack, GitHub, or local)
+  - **Export to BookStack** - Export any document (local, GitHub, or new) to BookStack via export dialog
   - Conflict detection with overwrite option when pages are modified remotely
   - Session-based authentication (24-hour expiry)
   - Create new pages or update existing ones
@@ -64,6 +81,7 @@ A modern, feature-rich markdown editor with GitHub Flavored Markdown support, LL
   - HTML (.html)
   - PDF (.pdf) - Uses XeLaTeX for Unicode characters, emojis, non-Latin scripts
   - Word (.docx) - Native Unicode support
+  - **BookStack** - Export directly to your BookStack wiki
 
   See [UNICODE_EXPORT_SUPPORT.md](UNICODE_EXPORT_SUPPORT.md) for details
 
@@ -416,7 +434,7 @@ markdown-viewer/
 - `Ctrl/Cmd + S` - Save document (smart save to source - BookStack, GitHub, or local)
 - `Ctrl/Cmd + O` - Open file
 - `Ctrl/Cmd + N` - New document
-- `Ctrl/Cmd + E` - Export dialog
+- `Ctrl/Cmd + E` - Export dialog (MD, HTML, PDF, DOCX, BookStack)
 - `Ctrl/Cmd + K` - BookStack browser dialog
 - `Ctrl/Cmd + G` - GitHub browser dialog
 
@@ -458,13 +476,13 @@ MIT License - see LICENSE file for details
 
 ## Roadmap
 
-### Phase 1 (Completed) - v1.4.0 ✅
+### Phase 1 (Completed) - v1.4.3 ✅
 - ✅ Core editor with GFM support
 - ✅ LLM transformations (translation, tone adjustment, summarization, expansion)
 - ✅ GitHub integration with OAuth
-- ✅ Multiple export formats (MD, HTML, PDF, DOCX)
+- ✅ Multiple export formats (MD, HTML, PDF, DOCX, BookStack)
 - ✅ Synchronized scrolling in split view
-- ✅ BookStack integration with smart save and conflict detection
+- ✅ BookStack integration with smart save, conflict detection, and export from any source
 
 ### Phase 2 (Future) - v1.5.0+
 - [ ] Real-time collaboration

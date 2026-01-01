@@ -1,7 +1,7 @@
 # ARCHITECTURE.md
 
-**Version:** 1.4.0
-**Last Updated:** 2025-12-29
+**Version:** 1.4.3
+**Last Updated:** 2026-01-01
 **Status:** ✅ Current
 
 ---
@@ -21,7 +21,7 @@ for AI coding assistants. This is NOT a coding guide—see [AI*.md](#8-ai-coding
 ## 2. High-Level System Overview
 
 Markdown Viewer is a **full-stack web application** for editing markdown with LLM-powered transformations,
-GitHub integration, and BookStack wiki sync. No build step required for frontend.
+GitHub integration, and BookStack wiki integration (browse, export, and sync). No build step required for frontend.
 
 ### System Architecture
 
@@ -176,7 +176,7 @@ markdown-viewer/
 - `editor/editor.js` - CodeMirror 6 initialization with textarea fallback
 - `editor/sync.js` - Proportional bidirectional scroll sync (v1.3.0)
 - `transforms/transform-ui.js` - LLM transform panel controller
-- `file/bookstack.js` - BookStack browser with hierarchical navigation & smart save
+- `file/bookstack.js` - BookStack browser with hierarchical navigation, smart save, and export from any source
 - `file/github.js` - GitHub OAuth & file browser
 - `file/local.js` - File System Access API with fallback
 
@@ -300,7 +300,63 @@ bookstack.js
   - Shows "Saved to BookStack" toast
 ```
 
-### 5.3 Reverse Proxy Runtime Model
+### 5.3 Local File Export to BookStack Flow
+
+```
+User opens local .md file (Ctrl+O)
+User edits content
+User presses Ctrl+E (Export button)
+         │
+         ▼
+scripts/file/export.js
+  - Shows export dialog with formats:
+    MD, HTML, PDF, DOCX, + BookStack
+         │
+         ▼
+User clicks "BookStack" option
+         │
+         ▼
+scripts/main.js:exportToBookStack()
+  - Checks BookStack authentication
+         │
+         ▼
+  [Not authenticated] → Shows auth dialog
+  [Authenticated] → Calls bookstack.js:showCreateDialog()
+         │
+         ▼
+scripts/file/bookstack.js
+  - Shows shelf/book/chapter selection
+  - Fetches shelves via GET /api/bookstack/shelves
+  - Fetches shelf details via GET /api/bookstack/shelves/{id}
+  - Filters books by shelf (uses filter[shelf_id] backend param)
+  - Loads chapters from book.contents or book.chapters
+         │
+         ▼
+User selects: Shelf → Book → (Optional) Chapter
+User enters page name
+         │
+         ▼
+  POST /api/bookstack/pages
+  { book_id: X, chapter_id: Y, name: "...", markdown: "..." }
+         │
+         ▼
+backend/routes/bookstack.py
+  - Validates session auth
+  - Creates new page in BookStack
+         │
+         ▼
+backend/services/bookstack_service.py
+  - Calls BookStack API: POST /api/pages
+         │
+         ▼
+Response: { id, slug, name }
+         │
+         ▼
+scripts/main.js
+  - Shows "Document exported to BookStack successfully" toast
+```
+
+### 5.4 Reverse Proxy Runtime Model
 
 ```
 Production Deployment (HTTPS)
@@ -401,6 +457,7 @@ Components mapped by production-readiness and change risk:
 - `scripts/transforms/llm-client.js` - API client
 - `scripts/file/local.js` - Local file operations
 - `scripts/file/export.js` - Export manager
+- `scripts/file/bookstack.js` - BookStack browser with export
 - `scripts/utils/api.js` - Fetch wrapper
 - `scripts/utils/storage.js` - LocalStorage
 
@@ -413,14 +470,13 @@ Components mapped by production-readiness and change risk:
 
 **Backend:**
 - `backend/routes/github.py` - GitHub integration (OAuth stable, may add features)
-- `backend/routes/bookstack.py` - BookStack integration (v1.4.0, conflict detection evolving)
+- `backend/routes/bookstack.py` - BookStack integration (stable, may add features)
 - `backend/services/github_service.py` - GitHub wrapper
-- `backend/services/bookstack_service.py` - BookStack client (native export added v1.4.1)
+- `backend/services/bookstack_service.py` - BookStack client
 
 **Frontend:**
 - `scripts/editor/sync.js` - Scroll sync (v1.3.0, may refine algorithm)
 - `scripts/file/github.js` - GitHub browser (flat list, may add tree view)
-- `scripts/file/bookstack.js` - BookStack browser (smart save added v1.4.0)
 - `scripts/transforms/find-replace.js` - Search/replace feature
 - `scripts/ui/editable-title.js` - Title editor
 
