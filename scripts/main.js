@@ -465,6 +465,12 @@ class MarkdownViewerApp {
     async exportDocument(format) {
         document.getElementById('export-dialog').close();
 
+        // Special handling for BookStack export
+        if (format === 'bookstack') {
+            await this.exportToBookStack();
+            return;
+        }
+
         // Get filename from editable title (without extension)
         let filename = this.editableTitle.getTitle();
         // Convert to filename-friendly format
@@ -477,6 +483,37 @@ class MarkdownViewerApp {
             this.showToast(`Exported as ${format.toUpperCase()}`, 'success');
         } catch (error) {
             this.showToast(`Export failed: ${error.message}`, 'error');
+        }
+    }
+
+    async exportToBookStack() {
+        // Export current document to BookStack
+        try {
+            // Check if authenticated to BookStack first
+            const status = await APIClient.get('/bookstack/status');
+
+            if (!status.authenticated) {
+                // Not authenticated - show BookStack dialog for authentication
+                this.showToast('Please authenticate to BookStack first', 'info');
+                this.bookstackUI.show();
+                return;
+            }
+
+            // Get page name from editable title for consistency with exportDocument
+            const pageName = this.editableTitle.getTitle();
+
+            // Get fresh content from editor to avoid stale data
+            const markdown = this.editor.getContent();
+            this.currentDocument.content = markdown;
+
+            // Show BookStack create dialog
+            const page = await this.bookstackUI.showCreateDialog(markdown, pageName);
+
+            if (page) {
+                this.showToast('Document exported to BookStack successfully', 'success');
+            }
+        } catch (error) {
+            this.showToast(`Failed to export to BookStack: ${error.message}`, 'error');
         }
     }
 
