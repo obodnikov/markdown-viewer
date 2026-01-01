@@ -246,41 +246,77 @@ class BookStackService:
         Returns:
             Dictionary with:
                 - shelves: List of shelf objects with added 'book_count' and 'book_ids' fields
-                - unshelved_books: List of books not in any shelf
+                - unshelved_books: List of books not in any shelf (always accurate across ALL shelves)
                 - total_shelves: Total count of shelves
                 - total_books: Total count of all books
-                - metadata: Dict with 'failed_shelf_details' (int) and 'books_pagination_incomplete' (bool)
+                - metadata: Dict with:
+                    - 'failed_shelf_details' (int): Count of shelves that failed to load details
+                    - 'books_pagination_incomplete' (bool): Whether book pagination failed
+                    - 'shelves_pagination_incomplete' (bool): Whether all shelves fetch failed
+
+        Note:
+            To ensure accurate unshelved_books calculation, this method always fetches ALL shelves
+            (not just the requested page) to determine which books are truly unshelved.
+            Only the requested page of shelves is returned, but unshelved_books reflects reality.
         """
-        # Get all shelves
+        # Get requested page of shelves for display
         shelves_response = self.list_shelves(count, offset, sort)
-        shelves = shelves_response.get('data', [])
+        shelves_page = shelves_response.get('data', [])
+        total_shelves = shelves_response.get('total', len(shelves_page))
+
+        # For accurate unshelved_books calculation, we MUST fetch ALL shelves
+        # (not just the requested page), otherwise books on non-displayed shelves
+        # will be incorrectly marked as unshelved
+        all_shelves = []
+        shelves_pagination_incomplete = False
+
+        if offset > 0 or count < total_shelves:
+            # Need to fetch all shelves to compute unshelved_books correctly
+            try:
+                all_shelves_response = self.list_shelves(count=total_shelves, offset=0, sort=sort)
+                all_shelves = all_shelves_response.get('data', [])
+            except Exception as e:
+                logger.error(f"Failed to fetch all shelves for unshelved calculation: {str(e)}")
+                # Fallback to using the page we have, but mark as incomplete
+                all_shelves = shelves_page
+                shelves_pagination_incomplete = True
+        else:
+            # We already have all shelves in the requested page
+            all_shelves = shelves_page
 
         # Fetch all books with pagination
         all_books, total_books_count, books_pagination_failed = self._fetch_all_books()
 
-        # Enrich shelves with book details
-        enriched_shelves, shelved_book_ids, failed_shelf_count = self._enrich_shelves_with_book_details(shelves)
+        # Enrich the DISPLAYED shelves with book details
+        enriched_shelves, _, failed_shelf_count = self._enrich_shelves_with_book_details(shelves_page)
 
-        # Filter books that aren't in any shelf
-        unshelved_books = [book for book in all_books if book['id'] not in shelved_book_ids]
+        # Compute unshelved books using ALL shelves (not just displayed page)
+        # This ensures accuracy regardless of pagination
+        _, all_shelved_book_ids, _ = self._enrich_shelves_with_book_details(all_shelves)
+
+        # Filter books that aren't in ANY shelf (across all shelves, not just displayed)
+        unshelved_books = [book for book in all_books if book['id'] not in all_shelved_book_ids]
 
         # Build response with metadata about data completeness
         response = {
             'shelves': enriched_shelves,
             'unshelved_books': unshelved_books,
-            'total_shelves': shelves_response.get('total', len(shelves)),
+            'total_shelves': total_shelves,
             'total_books': total_books_count,
             'metadata': {
                 'failed_shelf_details': failed_shelf_count,
-                'books_pagination_incomplete': books_pagination_failed
+                'books_pagination_incomplete': books_pagination_failed,
+                'shelves_pagination_incomplete': shelves_pagination_incomplete
             }
         }
 
         # Log warnings about incomplete data
         if failed_shelf_count > 0:
-            logger.warning(f"Failed to load details for {failed_shelf_count}/{len(shelves)} shelves")
+            logger.warning(f"Failed to load details for {failed_shelf_count}/{len(all_shelves)} shelves")
         if books_pagination_failed:
             logger.warning("Books pagination incomplete - some books may be missing")
+        if shelves_pagination_incomplete:
+            logger.warning("Shelves pagination incomplete - unshelved_books may be inaccurate")
 
         return response
 

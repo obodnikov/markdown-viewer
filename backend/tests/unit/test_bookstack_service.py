@@ -342,13 +342,13 @@ class TestBookStackService:
         """Test list_shelves_with_details with basic data."""
         # Mock responses for the method's multiple API calls
         responses = [
-            # First call: list_shelves
+            # First call: list_shelves (count=100, default)
             MagicMock(status_code=200, json=lambda: {
                 'data': [
                     {'id': 1, 'name': 'Shelf 1'},
                     {'id': 2, 'name': 'Shelf 2'}
                 ],
-                'total': 2
+                'total': 2  # Total equals count, so no second fetch needed
             }),
             # Second call: list_books (first page)
             MagicMock(status_code=200, json=lambda: {
@@ -359,17 +359,27 @@ class TestBookStackService:
                 ],
                 'total': 3
             }),
-            # Third call: get_shelf(1)
+            # Third call: get_shelf(1) for displayed page
             MagicMock(status_code=200, json=lambda: {
                 'id': 1,
                 'name': 'Shelf 1',
                 'books': [{'id': 10, 'name': 'Book 1'}]
             }),
-            # Fourth call: get_shelf(2)
+            # Fourth call: get_shelf(2) for displayed page
             MagicMock(status_code=200, json=lambda: {
                 'id': 2,
                 'name': 'Shelf 2',
                 'books': [{'id': 20, 'name': 'Book 2'}]
+            }),
+            # Fifth call: get_shelf(1) for ALL shelves (same as displayed since total=count)
+            MagicMock(status_code=200, json=lambda: {
+                'id': 1,
+                'books': [{'id': 10}]
+            }),
+            # Sixth call: get_shelf(2) for ALL shelves
+            MagicMock(status_code=200, json=lambda: {
+                'id': 2,
+                'books': [{'id': 20}]
             })
         ]
         mock_request.side_effect = responses
@@ -386,6 +396,7 @@ class TestBookStackService:
         assert result['total_books'] == 3
         assert result['metadata']['failed_shelf_details'] == 0
         assert result['metadata']['books_pagination_incomplete'] is False
+        assert result['metadata']['shelves_pagination_incomplete'] is False
 
     @patch('services.bookstack_service.requests.request')
     def test_list_shelves_with_details_pagination(self, mock_request, bookstack_service):
@@ -509,3 +520,80 @@ class TestBookStackService:
 
         assert len(result['unshelved_books']) == 0
         assert result['shelves'][0]['book_count'] == 2
+
+    @patch('services.bookstack_service.requests.request')
+    def test_list_shelves_with_details_pagination_edge_case(self, mock_request, bookstack_service):
+        """Test unshelved_books is accurate when shelf pagination excludes some shelves."""
+        # Scenario: 3 shelves total, but only requesting first 2 (count=2)
+        # Shelf 3 has Book 30, which should NOT appear in unshelved_books
+        # This tests the critical bug where books on non-displayed shelves are misclassified
+        responses = [
+            # First call: list_shelves with count=2 (returns shelves 1-2)
+            MagicMock(status_code=200, json=lambda: {
+                'data': [
+                    {'id': 1, 'name': 'Shelf 1'},
+                    {'id': 2, 'name': 'Shelf 2'}
+                ],
+                'total': 3  # Total is 3, but only returning 2
+            }),
+            # Second call: list_shelves with count=3 (fetch ALL for unshelved calculation)
+            MagicMock(status_code=200, json=lambda: {
+                'data': [
+                    {'id': 1, 'name': 'Shelf 1'},
+                    {'id': 2, 'name': 'Shelf 2'},
+                    {'id': 3, 'name': 'Shelf 3'}
+                ],
+                'total': 3
+            }),
+            # Third call: list_books - first page
+            MagicMock(status_code=200, json=lambda: {
+                'data': [
+                    {'id': 10, 'name': 'Book 10'},  # In shelf 1
+                    {'id': 20, 'name': 'Book 20'},  # In shelf 2
+                    {'id': 30, 'name': 'Book 30'},  # In shelf 3
+                    {'id': 99, 'name': 'Book 99'}   # Not in any shelf
+                ],
+                'total': 4
+            }),
+            # Fourth call: get_shelf(1) for displayed page
+            MagicMock(status_code=200, json=lambda: {
+                'id': 1,
+                'books': [{'id': 10}]
+            }),
+            # Fifth call: get_shelf(2) for displayed page
+            MagicMock(status_code=200, json=lambda: {
+                'id': 2,
+                'books': [{'id': 20}]
+            }),
+            # Sixth call: get_shelf(1) for ALL shelves calculation
+            MagicMock(status_code=200, json=lambda: {
+                'id': 1,
+                'books': [{'id': 10}]
+            }),
+            # Seventh call: get_shelf(2) for ALL shelves calculation
+            MagicMock(status_code=200, json=lambda: {
+                'id': 2,
+                'books': [{'id': 20}]
+            }),
+            # Eighth call: get_shelf(3) for ALL shelves calculation
+            MagicMock(status_code=200, json=lambda: {
+                'id': 3,
+                'books': [{'id': 30}]
+            })
+        ]
+        mock_request.side_effect = responses
+
+        result = bookstack_service.list_shelves_with_details(count=2, offset=0)
+
+        # Verify only requested 2 shelves are returned
+        assert len(result['shelves']) == 2
+        assert result['shelves'][0]['id'] == 1
+        assert result['shelves'][1]['id'] == 2
+
+        # CRITICAL: Book 30 is on Shelf 3 (not in displayed page)
+        # It should NOT be in unshelved_books
+        assert len(result['unshelved_books']) == 1
+        assert result['unshelved_books'][0]['id'] == 99  # Only Book 99 is truly unshelved
+
+        # Total should reflect all shelves, not just displayed
+        assert result['total_shelves'] == 3

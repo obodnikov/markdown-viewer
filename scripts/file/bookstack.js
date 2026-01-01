@@ -190,6 +190,9 @@ export class BookStackUI {
             if (metadata.books_pagination_incomplete) {
                 this.showToast('Warning: Could not load all books. Some books may be missing from the list.', 'warning');
             }
+            if (metadata.shelves_pagination_incomplete) {
+                this.showToast('Warning: Could not load all shelves. Unshelved books list may be inaccurate.', 'warning');
+            }
 
             this.breadcrumbs = [{ name: 'BookStack', action: () => this.renderShelvesList() }];
 
