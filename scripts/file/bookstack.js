@@ -184,13 +184,26 @@ export class BookStackUI {
             const booksResponse = await APIClient.get('/bookstack/books?count=100&sort=+name');
             const allBooks = booksResponse.data || [];
 
-            // Filter books that don't belong to any shelf
+            // Fetch detailed shelf info to get book counts and associations
+            // GET /api/shelves (list) doesn't include books array
+            // GET /api/shelves/{id} (detail) includes books array
             const shelfBookIds = new Set();
-            shelves.forEach(shelf => {
-                if (shelf.books) {
-                    shelf.books.forEach(book => shelfBookIds.add(book.id));
+            const shelfDetails = await Promise.allSettled(shelves.map(async (shelf) => {
+                const details = await APIClient.get(`/bookstack/shelves/${shelf.id}`);
+                return { id: shelf.id, books: details.books || [] };
+            }));
+
+            // Build map of shelf ID to book count and collect all shelf book IDs
+            const shelfBookCounts = new Map();
+            shelfDetails.forEach((result) => {
+                if (result.status === 'fulfilled') {
+                    const { id, books } = result.value;
+                    shelfBookCounts.set(id, books.length);
+                    books.forEach(book => shelfBookIds.add(book.id));
                 }
             });
+
+            // Filter books that don't belong to any shelf
             const unshelvedBooks = allBooks.filter(book => !shelfBookIds.has(book.id));
 
             this.breadcrumbs = [{ name: 'BookStack', action: () => this.renderShelvesList() }];
@@ -204,7 +217,7 @@ export class BookStackUI {
                                 <span class="bookstack-item__icon">📚</span>
                                 <div class="bookstack-item__content">
                                     <div class="bookstack-item__name">${this.escapeHtml(shelf.name)}</div>
-                                    <div class="bookstack-item__meta">${shelf.books?.length || 0} books</div>
+                                    <div class="bookstack-item__meta">${shelfBookCounts.get(shelf.id) || 0} books</div>
                                 </div>
                                 <span class="bookstack-item__arrow">→</span>
                             </div>
