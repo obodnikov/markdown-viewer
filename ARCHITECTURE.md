@@ -1,6 +1,6 @@
 # ARCHITECTURE.md
 
-**Version:** 1.4.3
+**Version:** 1.4.4
 **Last Updated:** 2026-01-01
 **Status:** ✅ Current
 
@@ -152,13 +152,13 @@ markdown-viewer/
 **Routes (Blueprints):**
 - `llm.py` - LLM transformations via OpenRouter (translate, summarize, expand, custom prompts)
 - `github.py` - GitHub OAuth flow & repository file operations
-- `bookstack.py` - BookStack session auth, hierarchical browsing, page CRUD with conflict detection
+- `bookstack.py` - BookStack session auth, hierarchical browsing, page CRUD with conflict detection, bulk shelf/book details endpoint
 - `export.py` - Document export via pandoc (HTML, PDF with XeLaTeX, DOCX)
 
 **Services:**
 - `openrouter.py` - OpenRouter API client, prompt construction, 300+ model support
 - `github_service.py` - PyGithub wrapper for repos, files, commits
-- `bookstack_service.py` - BookStack REST API client, markdown export with fallback
+- `bookstack_service.py` - BookStack REST API client, markdown export with fallback, bulk shelf details aggregation with pagination
 - `export_service.py` - Pandoc subprocess wrapper, Unicode support
 
 **Configuration:** `config.py` loads from environment (.env), validates required keys, provides defaults.
@@ -326,9 +326,9 @@ scripts/main.js:exportToBookStack()
          ▼
 scripts/file/bookstack.js
   - Shows shelf/book/chapter selection
-  - Fetches shelves via GET /api/bookstack/shelves
-  - Fetches shelf details via GET /api/bookstack/shelves/{id}
-  - Filters books by shelf (uses filter[shelf_id] backend param)
+  - Fetches bulk shelf/book data via GET /api/bookstack/shelves/details (single call)
+  - Displays shelves with book counts
+  - Computes unshelved books from aggregated data
   - Loads chapters from book.contents or book.chapters
          │
          ▼
@@ -355,6 +355,12 @@ Response: { id, slug, name }
 scripts/main.js
   - Shows "Document exported to BookStack successfully" toast
 ```
+
+**Performance:** Bulk endpoint reduces dialog operations from N+2 HTTP requests to 1 request
+(where N = number of shelves). Example: 20 shelves = 22 requests → 1 request (~95% reduction).
+
+**Error Handling:** Response includes metadata for incomplete data (failed shelf details,
+pagination issues), with frontend warnings displayed to users.
 
 ### 5.4 Reverse Proxy Runtime Model
 
