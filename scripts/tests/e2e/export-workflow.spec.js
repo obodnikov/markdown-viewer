@@ -12,49 +12,45 @@ test.describe('Export Workflow', () => {
 
   test('should open export dialog', async ({ page }) => {
     const exportBtn = page.locator('button:has-text("Export"), #export-btn, [title*="Export"]');
+    await expect(exportBtn).toBeVisible();
 
-    if (await exportBtn.isVisible()) {
-      await exportBtn.click();
+    await exportBtn.click();
 
-      // Export dialog should appear
-      const dialog = page.locator('dialog[open], .dialog.export, #export-dialog');
-      await expect(dialog.first()).toBeVisible({ timeout: 2000 });
-    }
+    // Export dialog should appear
+    const dialog = page.locator('dialog[open], .dialog.export, #export-dialog');
+    await expect(dialog.first()).toBeVisible({ timeout: 2000 });
   });
 
   test('should show export format options', async ({ page }) => {
     const exportBtn = page.locator('button:has-text("Export"), #export-btn');
+    await expect(exportBtn).toBeVisible();
 
-    if (await exportBtn.isVisible()) {
-      await exportBtn.click();
-      await page.waitForTimeout(500);
+    await exportBtn.click();
+    await page.waitForTimeout(500);
 
-      // Should have format options
-      const dialog = page.locator('dialog[open], .export-dialog');
-      if (await dialog.first().isVisible()) {
-        const html = await dialog.first().innerHTML();
+    // Should have format options
+    const dialog = page.locator('dialog[open], .export-dialog');
+    await expect(dialog.first()).toBeVisible();
 
-        // Check for format mentions
-        expect(html.toLowerCase()).toMatch(/html|pdf|docx|markdown/);
-      }
-    }
+    const html = await dialog.first().innerHTML();
+    // Check for format mentions
+    expect(html.toLowerCase()).toMatch(/html|pdf|docx|markdown/);
   });
 
   test('should show BookStack export option', async ({ page }) => {
     const exportBtn = page.locator('button:has-text("Export"), #btn-export');
+    await expect(exportBtn).toBeVisible();
 
-    if (await exportBtn.isVisible()) {
-      await exportBtn.click();
-      await page.waitForTimeout(500);
+    await exportBtn.click();
+    await page.waitForTimeout(500);
 
-      // Should have BookStack option
-      const bookstackOption = page.locator('[data-format="bookstack"]');
-      await expect(bookstackOption).toBeVisible({ timeout: 2000 });
+    // Should have BookStack option
+    const bookstackOption = page.locator('[data-format="bookstack"]');
+    await expect(bookstackOption).toBeVisible({ timeout: 2000 });
 
-      // Verify BookStack label text
-      const labelText = await bookstackOption.textContent();
-      expect(labelText).toContain('BookStack');
-    }
+    // Verify BookStack label text
+    const labelText = await bookstackOption.textContent();
+    expect(labelText).toContain('BookStack');
   });
 
   test('should handle BookStack export authentication check', async ({ page }) => {
@@ -68,28 +64,27 @@ test.describe('Export Workflow', () => {
     });
 
     const exportBtn = page.locator('#btn-export');
+    await expect(exportBtn).toBeVisible();
 
-    if (await exportBtn.isVisible()) {
-      await exportBtn.click();
-      await page.waitForTimeout(500);
+    await exportBtn.click();
+    await page.waitForTimeout(500);
 
-      // Click BookStack option
-      const bookstackOption = page.locator('[data-format="bookstack"]');
-      if (await bookstackOption.isVisible()) {
-        await bookstackOption.click();
-        await page.waitForTimeout(1000);
+    // Click BookStack option
+    const bookstackOption = page.locator('[data-format="bookstack"]');
+    await expect(bookstackOption).toBeVisible();
 
-        // Should show authentication prompt (toast or dialog)
-        // Either a toast message or the BookStack dialog should appear
-        const toast = page.locator('.toast:has-text("authenticate")');
-        const bookstackDialog = page.locator('#bookstack-dialog[open]');
+    await bookstackOption.click();
+    await page.waitForTimeout(1000);
 
-        const authPromptVisible = await toast.isVisible().catch(() => false) ||
-                                   await bookstackDialog.isVisible().catch(() => false);
+    // Should show authentication prompt (toast or dialog)
+    // Either a toast message or the BookStack dialog should appear
+    const toast = page.locator('.toast:has-text("authenticate")');
+    const bookstackDialog = page.locator('#bookstack-dialog[open]');
 
-        expect(authPromptVisible).toBeTruthy();
-      }
-    }
+    const authPromptVisible = await toast.isVisible().catch(() => false) ||
+                               await bookstackDialog.isVisible().catch(() => false);
+
+    expect(authPromptVisible).toBeTruthy();
   });
 
   test('should show BookStack save dialog when authenticated', async ({ page }) => {
@@ -120,25 +115,24 @@ test.describe('Export Workflow', () => {
     });
 
     const exportBtn = page.locator('#btn-export');
+    await expect(exportBtn).toBeVisible();
 
-    if (await exportBtn.isVisible()) {
-      await exportBtn.click();
-      await page.waitForTimeout(500);
+    await exportBtn.click();
+    await page.waitForTimeout(500);
 
-      // Click BookStack option
-      const bookstackOption = page.locator('[data-format="bookstack"]');
-      if (await bookstackOption.isVisible()) {
-        await bookstackOption.click();
-        await page.waitForTimeout(1000);
+    // Click BookStack option
+    const bookstackOption = page.locator('[data-format="bookstack"]');
+    await expect(bookstackOption).toBeVisible();
 
-        // Should show BookStack save dialog
-        const saveDialog = page.locator('#bookstack-save-dialog[open]');
-        const isDialogVisible = await saveDialog.isVisible().catch(() => false);
+    await bookstackOption.click();
+    await page.waitForTimeout(1000);
 
-        // Verify that the BookStack save dialog actually appears
-        expect(isDialogVisible).toBe(true);
-      }
-    }
+    // Should show BookStack save dialog
+    const saveDialog = page.locator('#bookstack-save-dialog[open]');
+    const isDialogVisible = await saveDialog.isVisible().catch(() => false);
+
+    // Verify that the BookStack save dialog actually appears
+    expect(isDialogVisible).toBe(true);
   });
 
   test('should handle BookStack export API failure', async ({ page }) => {
@@ -161,25 +155,24 @@ test.describe('Export Workflow', () => {
     });
 
     const exportBtn = page.locator('#btn-export');
+    await expect(exportBtn).toBeVisible();
 
-    if (await exportBtn.isVisible()) {
-      await exportBtn.click();
-      await page.waitForTimeout(500);
+    await exportBtn.click();
+    await page.waitForTimeout(500);
 
-      // Click BookStack option
-      const bookstackOption = page.locator('[data-format="bookstack"]');
-      if (await bookstackOption.isVisible()) {
-        await bookstackOption.click();
-        await page.waitForTimeout(1000);
+    // Click BookStack option
+    const bookstackOption = page.locator('[data-format="bookstack"]');
+    await expect(bookstackOption).toBeVisible();
 
-        // Should show error toast or message
-        const errorToast = page.locator('.toast--error, .toast:has-text("error"), .toast:has-text("failed")');
-        const errorVisible = await errorToast.isVisible().catch(() => false);
+    await bookstackOption.click();
+    await page.waitForTimeout(1000);
 
-        // Either error toast appears or dialog shows error state
-        expect(typeof errorVisible).toBe('boolean');
-      }
-    }
+    // Should show error toast or message
+    const errorToast = page.locator('.toast--error, .toast:has-text("error"), .toast:has-text("failed")');
+    const errorVisible = await errorToast.isVisible().catch(() => false);
+
+    // Error toast should actually appear
+    expect(errorVisible).toBe(true);
   });
 
   test('should handle BookStack authentication status check failure', async ({ page }) => {
@@ -193,28 +186,27 @@ test.describe('Export Workflow', () => {
     });
 
     const exportBtn = page.locator('#btn-export');
+    await expect(exportBtn).toBeVisible();
 
-    if (await exportBtn.isVisible()) {
-      await exportBtn.click();
-      await page.waitForTimeout(500);
+    await exportBtn.click();
+    await page.waitForTimeout(500);
 
-      // Click BookStack option
-      const bookstackOption = page.locator('[data-format="bookstack"]');
-      if (await bookstackOption.isVisible()) {
-        await bookstackOption.click();
-        await page.waitForTimeout(1000);
+    // Click BookStack option
+    const bookstackOption = page.locator('[data-format="bookstack"]');
+    await expect(bookstackOption).toBeVisible();
 
-        // Should show error toast or authentication dialog as fallback
-        const errorToast = page.locator('.toast--error, .toast:has-text("failed")');
-        const authDialog = page.locator('#bookstack-dialog[open]');
+    await bookstackOption.click();
+    await page.waitForTimeout(1000);
 
-        const errorHandled = await errorToast.isVisible().catch(() => false) ||
-                             await authDialog.isVisible().catch(() => false);
+    // Should show error toast or authentication dialog as fallback
+    const errorToast = page.locator('.toast--error, .toast:has-text("failed")');
+    const authDialog = page.locator('#bookstack-dialog[open]');
 
-        // Error should be handled gracefully
-        expect(typeof errorHandled).toBe('boolean');
-      }
-    }
+    const errorHandled = await errorToast.isVisible().catch(() => false) ||
+                         await authDialog.isVisible().catch(() => false);
+
+    // Error should be handled gracefully - either error shown or fallback dialog appears
+    expect(errorHandled).toBe(true);
   });
 
   test('should handle keyboard shortcut for export', async ({ page }) => {

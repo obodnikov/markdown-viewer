@@ -159,6 +159,131 @@ class BookStackService:
         """
         return self._request('GET', f'/api/shelves/{shelf_id}')
 
+    def _fetch_all_books(self) -> tuple[List[Dict[str, Any]], int, bool]:
+        """
+        Fetch all books with pagination.
+
+        Returns:
+            Tuple of (all_books, total_count, pagination_failed)
+        """
+        all_books = []
+        books_offset = 0
+        books_per_page = 100
+        total_books_count = 0
+        pagination_failed = False
+
+        while True:
+            try:
+                books_response = self.list_books(count=books_per_page, offset=books_offset, sort='+name')
+                books_batch = books_response.get('data', [])
+                all_books.extend(books_batch)
+
+                total_books_count = books_response.get('total', 0)
+                if books_offset + len(books_batch) >= total_books_count or len(books_batch) == 0:
+                    break
+
+                books_offset += books_per_page
+
+            except Exception as e:
+                logger.error(f"Failed to fetch books batch at offset {books_offset}: {str(e)}")
+                pagination_failed = True
+                total_books_count = len(all_books)
+                logger.warning(f"Books pagination incomplete - fetched {len(all_books)} books before failure")
+                break
+
+        return all_books, total_books_count, pagination_failed
+
+    def _enrich_shelves_with_book_details(self, shelves: List[Dict[str, Any]]) -> tuple[List[Dict[str, Any]], set, int]:
+        """
+        Fetch book details for each shelf and enrich shelf objects.
+
+        Args:
+            shelves: List of shelf objects to enrich
+
+        Returns:
+            Tuple of (enriched_shelves, shelved_book_ids, failed_count)
+        """
+        enriched_shelves = []
+        shelved_book_ids = set()
+        failed_count = 0
+
+        for shelf in shelves:
+            try:
+                shelf_details = self.get_shelf(shelf['id'])
+                books_in_shelf = shelf_details.get('books', [])
+
+                book_ids = [book['id'] for book in books_in_shelf]
+                shelf['book_count'] = len(book_ids)
+                shelf['book_ids'] = book_ids
+
+                shelved_book_ids.update(book_ids)
+                enriched_shelves.append(shelf)
+
+            except Exception as e:
+                failed_count += 1
+                logger.warning(f"Failed to fetch details for shelf {shelf['id']}: {str(e)}")
+                shelf['book_count'] = 0
+                shelf['book_ids'] = []
+                enriched_shelves.append(shelf)
+
+        return enriched_shelves, shelved_book_ids, failed_count
+
+    def list_shelves_with_details(self, count: int = 100, offset: int = 0, sort: str = '+name') -> Dict[str, Any]:
+        """
+        List all shelves with detailed information including book counts and associations.
+
+        This method aggregates data from multiple API calls to provide:
+        - All shelves with their metadata
+        - Book count for each shelf
+        - Book IDs associated with each shelf
+        - List of books not in any shelf (unshelved books)
+
+        Args:
+            count: Number of shelves to return
+            offset: Offset for pagination
+            sort: Sort field (+/- for asc/desc)
+
+        Returns:
+            Dictionary with:
+                - shelves: List of shelf objects with added 'book_count' and 'book_ids' fields
+                - unshelved_books: List of books not in any shelf
+                - total_shelves: Total count of shelves
+                - total_books: Total count of all books
+                - metadata: Dict with 'failed_shelf_details' (int) and 'books_pagination_incomplete' (bool)
+        """
+        # Get all shelves
+        shelves_response = self.list_shelves(count, offset, sort)
+        shelves = shelves_response.get('data', [])
+
+        # Fetch all books with pagination
+        all_books, total_books_count, books_pagination_failed = self._fetch_all_books()
+
+        # Enrich shelves with book details
+        enriched_shelves, shelved_book_ids, failed_shelf_count = self._enrich_shelves_with_book_details(shelves)
+
+        # Filter books that aren't in any shelf
+        unshelved_books = [book for book in all_books if book['id'] not in shelved_book_ids]
+
+        # Build response with metadata about data completeness
+        response = {
+            'shelves': enriched_shelves,
+            'unshelved_books': unshelved_books,
+            'total_shelves': shelves_response.get('total', len(shelves)),
+            'total_books': total_books_count,
+            'metadata': {
+                'failed_shelf_details': failed_shelf_count,
+                'books_pagination_incomplete': books_pagination_failed
+            }
+        }
+
+        # Log warnings about incomplete data
+        if failed_shelf_count > 0:
+            logger.warning(f"Failed to load details for {failed_shelf_count}/{len(shelves)} shelves")
+        if books_pagination_failed:
+            logger.warning("Books pagination incomplete - some books may be missing")
+
+        return response
+
     def list_books(self, count: int = 100, offset: int = 0, sort: str = '+name',
                    shelf_id: Optional[int] = None) -> Dict[str, Any]:
         """

@@ -200,6 +200,56 @@ def list_shelves():
         return jsonify({'error': str(e)}), 500
 
 
+@bookstack_bp.route('/shelves/details', methods=['GET'])
+def list_shelves_with_details():
+    """
+    List all shelves with detailed information including book counts and associations.
+
+    This endpoint aggregates data to eliminate N+1 queries on the frontend.
+    It provides all shelf data with book counts and identifies unshelved books.
+
+    Query params:
+        count: int (default 100) - Number of shelves to return
+        offset: int (default 0) - Offset for pagination
+        sort: string (default '+name') - Sort field
+
+    Returns:
+        {
+            "shelves": [
+                {
+                    ...shelf fields...,
+                    "book_count": int,
+                    "book_ids": [int, ...]
+                }
+            ],
+            "unshelved_books": [...],
+            "total_shelves": int,
+            "total_books": int
+        }
+    """
+    service = get_bookstack_service()
+    if not service:
+        logger.warning("List shelves with details request rejected: Not authenticated")
+        return jsonify({'error': 'Not authenticated'}), 401
+
+    try:
+        count = request.args.get('count', 100, type=int)
+        offset = request.args.get('offset', 0, type=int)
+        sort = request.args.get('sort', '+name')
+
+        logger.debug(f"Listing shelves with details | count={count} offset={offset} sort={sort}")
+        result = service.list_shelves_with_details(count, offset, sort)
+        logger.info(f"Shelves with details listed successfully | shelves={len(result.get('shelves', []))} unshelved_books={len(result.get('unshelved_books', []))}")
+        return jsonify(result)
+
+    except requests.exceptions.HTTPError as e:
+        logger.error(f"Failed to list shelves with details | status_code={e.response.status_code} error={str(e)}")
+        return jsonify({'error': f'BookStack API error: {str(e)}'}), e.response.status_code
+    except Exception as e:
+        logger.error(f"Failed to list shelves with details | error={str(e)}", exc_info=True)
+        return jsonify({'error': str(e)}), 500
+
+
 @bookstack_bp.route('/shelves/<int:shelf_id>', methods=['GET'])
 def get_shelf(shelf_id):
     """
