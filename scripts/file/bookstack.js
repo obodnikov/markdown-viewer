@@ -177,34 +177,19 @@ export class BookStackUI {
         content.innerHTML = '<div class="loading">Loading shelves...</div>';
 
         try {
-            const response = await APIClient.get('/bookstack/shelves?count=100&sort=+name');
-            const shelves = response.data || [];
+            // Use new bulk endpoint to get all shelves with details in one call
+            const response = await APIClient.get('/bookstack/shelves/details?count=100&sort=+name');
+            const shelves = response.shelves || [];
+            const unshelvedBooks = response.unshelved_books || [];
+            const metadata = response.metadata || {};
 
-            // Also get books without shelves
-            const booksResponse = await APIClient.get('/bookstack/books?count=100&sort=+name');
-            const allBooks = booksResponse.data || [];
-
-            // Fetch detailed shelf info to get book counts and associations
-            // GET /api/shelves (list) doesn't include books array
-            // GET /api/shelves/{id} (detail) includes books array
-            const shelfBookIds = new Set();
-            const shelfDetails = await Promise.allSettled(shelves.map(async (shelf) => {
-                const details = await APIClient.get(`/bookstack/shelves/${shelf.id}`);
-                return { id: shelf.id, books: details.books || [] };
-            }));
-
-            // Build map of shelf ID to book count and collect all shelf book IDs
-            const shelfBookCounts = new Map();
-            shelfDetails.forEach((result) => {
-                if (result.status === 'fulfilled') {
-                    const { id, books } = result.value;
-                    shelfBookCounts.set(id, books.length);
-                    books.forEach(book => shelfBookIds.add(book.id));
-                }
-            });
-
-            // Filter books that don't belong to any shelf
-            const unshelvedBooks = allBooks.filter(book => !shelfBookIds.has(book.id));
+            // Show warnings if data is incomplete
+            if (metadata.failed_shelf_details > 0) {
+                this.showToast(`Warning: ${metadata.failed_shelf_details} shelf(s) failed to load. Some book counts may be inaccurate.`, 'warning');
+            }
+            if (metadata.books_pagination_incomplete) {
+                this.showToast('Warning: Could not load all books. Some books may be missing from the list.', 'warning');
+            }
 
             this.breadcrumbs = [{ name: 'BookStack', action: () => this.renderShelvesList() }];
 
@@ -217,7 +202,7 @@ export class BookStackUI {
                                 <span class="bookstack-item__icon">📚</span>
                                 <div class="bookstack-item__content">
                                     <div class="bookstack-item__name">${this.escapeHtml(shelf.name)}</div>
-                                    <div class="bookstack-item__meta">${shelfBookCounts.get(shelf.id) || 0} books</div>
+                                    <div class="bookstack-item__meta">${shelf.book_count || 0} books</div>
                                 </div>
                                 <span class="bookstack-item__arrow">→</span>
                             </div>
@@ -607,67 +592,27 @@ export class BookStackUI {
 
             // Load shelves and books
             try {
-                const shelvesResponse = await APIClient.get('/bookstack/shelves');
+                // Use bulk endpoint to get all shelves with book associations in one call
+                const shelvesDetailsResponse = await APIClient.get('/bookstack/shelves/details');
 
                 // Populate shelves
                 shelfSelect.innerHTML = '<option value="">No Shelf</option>' +
-                    (shelvesResponse.data || []).map(shelf =>
+                    (shelvesDetailsResponse.shelves || []).map(shelf =>
                         `<option value="${shelf.id}">${this.escapeHtml(shelf.name)}</option>`
                     ).join('');
+
+                // Cache unshelved books from bulk response to avoid N+1 queries
+                const cachedUnshelvedBooks = shelvesDetailsResponse.unshelved_books || [];
 
                 // Request tracking to prevent race conditions
                 let currentBookRequest = null;
                 let lastRequestId = 0;
 
-                // Helper: Fetch books not in any shelf
-                const fetchUnshelvedBooks = async (signal) => {
-                    // BookStack API: GET /api/shelves returns lightweight list without books array
-                    // Need to fetch each shelf's details to get book associations
-                    const booksResponse = await APIClient.get('/bookstack/books', { signal });
-                    const allBooks = booksResponse.data || [];
-
-                    // Fetch detailed shelf info to get books arrays
-                    // GET /api/shelves/{id} includes books array
-                    // Note: BookStack API has no endpoint to filter books by "not in shelf"
-                    // See: https://github.com/BookStackApp/BookStack/issues/1077
-                    const shelfBookIds = new Set();
-                    const shelves = shelvesResponse.data || [];
-                    let failedShelfCount = 0;
-
-                    // Fetch all shelf details in parallel for accurate filtering
-                    const shelfResults = await Promise.allSettled(shelves.map(async (shelf) => {
-                        const shelfDetails = await APIClient.get(`/bookstack/shelves/${shelf.id}`, { signal });
-                        if (shelfDetails.books && Array.isArray(shelfDetails.books)) {
-                            return { shelfId: shelf.id, books: shelfDetails.books };
-                        }
-                        return { shelfId: shelf.id, books: [] };
-                    }));
-
-                    // Process results and track failures
-                    shelfResults.forEach((result, index) => {
-                        if (result.status === 'fulfilled') {
-                            result.value.books.forEach(book => shelfBookIds.add(book.id));
-                        } else {
-                            failedShelfCount++;
-                            const shelf = shelves[index];
-                            console.warn(`Failed to fetch shelf ${shelf.id} (${shelf.name}):`, result.reason);
-                        }
-                    });
-
-                    // Check if we have too many failures for reliable data
-                    if (failedShelfCount > 0) {
-                        const failureRate = failedShelfCount / shelves.length;
-                        if (failureRate >= 0.5) {
-                            // Over 50% failed - data is unreliable
-                            throw new Error(`Failed to load ${failedShelfCount}/${shelves.length} shelves. Cannot accurately determine unshelved books.`);
-                        } else if (failureRate >= 0.3) {
-                            // 30-50% failed - warn but continue
-                            this.showToast(`Warning: ${failedShelfCount} shelves failed to load. Book list may be incomplete.`, 'warning');
-                        }
-                    }
-
-                    // Filter to show only books not in any shelf
-                    return allBooks.filter(book => !shelfBookIds.has(book.id));
+                // Helper: Fetch books not in any shelf (now uses cached data)
+                const fetchUnshelvedBooks = async () => {
+                    // Return cached unshelved books from the bulk endpoint
+                    // This eliminates the N+1 query pattern
+                    return cachedUnshelvedBooks;
                 };
 
                 // Helper: Fetch books for specific shelf
@@ -692,7 +637,7 @@ export class BookStackUI {
                     try {
                         let books;
                         if (!shelfId) {
-                            books = await fetchUnshelvedBooks(signal);
+                            books = await fetchUnshelvedBooks();
                         } else {
                             books = await fetchShelfBooks(shelfId, signal);
                         }

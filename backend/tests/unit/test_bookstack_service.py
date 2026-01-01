@@ -336,3 +336,176 @@ class TestBookStackService:
 
         with pytest.raises(Exception):
             bookstack_service.list_shelves()
+
+    @patch('services.bookstack_service.requests.request')
+    def test_list_shelves_with_details_basic(self, mock_request, bookstack_service):
+        """Test list_shelves_with_details with basic data."""
+        # Mock responses for the method's multiple API calls
+        responses = [
+            # First call: list_shelves
+            MagicMock(status_code=200, json=lambda: {
+                'data': [
+                    {'id': 1, 'name': 'Shelf 1'},
+                    {'id': 2, 'name': 'Shelf 2'}
+                ],
+                'total': 2
+            }),
+            # Second call: list_books (first page)
+            MagicMock(status_code=200, json=lambda: {
+                'data': [
+                    {'id': 10, 'name': 'Book 1'},
+                    {'id': 20, 'name': 'Book 2'},
+                    {'id': 30, 'name': 'Book 3'}
+                ],
+                'total': 3
+            }),
+            # Third call: get_shelf(1)
+            MagicMock(status_code=200, json=lambda: {
+                'id': 1,
+                'name': 'Shelf 1',
+                'books': [{'id': 10, 'name': 'Book 1'}]
+            }),
+            # Fourth call: get_shelf(2)
+            MagicMock(status_code=200, json=lambda: {
+                'id': 2,
+                'name': 'Shelf 2',
+                'books': [{'id': 20, 'name': 'Book 2'}]
+            })
+        ]
+        mock_request.side_effect = responses
+
+        result = bookstack_service.list_shelves_with_details()
+
+        # Verify results
+        assert len(result['shelves']) == 2
+        assert result['shelves'][0]['book_count'] == 1
+        assert result['shelves'][1]['book_count'] == 1
+        assert len(result['unshelved_books']) == 1  # Book 3 is not in any shelf
+        assert result['unshelved_books'][0]['id'] == 30
+        assert result['total_shelves'] == 2
+        assert result['total_books'] == 3
+        assert result['metadata']['failed_shelf_details'] == 0
+        assert result['metadata']['books_pagination_incomplete'] is False
+
+    @patch('services.bookstack_service.requests.request')
+    def test_list_shelves_with_details_pagination(self, mock_request, bookstack_service):
+        """Test list_shelves_with_details handles book pagination correctly."""
+        responses = [
+            # list_shelves
+            MagicMock(status_code=200, json=lambda: {
+                'data': [{'id': 1, 'name': 'Shelf 1'}],
+                'total': 1
+            }),
+            # list_books - first page (100 books)
+            MagicMock(status_code=200, json=lambda: {
+                'data': [{'id': i, 'name': f'Book {i}'} for i in range(1, 101)],
+                'total': 150
+            }),
+            # list_books - second page (50 books)
+            MagicMock(status_code=200, json=lambda: {
+                'data': [{'id': i, 'name': f'Book {i}'} for i in range(101, 151)],
+                'total': 150
+            }),
+            # get_shelf(1)
+            MagicMock(status_code=200, json=lambda: {
+                'id': 1,
+                'books': [{'id': i} for i in range(1, 51)]
+            })
+        ]
+        mock_request.side_effect = responses
+
+        result = bookstack_service.list_shelves_with_details()
+
+        # Should have fetched all 150 books across 2 pages
+        assert result['total_books'] == 150
+        # 50 books in shelf, 100 unshelved
+        assert len(result['unshelved_books']) == 100
+
+    @patch('services.bookstack_service.requests.request')
+    def test_list_shelves_with_details_empty_shelves(self, mock_request, bookstack_service):
+        """Test list_shelves_with_details with empty shelves."""
+        responses = [
+            MagicMock(status_code=200, json=lambda: {'data': [], 'total': 0}),  # No shelves
+            MagicMock(status_code=200, json=lambda: {  # But some books exist
+                'data': [{'id': 1, 'name': 'Book 1'}],
+                'total': 1
+            })
+        ]
+        mock_request.side_effect = responses
+
+        result = bookstack_service.list_shelves_with_details()
+
+        assert len(result['shelves']) == 0
+        assert len(result['unshelved_books']) == 1
+        assert result['total_shelves'] == 0
+        assert result['total_books'] == 1
+
+    @patch('services.bookstack_service.requests.request')
+    def test_list_shelves_with_details_shelf_fetch_failure(self, mock_request, bookstack_service):
+        """Test list_shelves_with_details handles shelf detail fetch failures gracefully."""
+        responses = [
+            # list_shelves
+            MagicMock(status_code=200, json=lambda: {
+                'data': [
+                    {'id': 1, 'name': 'Shelf 1'},
+                    {'id': 2, 'name': 'Shelf 2'}
+                ],
+                'total': 2
+            }),
+            # list_books
+            MagicMock(status_code=200, json=lambda: {
+                'data': [{'id': 10, 'name': 'Book 1'}],
+                'total': 1
+            }),
+            # get_shelf(1) - succeeds
+            MagicMock(status_code=200, json=lambda: {
+                'id': 1,
+                'books': [{'id': 10}]
+            }),
+            # get_shelf(2) - fails
+            MagicMock(status_code=500, raise_for_status=Mock(side_effect=Exception("Server error")))
+        ]
+        mock_request.side_effect = responses
+
+        result = bookstack_service.list_shelves_with_details()
+
+        # Should still return both shelves, with failed one having 0 books
+        assert len(result['shelves']) == 2
+        assert result['shelves'][0]['book_count'] == 1
+        assert result['shelves'][1]['book_count'] == 0
+        assert result['shelves'][1]['book_ids'] == []
+        # Metadata should track the failure
+        assert result['metadata']['failed_shelf_details'] == 1
+
+    @patch('services.bookstack_service.requests.request')
+    def test_list_shelves_with_details_all_books_shelved(self, mock_request, bookstack_service):
+        """Test list_shelves_with_details when all books are in shelves."""
+        responses = [
+            # list_shelves
+            MagicMock(status_code=200, json=lambda: {
+                'data': [{'id': 1, 'name': 'Shelf 1'}],
+                'total': 1
+            }),
+            # list_books
+            MagicMock(status_code=200, json=lambda: {
+                'data': [
+                    {'id': 10, 'name': 'Book 1'},
+                    {'id': 20, 'name': 'Book 2'}
+                ],
+                'total': 2
+            }),
+            # get_shelf(1) - contains all books
+            MagicMock(status_code=200, json=lambda: {
+                'id': 1,
+                'books': [
+                    {'id': 10, 'name': 'Book 1'},
+                    {'id': 20, 'name': 'Book 2'}
+                ]
+            })
+        ]
+        mock_request.side_effect = responses
+
+        result = bookstack_service.list_shelves_with_details()
+
+        assert len(result['unshelved_books']) == 0
+        assert result['shelves'][0]['book_count'] == 2
