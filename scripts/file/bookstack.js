@@ -184,13 +184,26 @@ export class BookStackUI {
             const booksResponse = await APIClient.get('/bookstack/books?count=100&sort=+name');
             const allBooks = booksResponse.data || [];
 
-            // Filter books that don't belong to any shelf
+            // Fetch detailed shelf info to get book counts and associations
+            // GET /api/shelves (list) doesn't include books array
+            // GET /api/shelves/{id} (detail) includes books array
             const shelfBookIds = new Set();
-            shelves.forEach(shelf => {
-                if (shelf.books) {
-                    shelf.books.forEach(book => shelfBookIds.add(book.id));
+            const shelfDetails = await Promise.allSettled(shelves.map(async (shelf) => {
+                const details = await APIClient.get(`/bookstack/shelves/${shelf.id}`);
+                return { id: shelf.id, books: details.books || [] };
+            }));
+
+            // Build map of shelf ID to book count and collect all shelf book IDs
+            const shelfBookCounts = new Map();
+            shelfDetails.forEach((result) => {
+                if (result.status === 'fulfilled') {
+                    const { id, books } = result.value;
+                    shelfBookCounts.set(id, books.length);
+                    books.forEach(book => shelfBookIds.add(book.id));
                 }
             });
+
+            // Filter books that don't belong to any shelf
             const unshelvedBooks = allBooks.filter(book => !shelfBookIds.has(book.id));
 
             this.breadcrumbs = [{ name: 'BookStack', action: () => this.renderShelvesList() }];
@@ -204,7 +217,7 @@ export class BookStackUI {
                                 <span class="bookstack-item__icon">📚</span>
                                 <div class="bookstack-item__content">
                                     <div class="bookstack-item__name">${this.escapeHtml(shelf.name)}</div>
-                                    <div class="bookstack-item__meta">${shelf.books?.length || 0} books</div>
+                                    <div class="bookstack-item__meta">${shelfBookCounts.get(shelf.id) || 0} books</div>
                                 </div>
                                 <span class="bookstack-item__arrow">→</span>
                             </div>
@@ -595,7 +608,6 @@ export class BookStackUI {
             // Load shelves and books
             try {
                 const shelvesResponse = await APIClient.get('/bookstack/shelves');
-                const booksResponse = await APIClient.get('/bookstack/books');
 
                 // Populate shelves
                 shelfSelect.innerHTML = '<option value="">No Shelf</option>' +
@@ -603,38 +615,163 @@ export class BookStackUI {
                         `<option value="${shelf.id}">${this.escapeHtml(shelf.name)}</option>`
                     ).join('');
 
-                // Populate books
-                const populateBooks = (shelfId = null) => {
-                    const books = (booksResponse.data || []).filter(book =>
-                        !shelfId || book.shelf_id === parseInt(shelfId)
-                    );
-                    bookSelect.innerHTML = '<option value="">Select a book...</option>' +
-                        books.map(book =>
-                            `<option value="${book.id}">${this.escapeHtml(book.name)}</option>`
-                        ).join('');
+                // Request tracking to prevent race conditions
+                let currentBookRequest = null;
+                let lastRequestId = 0;
+
+                // Helper: Fetch books not in any shelf
+                const fetchUnshelvedBooks = async (signal) => {
+                    // BookStack API: GET /api/shelves returns lightweight list without books array
+                    // Need to fetch each shelf's details to get book associations
+                    const booksResponse = await APIClient.get('/bookstack/books', { signal });
+                    const allBooks = booksResponse.data || [];
+
+                    // Fetch detailed shelf info to get books arrays
+                    // GET /api/shelves/{id} includes books array
+                    // Note: BookStack API has no endpoint to filter books by "not in shelf"
+                    // See: https://github.com/BookStackApp/BookStack/issues/1077
+                    const shelfBookIds = new Set();
+                    const shelves = shelvesResponse.data || [];
+                    let failedShelfCount = 0;
+
+                    // Fetch all shelf details in parallel for accurate filtering
+                    const shelfResults = await Promise.allSettled(shelves.map(async (shelf) => {
+                        const shelfDetails = await APIClient.get(`/bookstack/shelves/${shelf.id}`, { signal });
+                        if (shelfDetails.books && Array.isArray(shelfDetails.books)) {
+                            return { shelfId: shelf.id, books: shelfDetails.books };
+                        }
+                        return { shelfId: shelf.id, books: [] };
+                    }));
+
+                    // Process results and track failures
+                    shelfResults.forEach((result, index) => {
+                        if (result.status === 'fulfilled') {
+                            result.value.books.forEach(book => shelfBookIds.add(book.id));
+                        } else {
+                            failedShelfCount++;
+                            const shelf = shelves[index];
+                            console.warn(`Failed to fetch shelf ${shelf.id} (${shelf.name}):`, result.reason);
+                        }
+                    });
+
+                    // Check if we have too many failures for reliable data
+                    if (failedShelfCount > 0) {
+                        const failureRate = failedShelfCount / shelves.length;
+                        if (failureRate >= 0.5) {
+                            // Over 50% failed - data is unreliable
+                            throw new Error(`Failed to load ${failedShelfCount}/${shelves.length} shelves. Cannot accurately determine unshelved books.`);
+                        } else if (failureRate >= 0.3) {
+                            // 30-50% failed - warn but continue
+                            this.showToast(`Warning: ${failedShelfCount} shelves failed to load. Book list may be incomplete.`, 'warning');
+                        }
+                    }
+
+                    // Filter to show only books not in any shelf
+                    return allBooks.filter(book => !shelfBookIds.has(book.id));
                 };
 
-                populateBooks();
+                // Helper: Fetch books for specific shelf
+                const fetchShelfBooks = async (shelfId, signal) => {
+                    const booksResponse = await APIClient.get(`/bookstack/books?filter[shelf_id]=${shelfId}`, { signal });
+                    return booksResponse.data || [];
+                };
+
+                // Main function to populate books based on selected shelf
+                const populateBooks = async (shelfId = null) => {
+                    // Cancel previous request if still running
+                    if (currentBookRequest) {
+                        currentBookRequest.abort();
+                    }
+
+                    // Create new request with unique ID to prevent race conditions
+                    lastRequestId++;
+                    const requestId = lastRequestId;
+                    currentBookRequest = new AbortController();
+                    const signal = currentBookRequest.signal;
+
+                    try {
+                        let books;
+                        if (!shelfId) {
+                            books = await fetchUnshelvedBooks(signal);
+                        } else {
+                            books = await fetchShelfBooks(shelfId, signal);
+                        }
+
+                        // Only update DOM if this is still the latest request
+                        if (requestId === lastRequestId) {
+                            bookSelect.innerHTML = '<option value="">Select a book...</option>' +
+                                books.map(book =>
+                                    `<option value="${book.id}">${this.escapeHtml(book.name)}</option>`
+                                ).join('');
+                        }
+                    } catch (error) {
+                        // Ignore aborted requests - user changed selection
+                        if (error.name === 'AbortError') {
+                            return;
+                        }
+
+                        // Only show error if this is still the latest request
+                        if (requestId === lastRequestId) {
+                            console.error('Error loading books:', error);
+                            bookSelect.innerHTML = '<option value="">Error loading books</option>';
+                            this.showToast(error.message || 'Error loading books. Please try again.', 'error');
+                        }
+                    }
+                };
+
+                // Book change handler - load chapters when book is selected
+                const handleBookChange = async (e) => {
+                    const bookId = e.target.value;
+                    if (!bookId) {
+                        chapterSelect.innerHTML = '<option value="">No Chapter</option>';
+                        return;
+                    }
+
+                    try {
+                        const book = await APIClient.get(`/bookstack/books/${bookId}`);
+
+                        // Extract chapters from modern 'contents' array or legacy 'chapters' array
+                        let chapters = [];
+                        if (book.contents && Array.isArray(book.contents) && book.contents.length > 0) {
+                            // Modern API response with contents array
+                            // Filter items that have type='chapter' (validate type exists)
+                            chapters = book.contents.filter(item =>
+                                item && typeof item === 'object' && item.type === 'chapter'
+                            );
+                        } else if (book.chapters && Array.isArray(book.chapters)) {
+                            // Fallback to legacy structure
+                            chapters = book.chapters;
+                        }
+
+                        chapterSelect.innerHTML = '<option value="">No Chapter</option>' +
+                            chapters.map(chapter =>
+                                `<option value="${chapter.id}">${this.escapeHtml(chapter.name)}</option>`
+                            ).join('');
+                    } catch (error) {
+                        console.error('Error loading chapters:', error);
+                        chapterSelect.innerHTML = '<option value="">No Chapter</option>';
+                        this.showToast('Error loading chapters. Please try again.', 'error');
+                    }
+                };
+
+                // Initial population (no shelf) - wrapped in try-catch
+                try {
+                    await populateBooks();
+                } catch (error) {
+                    console.error('Error during initial book population:', error);
+                    this.showToast('Error loading BookStack data. Please try again.', 'error');
+                    resolve(null);
+                    return;
+                }
 
                 // Shelf change handler
-                shelfSelect.addEventListener('change', (e) => {
-                    populateBooks(e.target.value || null);
+                shelfSelect.addEventListener('change', async (e) => {
+                    await populateBooks(e.target.value || null);
                     chapterSelect.innerHTML = '<option value="">No Chapter</option>';
                 });
 
                 // Book change handler
-                bookSelect.addEventListener('change', async (e) => {
-                    const bookId = e.target.value;
-                    if (bookId) {
-                        const book = await APIClient.get(`/bookstack/books/${bookId}`);
-                        chapterSelect.innerHTML = '<option value="">No Chapter</option>' +
-                            (book.chapters || []).map(chapter =>
-                                `<option value="${chapter.id}">${this.escapeHtml(chapter.name)}</option>`
-                            ).join('');
-                    } else {
-                        chapterSelect.innerHTML = '<option value="">No Chapter</option>';
-                    }
-                });
+                bookSelect.addEventListener('change', handleBookChange);
 
             } catch (error) {
                 this.showToast('Error loading BookStack data', 'error');
