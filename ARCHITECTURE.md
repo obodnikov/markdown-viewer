@@ -1,7 +1,7 @@
 # ARCHITECTURE.md
 
-**Version:** 1.4.4
-**Last Updated:** 2026-01-01
+**Version:** 1.5.0
+**Last Updated:** 2026-02-23
 **Status:** ✅ Current
 
 ---
@@ -20,40 +20,54 @@ for AI coding assistants. This is NOT a coding guide—see [AI*.md](#8-ai-coding
 
 ## 2. High-Level System Overview
 
-Markdown Viewer is a **full-stack web application** for editing markdown with LLM-powered transformations,
-GitHub integration, and BookStack wiki integration (browse, export, and sync). No build step required for frontend.
+Markdown Viewer is a **full-stack web application** with an **optional Electron desktop wrapper** for
+editing markdown with LLM-powered transformations, GitHub integration, and BookStack wiki integration.
+No build step required for frontend. The desktop app reuses the same frontend and backend code.
 
 ### System Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                         USER (Browser)                           │
-└────────────────────────┬────────────────────────────────────────┘
-                         │
-        ┌────────────────┴────────────────┐
-        │                                  │
-┌───────▼────────┐              ┌─────────▼────────┐
-│   Frontend     │              │   Backend API    │
-│   (Static)     │◄─────────────┤   (Flask)        │
-│   HTML/CSS/JS  │   /api/*     │   Port 5050      │
-│   Port 8000    │              └─────────┬────────┘
-└────────────────┘                        │
-                                ┌─────────┴─────────┐
-                                │                   │
-                     ┌──────────▼──────┐   ┌────────▼────────┐
-                     │   Services      │   │  External APIs  │
-                     │   - OpenRouter  │   │  - OpenRouter   │
-                     │   - GitHub      │   │  - GitHub       │
-                     │   - BookStack   │   │  - BookStack    │
-                     │   - Export      │   │  - pandoc       │
-                     └─────────────────┘   └─────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│                          USER                                     │
+│                                                                   │
+│    ┌──────────────┐                    ┌───────────────────────┐  │
+│    │   Browser    │                    │   Electron Desktop    │  │
+│    │   Port 8000  │                    │   app:// protocol     │  │
+│    └──────┬───────┘                    │   ┌───────────────┐   │  │
+│           │                            │   │ BrowserWindow │   │  │
+│           │                            │   └───────┬───────┘   │  │
+│           │                            └───────────┼───────────┘  │
+└───────────┼────────────────────────────────────────┼──────────────┘
+            │                                        │
+   ┌────────▼─────────┐                  ┌───────────▼───────────┐
+   │  nginx            │                  │  Protocol Handler     │
+   │  static + proxy   │                  │  static + API proxy   │
+   └────────┬──────────┘                  └───────────┬───────────┘
+            │                                         │
+            └──────────────┬──────────────────────────┘
+                           │
+                  ┌────────▼────────┐
+                  │  Flask Backend  │
+                  │  Port dynamic   │
+                  └────────┬────────┘
+                           │
+              ┌────────────┴────────────┐
+              │                         │
+   ┌──────────▼──────┐      ┌──────────▼──────┐
+   │   Services      │      │  External APIs  │
+   │   OpenRouter    │      │  OpenRouter     │
+   │   GitHub        │      │  GitHub         │
+   │   BookStack     │      │  BookStack      │
+   │   Export        │      │  pandoc         │
+   └─────────────────┘      └─────────────────┘
 ```
 
 **Key characteristics:**
-- **Frontend:** Vanilla JS (ES6 modules), no build step, served via nginx/Python HTTP
+- **Frontend:** Vanilla JS (ES6 modules), no build step, served via nginx (web) or `app://` protocol (desktop)
 - **Backend:** Flask REST API, session-based auth for BookStack, OAuth for GitHub
-- **Communication:** Relative URLs (`/api/*`) for zero-config deployment
-- **Deployment:** Docker Compose with nginx reverse proxy
+- **Communication:** Relative URLs (`/api/*`) — works in both web and desktop without changes
+- **Web deployment:** Docker Compose with nginx reverse proxy
+- **Desktop deployment:** Electron + PyInstaller binary, no Python/Node required for end users
 
 ---
 
@@ -120,7 +134,21 @@ markdown-viewer/
 ├── docs/                       # Documentation & chat logs
 │   ├── chats/                 # Conversation history (context)
 │   ├── BOOKSTACK_API_INTEGRATION.md
+│   ├── ELECTRON_DESKTOP_APP_PLAN.md  # Desktop implementation plan
 │   └── CODE_REVIEW_*.md
+│
+├── desktop/                    # Electron desktop application (v2.0.0)
+│   ├── main.js                # Electron main process entry point
+│   ├── preload.js             # Secure IPC bridge (contextBridge)
+│   ├── protocol.js            # Custom app:// protocol + API proxy
+│   ├── flask-manager.js       # Flask process lifecycle management
+│   ├── settings-manager.js    # Encrypted persistent settings
+│   ├── menu.js                # Native application menu bar
+│   ├── forge.config.js        # Electron Forge packaging config
+│   ├── package.json           # Desktop dependencies & scripts
+│   ├── icons/                 # App icons (.icns, .ico, .png)
+│   ├── settings/              # Settings window (HTML/CSS/JS)
+│   └── build/                 # PyInstaller spec & build scripts
 │
 ├── AI.md                       # Frontend coding rules (HTML/CSS/JS)
 ├── AI_FLASK.md                 # Backend coding rules (Python/Flask)
@@ -212,20 +240,46 @@ markdown-viewer/
 
 ### 4.4 Deployment & Infrastructure
 
-**Docker:**
+**Web (Docker):**
 - Multi-stage Dockerfile (build → production image)
 - `docker-compose.yml` orchestrates nginx + Flask
 - Supervisor manages Flask process (stdout/stderr logging)
-
-**nginx:**
-- Serves static files (`/public`, `/scripts`, `/styles`)
-- Reverse proxies `/api/*` to Flask (port 5050)
+- nginx serves static files, proxies `/api/*` to Flask (port 5050)
 - Configured for relative URL support (zero-config deployment)
 
+**Desktop (Electron):**
+- Electron Forge packages app for macOS (DMG), Windows (Squirrel), Linux (DEB/RPM)
+- PyInstaller compiles Flask backend into standalone binary (~50 MB)
+- No Python or Node.js required on end-user machines
+- See `desktop/README.md` for build & installation guide
+
 **Environment:**
-- `.env` file for secrets (not committed)
+- `.env` file for secrets in web deployment (not committed)
+- `electron-store` for encrypted settings in desktop deployment
 - `.env.example` template with all options
 - Config priority: CLI args > env vars > defaults
+
+### 4.5 Desktop Application (Electron)
+
+**Location:** `desktop/`
+**Runtime:** Electron 33+, Node.js 18+
+**Packaging:** Electron Forge 7
+
+**Main process modules:**
+- `main.js` - App lifecycle, window management, IPC handlers, single-instance lock
+- `flask-manager.js` - Spawns/stops Flask, health check polling, Python auto-detection
+- `protocol.js` - Custom `app://` scheme: serves static files, proxies `/api/*` to Flask
+- `settings-manager.js` - Encrypted persistent storage via `electron-store`
+- `menu.js` - Native menu bar (platform-aware: macOS app menu vs Windows File menu)
+- `preload.js` - Secure IPC bridge (`contextBridge`, no `nodeIntegration`)
+
+**Key behaviors:**
+- Flask runs as a child process on a dynamic port (auto-detected free port)
+- Custom `app://` protocol eliminates CORS issues and allows relative `/api/*` URLs
+- Single-instance lock: second launch focuses existing window, opens file from argv
+- macOS `open-file` event: double-click `.md` or drag to dock opens in app
+- Settings changes trigger Flask restart with new environment variables
+- First-run onboarding prompts for OpenRouter API key configuration
 
 ---
 
@@ -303,91 +357,34 @@ bookstack.js
 ### 5.3 Local File Export to BookStack Flow
 
 ```
-User opens local .md file (Ctrl+O)
-User edits content
-User presses Ctrl+E (Export button)
-         │
-         ▼
-scripts/file/export.js
-  - Shows export dialog with formats:
-    MD, HTML, PDF, DOCX, + BookStack
-         │
-         ▼
-User clicks "BookStack" option
-         │
-         ▼
-scripts/main.js:exportToBookStack()
-  - Checks BookStack authentication
-         │
-         ▼
-  [Not authenticated] → Shows auth dialog
-  [Authenticated] → Calls bookstack.js:showCreateDialog()
-         │
-         ▼
-scripts/file/bookstack.js
-  - Shows shelf/book/chapter selection
-  - Fetches bulk shelf/book data via GET /api/bookstack/shelves/details (single call)
-  - Displays shelves with book counts
-  - Computes unshelved books from aggregated data
-  - Loads chapters from book.contents or book.chapters
-         │
-         ▼
-User selects: Shelf → Book → (Optional) Chapter
-User enters page name
-         │
-         ▼
-  POST /api/bookstack/pages
-  { book_id: X, chapter_id: Y, name: "...", markdown: "..." }
-         │
-         ▼
-backend/routes/bookstack.py
-  - Validates session auth
-  - Creates new page in BookStack
-         │
-         ▼
-backend/services/bookstack_service.py
-  - Calls BookStack API: POST /api/pages
-         │
-         ▼
-Response: { id, slug, name }
-         │
-         ▼
-scripts/main.js
-  - Shows "Document exported to BookStack successfully" toast
+User opens local .md → edits → Ctrl+E → "BookStack" option
+  │
+  ▼
+bookstack.js: showCreateDialog()
+  - Fetches bulk shelf/book data (single GET /api/bookstack/shelves/details)
+  - User selects: Shelf → Book → (Optional) Chapter → enters page name
+  │
+  ▼
+POST /api/bookstack/pages { book_id, chapter_id, name, markdown }
+  → bookstack_service.py → BookStack API: POST /api/pages
+  → Response: { id, slug, name } → success toast
 ```
 
-**Performance:** Bulk endpoint reduces dialog operations from N+2 HTTP requests to 1 request
-(where N = number of shelves). Example: 20 shelves = 22 requests → 1 request (~95% reduction).
+**Performance:** Bulk endpoint reduces N+2 HTTP requests to 1 (~95% reduction).
 
-**Error Handling:** Response includes metadata for incomplete data (failed shelf details,
-pagination issues), with frontend warnings displayed to users.
+### 5.4 Runtime Models
 
-### 5.4 Reverse Proxy Runtime Model
-
+**Web (Docker/nginx):**
 ```
-Production Deployment (HTTPS)
-────────────────────────────────
-
-Browser → https://md.yourdomain.com/api/health
-              │
-              ▼
-External Reverse Proxy (nginx/Traefik)
-  - Terminates SSL
-  - X-Forwarded-Proto: https
-              │
-              ▼
-Docker Container (port 80)
-  └─ nginx (internal)
-      - Serves /public, /scripts, /styles
-      - Proxies /api/* → localhost:5050
-              │
-              ▼
-      Flask (port 5050)
-        - Processes request
-        - Returns JSON
+Browser → nginx (port 80) → static files + proxy /api/* → Flask (port 5050)
 ```
 
-**Key:** Frontend uses `/api` (relative URL) → works in all environments.
+**Desktop (Electron):**
+```
+BrowserWindow → app:// protocol → static files + proxy /api/* → Flask (dynamic port)
+```
+
+**Key:** Frontend uses `/api` (relative URL) → works identically in both environments.
 
 ---
 
@@ -434,10 +431,12 @@ CORS_ORIGINS=http://localhost:8000,http://127.0.0.1:8000
 ### 6.3 Runtime Assumptions
 
 - **Python:** 3.11+ with venv at `venv/`
+- **Node.js:** 18+ (for desktop development and Electron)
 - **pandoc:** Installed system-wide for export features
 - **Docker:** Uses multi-stage build, supervisor for process management
 - **Browser:** Modern browser with ES6 module support
 - **File System Access API:** Progressive enhancement (has fallback)
+- **Desktop:** Electron 33+, `electron-store` for settings (replaces `.env` in desktop mode)
 
 ---
 
@@ -494,6 +493,18 @@ Components mapped by production-readiness and change risk:
 
 **Backend:**
 - BookStack conflict resolution strategy (may enhance diff viewer)
+
+### 🔄 Desktop (Functional, Phase 10 testing pending)
+
+- `desktop/main.js` - Electron main process, IPC handlers
+- `desktop/flask-manager.js` - Flask lifecycle, Python auto-detection
+- `desktop/protocol.js` - Custom `app://` protocol + API proxy
+- `desktop/settings-manager.js` - Encrypted settings storage
+- `desktop/menu.js` - Native menu bar
+- `desktop/preload.js` - Secure IPC bridge
+- `desktop/forge.config.js` - Electron Forge packaging config
+- `desktop/settings/` - Settings window UI
+- `desktop/build/` - PyInstaller spec & build scripts
 
 ### 🔮 Planned (Not yet implemented)
 
@@ -613,6 +624,7 @@ When coding rules conflict, follow this priority order (highest to lowest):
 cat CLAUDE.md      # Project behavior & constraints
 cat AI_FLASK.md    # Backend rules (if touching Python)
 cat AI.md          # Frontend rules (if touching JS/CSS)
+cat desktop/README.md  # Desktop rules (if touching Electron)
 ```
 
 ### Step 2: Check Prior Context (< 1 min)
@@ -683,6 +695,12 @@ Would you like me to proceed with this implementation?
 3. Document in `CONFIGURATION.md`
 4. Update `README.md` if user-facing
 
+**Work on desktop app:**
+1. Read `desktop/README.md` for architecture & build guide
+2. Check `docs/ELECTRON_DESKTOP_APP_PLAN.md` for implementation plan
+3. Desktop components are 🔄 Semi-Stable (Section 7)
+4. Test with `cd desktop && npm start` (integrated) or `npm run start:dev` (dev mode)
+
 ---
 
 ## Appendix: Key Documentation Links
@@ -700,6 +718,10 @@ Would you like me to proceed with this implementation?
 - [CONFIGURATION.md](CONFIGURATION.md) - Environment variables
 - [docs/BOOKSTACK_API_INTEGRATION.md](docs/BOOKSTACK_API_INTEGRATION.md) - BookStack guide
 
+**For desktop development:**
+- [desktop/README.md](desktop/README.md) - Desktop architecture, build & install guide
+- [docs/ELECTRON_DESKTOP_APP_PLAN.md](docs/ELECTRON_DESKTOP_APP_PLAN.md) - Implementation plan & phase status
+
 **For developers:**
 - [LLM_PROMPTS.md](LLM_PROMPTS.md) - All LLM prompts
 - [README_TESTING.md](README_TESTING.md) - Testing guide
@@ -708,4 +730,4 @@ Would you like me to proceed with this implementation?
 
 ---
 
-**End of ARCHITECTURE.md** • Lines: ~290 • Compliance: ✅
+**End of ARCHITECTURE.md** • Lines: ~730 • Compliance: ✅
