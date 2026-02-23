@@ -13,7 +13,7 @@ module.exports = {
     asar: false,
 
     // Include backend, frontend, and assets as extra resources
-    // In packaged app these land in: resources/app-resources/
+    // In packaged app these land in: Resources/<name>/
     extraResource: [
       path.join(__dirname, '..', 'backend'),
       path.join(__dirname, '..', 'public'),
@@ -36,7 +36,6 @@ module.exports = {
       /^\/backend\/tests\//,
       /^\/backend\/logs\//,
       /^\/backend\/__pycache__\//,
-      /^\/node_modules\//,
       /docker-compose\.yml$/,
       /Dockerfile$/,
       /nginx\.conf$/,

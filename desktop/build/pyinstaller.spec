@@ -56,16 +56,6 @@ a = Analysis(
         'backend.services.github_service',
         'backend.services.bookstack_service',
         'backend.services.export_service',
-        # Direct imports used by services
-        'config',
-        'routes.llm',
-        'routes.github',
-        'routes.export',
-        'routes.bookstack',
-        'services.openrouter',
-        'services.github_service',
-        'services.bookstack_service',
-        'services.export_service',
         # Third-party dependencies
         'requests',
         'openrouter',

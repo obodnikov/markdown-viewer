@@ -223,7 +223,8 @@ class FlaskManager {
       DISABLE_FILE_LOGGING: 'true',
       LOG_LEVEL: settings.logLevel || 'INFO',
       SECRET_KEY: settings.secretKey || 'desktop-app-secret-key',
-      PYTHONPATH: this._getProjectRoot()
+      PYTHONPATH: this._getProjectRoot(),
+      PANDOC_PATH: this.settingsManager.get('pandocPath', '').trim() || ''
     };
   }
 
@@ -254,11 +255,13 @@ class FlaskManager {
   }
 
   _getCompiledBackendPath() {
-    const projectRoot = this._getProjectRoot();
     const binaryName = process.platform === 'win32'
       ? 'markdown-viewer-backend.exe'
       : 'markdown-viewer-backend';
-    const binaryPath = path.join(projectRoot, 'desktop', 'build', 'dist', binaryName);
+
+    // In packaged app: binary is at Resources/app/build/dist/
+    // In dev: binary is at desktop/build/dist/
+    const binaryPath = path.join(__dirname, 'build', 'dist', binaryName);
 
     if (fs.existsSync(binaryPath)) {
       return binaryPath;
@@ -269,22 +272,30 @@ class FlaskManager {
   _getProjectRoot() {
     const { app } = require('electron');
     if (app.isPackaged) {
-      return path.join(process.resourcesPath, 'app-resources');
+      return process.resourcesPath;
     }
     return path.resolve(__dirname, '..');
   }
 
   checkPandoc() {
     const { execFileSync } = require('child_process');
-    try {
-      const output = execFileSync('pandoc', ['--version'], { timeout: 5000 });
-      const version = output.toString().split('\n')[0];
-      console.log(`[FlaskManager] Pandoc found: ${version}`);
-      return { available: true, version };
-    } catch {
-      console.warn('[FlaskManager] Pandoc not found — PDF/DOCX export will be unavailable');
-      return { available: false, version: null };
+    const configuredPath = this.settingsManager.get('pandocPath', '').trim();
+    const candidates = configuredPath
+      ? [configuredPath]
+      : ['pandoc', '/usr/local/bin/pandoc', '/opt/homebrew/bin/pandoc', '/usr/bin/pandoc'];
+
+    for (const candidate of candidates) {
+      try {
+        const output = execFileSync(candidate, ['--version'], { timeout: 5000 });
+        const version = output.toString().split('\n')[0];
+        console.log(`[FlaskManager] Pandoc found: ${version} at ${candidate}`);
+        return { available: true, version, path: candidate };
+      } catch {
+        // try next
+      }
     }
+    console.warn('[FlaskManager] Pandoc not found — PDF/DOCX export will be unavailable');
+    return { available: false, version: null, path: null };
   }
 
 

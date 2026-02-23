@@ -108,7 +108,6 @@ async function createWindow(flaskPort) {
     });
 
     // Register custom protocol and load the app
-    registerProtocol(flaskPort);
     mainWindow.loadURL('app://./index.html');
 
     mainWindow.on('closed', () => {
@@ -153,10 +152,13 @@ app.whenReady().then(async () => {
     );
   }
 
+  // Register protocol once — must happen before first loadURL
+  registerProtocol(flaskPort);
+
   await createWindow(flaskPort);
 
   // Setup native menu (needs mainWindow reference)
-  setupMenu(mainWindow, settingsManager);
+  setupMenu(settingsManager);
 
   // Check for pandoc (non-blocking)
   const pandoc = flaskManager.checkPandoc();
