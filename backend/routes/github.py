@@ -56,6 +56,9 @@ def auth():
         # Register nonce as pending so /desktop-status can distinguish
         # "waiting for callback" from "unknown nonce"
         _cleanup_expired_auths()
+        # Reject if nonce already exists (pending or completed) to prevent replay/overwrite
+        if _pending_desktop_auths.get(nonce):
+            return jsonify({'error': 'nonce already used'}), 400
         _pending_desktop_auths[nonce] = {
             'status': 'pending',
             'token': None,
@@ -253,7 +256,7 @@ def desktop_status():
         # Nonce was never registered or has expired
         return jsonify({'error': 'nonce_expired_or_invalid'}), 404
 
-    if entry['status'] == 'pending':
+    if entry.get('status') == 'pending':
         # Callback hasn't fired yet — keep polling
         return jsonify({'pending': True}), 200
 

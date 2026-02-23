@@ -43,12 +43,21 @@ echo.
 REM Create isolated virtual environment for the build
 echo Creating build virtual environment...
 python -m venv --clear "%VENV_DIR%"
+if %ERRORLEVEL% neq 0 (
+    echo ERROR: Failed to create virtual environment.
+    exit /b 1
+)
 call "%VENV_DIR%\Scripts\activate.bat"
 
 echo Installing PyInstaller and backend dependencies...
 pip install --quiet --upgrade pip
 pip install --quiet pyinstaller
 pip install --quiet -r "%PROJECT_ROOT%\backend\requirements.txt"
+if %ERRORLEVEL% neq 0 (
+    echo ERROR: Failed to install dependencies.
+    call deactivate
+    exit /b 1
+)
 echo.
 
 REM Clean previous build output
@@ -63,6 +72,14 @@ python -m PyInstaller "%SCRIPT_DIR%pyinstaller.spec" ^
     --workpath "%SCRIPT_DIR%work" ^
     --clean ^
     --noconfirm
+if %ERRORLEVEL% neq 0 (
+    echo ERROR: PyInstaller build failed.
+    call deactivate
+    exit /b 1
+)
+
+REM Clean up work directory
+if exist "%SCRIPT_DIR%work" rmdir /s /q "%SCRIPT_DIR%work"
 
 REM Deactivate venv
 call deactivate
