@@ -2,8 +2,11 @@
 const { Menu, app, shell, BrowserWindow } = require('electron');
 const path = require('path');
 
-function setupMenu(mainWindow, settingsManager) {
+function setupMenu(settingsManager) {
   const isMac = process.platform === 'darwin';
+
+  // Always get the current focused/active window at click time
+  const getWin = () => BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0];
 
   const template = [
     // App menu (macOS only)
@@ -35,22 +38,22 @@ function setupMenu(mainWindow, settingsManager) {
         {
           label: 'New Document',
           accelerator: 'CmdOrCtrl+N',
-          click: () => mainWindow?.webContents.send('menu:new')
+          click: () => getWin()?.webContents.send('menu:new')
         },
         {
           label: 'Open...',
           accelerator: 'CmdOrCtrl+O',
-          click: () => mainWindow?.webContents.send('menu:open')
+          click: () => getWin()?.webContents.send('menu:open')
         },
         {
           label: 'Save',
           accelerator: 'CmdOrCtrl+S',
-          click: () => mainWindow?.webContents.send('menu:save')
+          click: () => getWin()?.webContents.send('menu:save')
         },
         {
           label: 'Export...',
           accelerator: 'CmdOrCtrl+E',
-          click: () => mainWindow?.webContents.send('menu:export')
+          click: () => getWin()?.webContents.send('menu:export')
         },
         { type: 'separator' },
         ...(!isMac ? [
@@ -102,12 +105,12 @@ function setupMenu(mainWindow, settingsManager) {
         {
           label: 'GitHub...',
           accelerator: 'CmdOrCtrl+G',
-          click: () => mainWindow?.webContents.send('menu:github')
+          click: () => getWin()?.webContents.send('menu:github')
         },
         {
           label: 'BookStack...',
           accelerator: 'CmdOrCtrl+K',
-          click: () => mainWindow?.webContents.send('menu:bookstack')
+          click: () => getWin()?.webContents.send('menu:bookstack')
         }
       ]
     },
