@@ -118,7 +118,12 @@ export class GitHubUI {
                     content.innerHTML = await this.renderRepoList();
                     return;
                 }
-            } catch { /* not authenticated yet */ }
+            } catch (error) {
+                // 401 = not authenticated yet (expected), log anything else
+                if (error?.status && error.status !== 401) {
+                    console.warn('[GitHub Poll] Unexpected error:', error);
+                }
+            }
             await new Promise(resolve => setTimeout(resolve, interval));
         }
 

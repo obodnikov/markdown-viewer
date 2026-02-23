@@ -1,4 +1,5 @@
 """GitHub integration routes."""
+import secrets
 from flask import Blueprint, request, jsonify, session, redirect
 import requests
 
@@ -26,9 +27,11 @@ def auth():
     if not Config.GITHUB_CLIENT_ID:
         return jsonify({'error': 'GitHub OAuth not configured'}), 500
 
-    # Pass source through OAuth state so we know how to handle the callback
+    # Build state with CSRF token and source identifier
     source = request.args.get('source', 'web')
-    state = source  # Simple state; extend with CSRF token if needed
+    csrf_token = secrets.token_urlsafe(32)
+    session['github_oauth_csrf'] = csrf_token
+    state = f"{source}:{csrf_token}"
 
     github_auth_url = (
         f"https://github.com/login/oauth/authorize"
@@ -55,8 +58,22 @@ def callback():
         Redirect to frontend (web) or HTML success page (desktop)
     """
     code = request.args.get('code')
-    state = request.args.get('state', 'web')
-    is_desktop = state == 'desktop'
+    state = request.args.get('state', 'web:')
+
+    # Parse source and CSRF token from state (format: "source:token")
+    if ':' in state:
+        source, csrf_token = state.split(':', 1)
+    else:
+        source, csrf_token = state, ''
+
+    is_desktop = source == 'desktop'
+
+    # Validate CSRF token
+    expected_csrf = session.pop('github_oauth_csrf', None)
+    if not expected_csrf or csrf_token != expected_csrf:
+        if is_desktop:
+            return _desktop_callback_page(False, 'Invalid OAuth state. Please try again.')
+        return redirect('/?error=github_csrf_invalid')
 
     if not code:
         if is_desktop:
