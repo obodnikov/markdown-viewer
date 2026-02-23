@@ -42,7 +42,7 @@ let flaskPort = null;
 function getProjectRoot() {
   const { app } = require('electron');
   if (app.isPackaged) {
-    return path.join(process.resourcesPath, 'app-resources');
+    return process.resourcesPath;
   }
   return path.resolve(__dirname, '..');
 }

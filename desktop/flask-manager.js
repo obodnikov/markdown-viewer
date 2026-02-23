@@ -254,11 +254,13 @@ class FlaskManager {
   }
 
   _getCompiledBackendPath() {
-    const projectRoot = this._getProjectRoot();
     const binaryName = process.platform === 'win32'
       ? 'markdown-viewer-backend.exe'
       : 'markdown-viewer-backend';
-    const binaryPath = path.join(projectRoot, 'desktop', 'build', 'dist', binaryName);
+
+    // In packaged app: binary is at Resources/app/build/dist/
+    // In dev: binary is at desktop/build/dist/
+    const binaryPath = path.join(__dirname, 'build', 'dist', binaryName);
 
     if (fs.existsSync(binaryPath)) {
       return binaryPath;
@@ -269,7 +271,7 @@ class FlaskManager {
   _getProjectRoot() {
     const { app } = require('electron');
     if (app.isPackaged) {
-      return path.join(process.resourcesPath, 'app-resources');
+      return process.resourcesPath;
     }
     return path.resolve(__dirname, '..');
   }
