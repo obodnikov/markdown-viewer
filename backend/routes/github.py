@@ -137,9 +137,13 @@ def callback():
             return redirect('/?error=github_token_failed')
 
         if is_desktop and nonce:
+            # Verify nonce was registered as pending in /auth
+            _cleanup_expired_auths()
+            existing = _pending_desktop_auths.get(nonce)
+            if not existing or existing['status'] != 'pending':
+                return _desktop_callback_page(False, 'Invalid or expired authentication session. Please try again from the app.')
             # Mark nonce as completed with the token.
             # The Electron app will claim it via /desktop-status?nonce=...
-            _cleanup_expired_auths()
             _pending_desktop_auths[nonce] = {
                 'status': 'completed',
                 'token': access_token,
