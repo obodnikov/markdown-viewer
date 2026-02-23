@@ -10,6 +10,8 @@ export class GitHubUI {
         this.loadDocument = loadDocumentCallback;
         this.authenticated = false;
         this.currentRepo = null;
+        // Expose instance for global onclick handlers (desktop polling)
+        window._githubUIInstance = this;
     }
 
     // Helper to get backend URL for OAuth redirect
@@ -77,8 +79,9 @@ export class GitHubUI {
 
         // In Electron, open auth in system browser and poll for completion
         if (typeof window.electronAPI !== 'undefined') {
-            window.electronAPI.openExternal(`${authUrl}?source=desktop`);
-            this._pollForAuth();
+            const nonce = crypto.randomUUID();
+            window.electronAPI.openExternal(`${authUrl}?source=desktop&nonce=${nonce}`);
+            this._pollForAuth(nonce);
             return;
         }
 
@@ -86,7 +89,7 @@ export class GitHubUI {
         window.location.href = authUrl;
     }
 
-    async _pollForAuth(maxAttempts = 60, interval = 2000) {
+    async _pollForAuth(nonce, maxAttempts = 60, interval = 2000) {
         const content = document.getElementById('github-content');
         content.innerHTML = `
             <div class="github-auth">
@@ -111,15 +114,16 @@ export class GitHubUI {
         for (let i = 0; i < maxAttempts; i++) {
             if (cancelled) return;
             try {
-                const userInfo = await this.getUserInfo();
-                if (userInfo) {
+                const result = await APIClient.get(`/github/desktop-status?nonce=${nonce}`);
+                if (result.success) {
                     delete window._cancelGitHubPoll;
                     this.authenticated = true;
                     content.innerHTML = await this.renderRepoList();
                     return;
                 }
+                // result.pending === true means still waiting
             } catch (error) {
-                // 401 = not authenticated yet (expected), log anything else
+                // Log unexpected errors for debugging
                 if (error?.status && error.status !== 401) {
                     console.warn('[GitHub Poll] Unexpected error:', error);
                 }
@@ -255,9 +259,14 @@ window.connectGitHub = function() {
 
     const authUrl = `${backendUrl}/api/github/auth`;
 
-    // In Electron, open auth in system browser
+    // In Electron, open auth in system browser and poll via GitHubUI instance
     if (typeof window.electronAPI !== 'undefined') {
-        window.electronAPI.openExternal(`${authUrl}?source=desktop`);
+        const nonce = crypto.randomUUID();
+        window.electronAPI.openExternal(`${authUrl}?source=desktop&nonce=${nonce}`);
+        // If a GitHubUI instance is available, use its polling
+        if (window._githubUIInstance) {
+            window._githubUIInstance._pollForAuth(nonce);
+        }
         return;
     }
 
