@@ -1837,6 +1837,7 @@ if (app.isPackaged) {
 | **Total (with pandoc)** | **~162 MB** |
 
 ### Deliverables
+- [ ] Generate `icons/icon.icns` from `icon-512.png` for macOS packaging
 - [ ] `desktop/forge.config.js` — packaging configuration
 - [ ] macOS `.dmg` builds successfully
 - [ ] Windows `.exe` installer builds successfully
