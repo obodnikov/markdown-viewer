@@ -1493,10 +1493,15 @@ def github_callback():
 ```
 
 ### Deliverables
-- [ ] GitHub OAuth opens in system browser
-- [ ] Polling mechanism for auth completion
-- [ ] Callback success page for desktop flow
-- [ ] Existing web OAuth flow unchanged
+- [x] GitHub OAuth opens in system browser
+- [x] Polling mechanism for auth completion
+- [x] Callback success page for desktop flow
+- [x] Existing web OAuth flow unchanged
+
+> ✅ **Phase 6 completed** — 2026-02-23
+> Desktop OAuth uses system browser + polling. State parameter passes `source=desktop`
+> through GitHub redirect. Backend returns styled HTML callback page for desktop.
+> Web flow completely unchanged.
 
 ---
 

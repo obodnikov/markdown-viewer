@@ -73,7 +73,74 @@ export class GitHubUI {
 
     connectGitHub() {
         const backendUrl = this.getBackendBaseURL();
-        window.location.href = `${backendUrl}/api/github/auth`;
+        const authUrl = `${backendUrl}/api/github/auth`;
+
+        // In Electron, open auth in system browser and poll for completion
+        if (typeof window.electronAPI !== 'undefined') {
+            window.electronAPI.openExternal(`${authUrl}?source=desktop`);
+            this._pollForAuth();
+            return;
+        }
+
+        // Web: redirect as usual
+        window.location.href = authUrl;
+    }
+
+    async _pollForAuth(maxAttempts = 60, interval = 2000) {
+        const content = document.getElementById('github-content');
+        content.innerHTML = `
+            <div class="github-auth">
+                <div class="github-auth__icon">⏳</div>
+                <h3>Waiting for GitHub Authentication...</h3>
+                <p class="github-auth__text">
+                    Complete the sign-in in your browser, then return here.
+                </p>
+                <button class="github-auth__button" onclick="window._cancelGitHubPoll && window._cancelGitHubPoll()">
+                    Cancel
+                </button>
+            </div>
+        `;
+
+        let cancelled = false;
+        window._cancelGitHubPoll = () => {
+            cancelled = true;
+            delete window._cancelGitHubPoll;
+            this.show();
+        };
+
+        for (let i = 0; i < maxAttempts; i++) {
+            if (cancelled) return;
+            try {
+                const userInfo = await this.getUserInfo();
+                if (userInfo) {
+                    delete window._cancelGitHubPoll;
+                    this.authenticated = true;
+                    content.innerHTML = await this.renderRepoList();
+                    return;
+                }
+            } catch (error) {
+                // 401 = not authenticated yet (expected), log anything else
+                if (error?.status && error.status !== 401) {
+                    console.warn('[GitHub Poll] Unexpected error:', error);
+                }
+            }
+            await new Promise(resolve => setTimeout(resolve, interval));
+        }
+
+        // Timed out
+        delete window._cancelGitHubPoll;
+        content.innerHTML = `
+            <div class="github-auth">
+                <div class="github-auth__icon">⚠️</div>
+                <h3>Authentication Timed Out</h3>
+                <p class="github-auth__text">
+                    GitHub authentication did not complete in time. Please try again.
+                </p>
+                <button class="github-auth__button" onclick="window.connectGitHub()">
+                    Try Again
+                </button>
+            </div>
+        `;
     }
 
     async renderRepoList() {
@@ -186,7 +253,16 @@ window.connectGitHub = function() {
         backendUrl = apiUrl.replace(/\/api$/, '');
     }
 
-    window.location.href = `${backendUrl}/api/github/auth`;
+    const authUrl = `${backendUrl}/api/github/auth`;
+
+    // In Electron, open auth in system browser
+    if (typeof window.electronAPI !== 'undefined') {
+        window.electronAPI.openExternal(`${authUrl}?source=desktop`);
+        return;
+    }
+
+    // Web: redirect as usual
+    window.location.href = authUrl;
 };
 
 window.disconnectGitHub = async function() {
