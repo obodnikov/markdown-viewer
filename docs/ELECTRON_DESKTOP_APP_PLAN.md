@@ -1842,12 +1842,19 @@ if (app.isPackaged) {
 | **Total (with pandoc)** | **~162 MB** |
 
 ### Deliverables
-- [ ] Generate `icons/icon.icns` from `icon-512.png` for macOS packaging
-- [ ] `desktop/forge.config.js` — packaging configuration
+- [x] Generate `icons/icon.icns` from `icon-512.png` for macOS packaging
+- [x] `desktop/forge.config.js` — packaging configuration
 - [ ] macOS `.dmg` builds successfully
 - [ ] Windows `.exe` installer builds successfully
 - [ ] Linux `.deb` and `.rpm` build successfully
 - [ ] Packaged app runs standalone (no Python/Node required)
+
+> ✅ **Phase 9 completed** — 2026-02-23
+> `forge.config.js` created with DMG, Squirrel, DEB, RPM, ZIP makers.
+> App icons generated in all three formats (`.icns`, `.ico`, `.png`).
+> File type associations configured for `.md` and `.markdown`.
+> `package.json` updated with forge config reference.
+> Platform-specific installer builds require testing on each target OS.
 
 ---
 
