@@ -17,6 +17,65 @@ let mainWindow = null;
 let flaskManager = null;
 const settingsManager = new SettingsManager();
 
+// --- Single instance lock ---
+let pendingFilePath = null;
+
+const gotTheLock = app.requestSingleInstanceLock();
+
+if (!gotTheLock) {
+  app.quit();
+} else {
+  app.on('second-instance', (event, argv) => {
+    const filePath = getFileFromArgs(argv);
+    if (filePath) {
+      openFileInRenderer(path.resolve(filePath)).catch(err =>
+        console.error(`[Main] second-instance file open failed: ${err.message}`)
+      );
+    }
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.focus();
+    }
+  });
+}
+
+// macOS: file opened via double-click or drag to dock
+app.on('open-file', (event, filePath) => {
+  event.preventDefault();
+  if (mainWindow) {
+    openFileInRenderer(filePath);
+  } else {
+    pendingFilePath = filePath;
+  }
+});
+
+function getFileFromArgs(argv) {
+  const fileArg = argv.find(arg =>
+    !arg.startsWith('-') &&
+    !arg.includes('electron') &&
+    !arg.includes('node_modules') &&
+    (arg.endsWith('.md') || arg.endsWith('.markdown') || arg.endsWith('.txt')) &&
+    fs.existsSync(arg)
+  );
+  return fileArg || null;
+}
+
+async function openFileInRenderer(filePath) {
+  try {
+    const absolutePath = path.resolve(filePath);
+    const content = await fs.promises.readFile(absolutePath, 'utf-8');
+    mainWindow.webContents.send('file:opened', {
+      path: absolutePath,
+      name: path.basename(absolutePath),
+      content
+    });
+    mainWindow.setTitle(`${path.basename(absolutePath)} — Markdown Viewer`);
+  } catch (error) {
+    console.error(`[Main] Failed to open file: ${error.message}`);
+    dialog.showErrorBox('File Open Error', `Could not open file:\n${filePath}\n\n${error.message}`);
+  }
+}
+
 async function createWindow(flaskPort) {
   try {
     mainWindow = new BrowserWindow({
@@ -108,6 +167,17 @@ app.whenReady().then(async () => {
     }
   }
 
+  // Open file from CLI args (Windows/Linux) or pending macOS open-file event
+  if (pendingFilePath) {
+    await openFileInRenderer(pendingFilePath);
+    pendingFilePath = null;
+  } else {
+    const fileFromArgs = getFileFromArgs(process.argv);
+    if (fileFromArgs) {
+      await openFileInRenderer(fileFromArgs);
+    }
+  }
+
   app.on('activate', async () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       await createWindow(flaskPort);
@@ -191,12 +261,13 @@ ipcMain.handle('app:isElectron', () => true);
 
 ipcMain.handle('app:getVersion', () => app.getVersion());
 
-ipcMain.handle('shell:openExternal', (event, url) => {
+ipcMain.handle('shell:openExternal', async (event, url) => {
   // Only allow http/https URLs for security
   try {
     const parsed = new URL(url);
     if (parsed.protocol === 'https:' || parsed.protocol === 'http:') {
-      return shell.openExternal(url);
+      await shell.openExternal(url);
+      return true;
     }
     console.warn(`[Main] Blocked openExternal for non-http URL: ${url}`);
     return false;

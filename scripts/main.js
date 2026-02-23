@@ -149,6 +149,20 @@ class MarkdownViewerApp {
 
         // Handle URL params (GitHub OAuth callback)
         this.handleURLParams();
+
+        // Electron desktop integration: menu actions and file association
+        if (typeof window.electronAPI !== 'undefined') {
+            window.electronAPI.onMenuAction('new', () => this.newDocument());
+            window.electronAPI.onMenuAction('open', () => this.openFile());
+            window.electronAPI.onMenuAction('save', () => this.saveFile());
+            window.electronAPI.onMenuAction('export', () => this.showExportDialog());
+            window.electronAPI.onMenuAction('github', () => this.showGitHubDialog());
+            window.electronAPI.onMenuAction('bookstack', () => this.showBookStackDialog());
+
+            window.electronAPI.onFileOpened((fileData) => {
+                this.loadDocument(fileData.name, fileData.content, fileData.path);
+            });
+        }
     }
 
     onEditorChange(content) {

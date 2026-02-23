@@ -74,21 +74,29 @@ class FlaskManager {
       cwd: flaskPath.cwd
     });
 
+    this._stderrBuffer = '';
+
     this.process.stdout.on('data', (data) => {
       console.log(`[Flask] ${data.toString().trim()}`);
     });
 
     this.process.stderr.on('data', (data) => {
-      console.error(`[Flask] ${data.toString().trim()}`);
+      const text = data.toString().trim();
+      this._stderrBuffer += text + '\n';
+      console.error(`[Flask] ${text}`);
     });
 
     this.process.on('error', (error) => {
       console.error(`[FlaskManager] Failed to spawn Flask: ${error.message}`);
     });
 
-    this.process.on('exit', (code, signal) => {
-      console.log(`[FlaskManager] Flask exited (code: ${code}, signal: ${signal})`);
-      this.process = null;
+    // Track early exit for fast failure detection
+    this._earlyExitPromise = new Promise((resolve) => {
+      this.process.once('exit', (code, signal) => {
+        console.log(`[FlaskManager] Flask exited (code: ${code}, signal: ${signal})`);
+        this.process = null;
+        resolve(code);
+      });
     });
 
     // Wait for Flask to be ready
@@ -96,7 +104,7 @@ class FlaskManager {
       await this._waitForReady();
     } catch (error) {
       // Kill orphaned process if health check never succeeded
-      this.stop();
+      await this._stopAndWait();
       throw error;
     }
 
@@ -268,13 +276,33 @@ class FlaskManager {
 
   async _waitForReady(maxRetries = 30, interval = 500) {
     for (let i = 0; i < maxRetries; i++) {
-      try {
-        await this._healthCheck();
+      // Race: check if process already exited before next health check
+      if (!this.process) {
+        const stderr = this._stderrBuffer.trim();
+        throw new Error(
+          `Flask process exited before becoming ready.\n${stderr || '(no error output)'}`
+        );
+      }
+
+      // Race health check against early process exit
+      const result = await Promise.race([
+        this._healthCheck().then(() => 'ready'),
+        this._earlyExitPromise.then((code) => ({ exited: true, code }))
+      ]);
+
+      if (result === 'ready') {
         console.log(`[FlaskManager] Flask is ready (attempt ${i + 1})`);
         return;
-      } catch {
-        await new Promise(resolve => setTimeout(resolve, interval));
       }
+
+      if (result && result.exited) {
+        const stderr = this._stderrBuffer.trim();
+        throw new Error(
+          `Flask exited with code ${result.code} before becoming ready.\n${stderr || '(no error output)'}`
+        );
+      }
+
+      await new Promise(resolve => setTimeout(resolve, interval));
     }
     throw new Error('Flask backend failed to start within 15 seconds');
   }

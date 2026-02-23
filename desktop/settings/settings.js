@@ -55,11 +55,11 @@ async function saveSettings(event) {
   if (settings.flaskPort > 0 && settings.flaskPort < 1024) {
     errors.push('API Port below 1024 requires elevated privileges');
   }
-  if (settings.openrouterMaxTokens < 100 || settings.openrouterMaxTokens > 128000) {
-    errors.push('Max Tokens must be 100–128000');
+  if (settings.openrouterMaxTokens > 0 && (settings.openrouterMaxTokens < 100 || settings.openrouterMaxTokens > 128000)) {
+    errors.push('Max Tokens must be 100–128000 (or 0 for default)');
   }
-  if (settings.bookstackApiTimeout < 5 || settings.bookstackApiTimeout > 120) {
-    errors.push('BookStack timeout must be 5–120');
+  if (settings.bookstackApiTimeout > 0 && (settings.bookstackApiTimeout < 5 || settings.bookstackApiTimeout > 120)) {
+    errors.push('BookStack timeout must be 5–120 (or 0 for default)');
   }
 
   if (errors.length > 0) {
