@@ -4,7 +4,10 @@ const path = require('path');
 const fs = require('fs');
 const FlaskManager = require('./flask-manager');
 const SettingsManager = require('./settings-manager');
-const { registerProtocol } = require('./protocol');
+const { registerScheme, registerProtocol } = require('./protocol');
+
+// Register app:// as privileged scheme — must happen before app.whenReady()
+registerScheme();
 
 // Parse CLI args
 const isDev = process.argv.includes('--dev');
@@ -119,8 +122,13 @@ ipcMain.handle('dialog:openFile', async (event, options) => {
   });
   if (result.canceled) return null;
   const filePath = result.filePaths[0];
-  const content = fs.readFileSync(filePath, 'utf-8');
-  return { path: filePath, name: path.basename(filePath), content };
+  try {
+    const content = await fs.promises.readFile(filePath, 'utf-8');
+    return { path: filePath, name: path.basename(filePath), content };
+  } catch (error) {
+    console.error(`[Main] Failed to read file: ${error.message}`);
+    return null;
+  }
 });
 
 ipcMain.handle('dialog:saveFile', async (event, { content, defaultName }) => {
@@ -132,8 +140,13 @@ ipcMain.handle('dialog:saveFile', async (event, { content, defaultName }) => {
     ]
   });
   if (result.canceled) return null;
-  fs.writeFileSync(result.filePath, content, 'utf-8');
-  return { path: result.filePath, name: path.basename(result.filePath) };
+  try {
+    await fs.promises.writeFile(result.filePath, content, 'utf-8');
+    return { path: result.filePath, name: path.basename(result.filePath) };
+  } catch (error) {
+    console.error(`[Main] Failed to write file: ${error.message}`);
+    return null;
+  }
 });
 
 ipcMain.handle('settings:get', () => {
@@ -161,7 +174,18 @@ ipcMain.handle('app:isElectron', () => true);
 ipcMain.handle('app:getVersion', () => app.getVersion());
 
 ipcMain.handle('shell:openExternal', (event, url) => {
-  return shell.openExternal(url);
+  // Only allow http/https URLs for security
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol === 'https:' || parsed.protocol === 'http:') {
+      return shell.openExternal(url);
+    }
+    console.warn(`[Main] Blocked openExternal for non-http URL: ${url}`);
+    return false;
+  } catch {
+    console.warn(`[Main] Blocked openExternal for invalid URL: ${url}`);
+    return false;
+  }
 });
 
 ipcMain.on('window:setTitle', (event, title) => {

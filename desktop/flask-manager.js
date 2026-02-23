@@ -1,5 +1,5 @@
 // desktop/flask-manager.js — Flask process lifecycle management
-const { spawn, execSync } = require('child_process');
+const { spawn, execFileSync } = require('child_process');
 const path = require('path');
 const http = require('http');
 const fs = require('fs');
@@ -76,7 +76,13 @@ class FlaskManager {
     });
 
     // Wait for Flask to be ready
-    await this._waitForReady();
+    try {
+      await this._waitForReady();
+    } catch (error) {
+      // Kill orphaned process if health check never succeeded
+      this.stop();
+      throw error;
+    }
 
     return this.port;
   }
@@ -162,9 +168,10 @@ class FlaskManager {
 
   _isPythonValid(pythonPath) {
     try {
-      const version = execSync(`"${pythonPath}" --version 2>&1`, {
+      const version = execFileSync(pythonPath, ['--version'], {
         timeout: 5000,
-        encoding: 'utf-8'
+        encoding: 'utf-8',
+        stdio: ['pipe', 'pipe', 'pipe']
       }).trim();
       console.log(`[FlaskManager] Found ${version} at ${pythonPath}`);
       return true;
