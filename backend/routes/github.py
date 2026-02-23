@@ -1,5 +1,8 @@
 """GitHub integration routes."""
+import html
 import secrets
+import time
+import urllib.parse
 from flask import Blueprint, request, jsonify, session, redirect
 import requests
 
@@ -12,6 +15,14 @@ except ImportError:
 
 github_bp = Blueprint('github', __name__, url_prefix='/api/github')
 
+# Server-side registry for desktop OAuth tokens.
+# Keyed by nonce, stores {'token': str, 'timestamp': float}.
+# The system browser and Electron app have separate sessions, so we
+# bridge the gap by storing the GitHub token here temporarily and
+# letting the Electron app claim it via the nonce.
+_pending_desktop_auths = {}
+_DESKTOP_AUTH_TTL = 300  # 5 minutes
+
 
 
 @github_bp.route('/auth', methods=['GET'])
@@ -20,6 +31,7 @@ def auth():
 
     Query params:
         source: 'desktop' if initiated from Electron app (optional)
+        nonce: desktop auth nonce for token exchange (desktop only)
 
     Returns:
         Redirect to GitHub OAuth page
@@ -27,21 +39,30 @@ def auth():
     if not Config.GITHUB_CLIENT_ID:
         return jsonify({'error': 'GitHub OAuth not configured'}), 500
 
-    # Build state with CSRF token and source identifier
     source = request.args.get('source', 'web')
+    if source not in ('web', 'desktop'):
+        source = 'web'
+
+    # Build state: source:csrf_token for web, source:csrf_token:nonce for desktop
     csrf_token = secrets.token_urlsafe(32)
     session['github_oauth_csrf'] = csrf_token
-    state = f"{source}:{csrf_token}"
+
+    if source == 'desktop':
+        nonce = request.args.get('nonce', '')
+        state = f"{source}:{csrf_token}:{nonce}"
+    else:
+        state = f"{source}:{csrf_token}"
 
     github_auth_url = (
         f"https://github.com/login/oauth/authorize"
         f"?client_id={Config.GITHUB_CLIENT_ID}"
         f"&redirect_uri={Config.GITHUB_REDIRECT_URI}"
         f"&scope=repo,user"
-        f"&state={state}"
+        f"&state={urllib.parse.quote(state, safe='')}"
     )
 
     return redirect(github_auth_url)
+
 
 
 
@@ -52,7 +73,7 @@ def callback():
 
     Query params:
         code: OAuth code from GitHub
-        state: 'desktop' or 'web' (passed through from /auth)
+        state: 'source:csrf' (web) or 'source:csrf:nonce' (desktop)
 
     Returns:
         Redirect to frontend (web) or HTML success page (desktop)
@@ -60,15 +81,17 @@ def callback():
     code = request.args.get('code')
     state = request.args.get('state', 'web:')
 
-    # Parse source and CSRF token from state (format: "source:token")
-    if ':' in state:
-        source, csrf_token = state.split(':', 1)
-    else:
-        source, csrf_token = state, ''
+    # Parse state: "source:csrf" or "source:csrf:nonce"
+    parts = state.split(':', 2)
+    source = parts[0] if len(parts) >= 1 else 'web'
+    csrf_token = parts[1] if len(parts) >= 2 else ''
+    nonce = parts[2] if len(parts) >= 3 else ''
 
+    if source not in ('web', 'desktop'):
+        source = 'web'
     is_desktop = source == 'desktop'
 
-    # Validate CSRF token
+    # Validate CSRF token (browser session — same session that called /auth)
     expected_csrf = session.pop('github_oauth_csrf', None)
     if not expected_csrf or csrf_token != expected_csrf:
         if is_desktop:
@@ -101,17 +124,29 @@ def callback():
                 return _desktop_callback_page(False, 'Failed to obtain access token from GitHub.')
             return redirect('/?error=github_token_failed')
 
-        # Store token in session
-        session['github_token'] = access_token
-
-        if is_desktop:
+        if is_desktop and nonce:
+            # Store token in server-side registry keyed by nonce.
+            # The Electron app will claim it via /desktop-status?nonce=...
+            _cleanup_expired_auths()
+            _pending_desktop_auths[nonce] = {
+                'token': access_token,
+                'timestamp': time.time()
+            }
             return _desktop_callback_page(True)
+
+        if is_desktop and not nonce:
+            # Desktop flow without nonce is invalid — should never happen
+            return _desktop_callback_page(False, 'Desktop authentication requires a nonce. Please try again from the app.')
+
+        # Web flow: store in session as before
+        session['github_token'] = access_token
         return redirect('/?github_auth=success')
 
     except Exception as e:
         if is_desktop:
             return _desktop_callback_page(False, str(e))
         return redirect(f'/?error=github_callback_error&message={str(e)}')
+
 
 
 def _desktop_callback_page(success, error_message=None):
@@ -142,6 +177,7 @@ def _desktop_callback_page(success, error_message=None):
             '</body></html>'
         ), 200
 
+    safe_message = html.escape(error_message or 'An unknown error occurred.')
     return (
         '<!DOCTYPE html><html><head><meta charset="utf-8">'
         '<title>GitHub Authentication</title>'
@@ -158,10 +194,59 @@ def _desktop_callback_page(success, error_message=None):
         '<div class="card">'
         '<div class="icon">&#10060;</div>'
         '<h2>Authentication Failed</h2>'
-        f'<p>{error_message or "An unknown error occurred."}</p>'
+        f'<p>{safe_message}</p>'
         '</div>'
         '</body></html>'
     ), 400
+
+
+def _cleanup_expired_auths():
+    """Remove expired entries from the pending desktop auths registry."""
+    now = time.time()
+    expired = [k for k, v in _pending_desktop_auths.items()
+               if now - v['timestamp'] > _DESKTOP_AUTH_TTL]
+    for k in expired:
+        del _pending_desktop_auths[k]
+
+
+@github_bp.route('/desktop-status', methods=['GET'])
+def desktop_status():
+    """Check if desktop OAuth completed and claim the token.
+
+    Called by the Electron app polling loop. If the nonce has a token,
+    it is moved into the caller's session and the nonce is consumed.
+
+    Query params:
+        nonce: The desktop auth nonce generated by the Electron app
+
+    Returns:
+        {"success": true, "user": {...}} if auth completed
+        {"pending": true} if still waiting
+        {"error": "..."} on invalid/expired nonce
+    """
+    nonce = request.args.get('nonce', '')
+    if not nonce:
+        return jsonify({'error': 'nonce parameter is required'}), 400
+
+    _cleanup_expired_auths()
+
+    entry = _pending_desktop_auths.pop(nonce, None)
+    if not entry:
+        # Either still pending or expired/invalid — caller should keep polling
+        return jsonify({'pending': True}), 200
+
+    # Claim the token into this session (the Electron app's session)
+    access_token = entry['token']
+    session['github_token'] = access_token
+
+    # Return user info so the app can update the UI immediately
+    try:
+        service = GitHubService(access_token)
+        user_info = service.get_user_info()
+        return jsonify({'success': True, 'user': user_info})
+    except RuntimeError as e:
+        # Token is stored but user info fetch failed — still authenticated
+        return jsonify({'success': True, 'user': None})
 
 
 

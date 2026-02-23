@@ -157,6 +157,23 @@ app.whenReady().then(async () => {
   // Setup native menu (needs mainWindow reference)
   setupMenu(mainWindow, settingsManager);
 
+  // Check for pandoc (non-blocking)
+  const pandoc = flaskManager.checkPandoc();
+  if (!pandoc.available) {
+    dialog.showMessageBox(mainWindow, {
+      type: 'info',
+      title: 'Pandoc Not Found',
+      message: 'PDF and DOCX export requires pandoc',
+      detail: 'Pandoc was not detected on your system. Markdown and HTML export will still work.\n\nInstall pandoc from: https://pandoc.org/installing.html',
+      buttons: ['Install Pandoc', 'Later'],
+      defaultId: 1
+    }).then(({ response }) => {
+      if (response === 0) {
+        shell.openExternal('https://pandoc.org/installing.html');
+      }
+    });
+  }
+
   // First-run: open settings if no API key configured
   if (!settingsManager.isConfigured()) {
     const response = await dialog.showMessageBox(mainWindow, {

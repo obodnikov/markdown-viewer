@@ -1551,9 +1551,13 @@ Set `PANDOC_PATH` environment variable to point to the bundled binary when spawn
 This adds ~30MB per platform to the app size.
 
 ### Deliverables
-- [ ] Pandoc detection on startup
-- [ ] User notification if pandoc is missing
+- [x] Pandoc detection on startup
+- [x] User notification if pandoc is missing
 - [ ] (Optional) Bundled pandoc binaries per platform
+
+> ✅ **Phase 7 completed** — 2026-02-23
+> Pandoc check on startup with non-blocking dialog. Install button opens pandoc.org.
+> Bundled pandoc binaries deferred to Phase 9 (packaging) as optional enhancement.
 
 ---
 

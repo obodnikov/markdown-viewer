@@ -274,6 +274,20 @@ class FlaskManager {
     return path.resolve(__dirname, '..');
   }
 
+  checkPandoc() {
+    const { execFileSync } = require('child_process');
+    try {
+      const output = execFileSync('pandoc', ['--version'], { timeout: 5000 });
+      const version = output.toString().split('\n')[0];
+      console.log(`[FlaskManager] Pandoc found: ${version}`);
+      return { available: true, version };
+    } catch {
+      console.warn('[FlaskManager] Pandoc not found — PDF/DOCX export will be unavailable');
+      return { available: false, version: null };
+    }
+  }
+
+
   async _waitForReady(maxRetries = 30, interval = 500) {
     for (let i = 0; i < maxRetries; i++) {
       // Check if process already exited
