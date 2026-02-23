@@ -122,6 +122,7 @@ export class GitHubUI {
                     return;
                 }
                 if (result.error === 'nonce_expired_or_invalid') {
+                    cancelled = true;
                     delete window._cancelGitHubPoll;
                     content.innerHTML = `
                         <div class="github-auth">
