@@ -40,13 +40,17 @@ echo ""
 
 # Create isolated virtual environment for the build
 echo "Creating build virtual environment..."
-python3 -m venv --clear "$VENV_DIR"
+python3 -m venv --clear "$VENV_DIR" || { echo "ERROR: Failed to create virtual environment."; exit 1; }
 source "$VENV_DIR/bin/activate"
 
 echo "Installing PyInstaller and backend dependencies..."
 pip install --quiet --upgrade pip
 pip install --quiet pyinstaller
-pip install --quiet -r "$PROJECT_ROOT/backend/requirements.txt"
+pip install --quiet -r "$PROJECT_ROOT/backend/requirements.txt" || {
+    echo "ERROR: Failed to install dependencies."
+    deactivate
+    exit 1
+}
 
 echo "PyInstaller: $(python -m PyInstaller --version)"
 echo ""
@@ -62,7 +66,14 @@ python -m PyInstaller "$SCRIPT_DIR/pyinstaller.spec" \
     --distpath "$SCRIPT_DIR/dist" \
     --workpath "$SCRIPT_DIR/work" \
     --clean \
-    --noconfirm
+    --noconfirm || {
+    echo "ERROR: PyInstaller build failed."
+    deactivate
+    exit 1
+}
+
+# Clean up work directory
+rm -rf "$SCRIPT_DIR/work"
 
 # Deactivate venv
 deactivate
