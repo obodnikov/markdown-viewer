@@ -134,6 +134,10 @@ def callback():
             }
             return _desktop_callback_page(True)
 
+        if is_desktop and not nonce:
+            # Desktop flow without nonce is invalid — should never happen
+            return _desktop_callback_page(False, 'Desktop authentication requires a nonce. Please try again from the app.')
+
         # Web flow: store in session as before
         session['github_token'] = access_token
         return redirect('/?github_auth=success')
