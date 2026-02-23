@@ -4,6 +4,7 @@ const path = require('path');
 const fs = require('fs');
 const FlaskManager = require('./flask-manager');
 const SettingsManager = require('./settings-manager');
+const { registerProtocol } = require('./protocol');
 
 // Parse CLI args
 const isDev = process.argv.includes('--dev');
@@ -38,8 +39,9 @@ async function createWindow(flaskPort) {
       console.error(`[Main] Failed to load: ${errorDescription} (code: ${errorCode})`);
     });
 
-    // Phase 2: Load placeholder — Phase 3 will switch to app:// protocol
-    mainWindow.loadFile(path.join(__dirname, 'placeholder.html'));
+    // Register custom protocol and load the app
+    registerProtocol(flaskPort);
+    mainWindow.loadURL('app://./index.html');
 
     mainWindow.on('closed', () => {
       mainWindow = null;
