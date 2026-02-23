@@ -871,11 +871,14 @@ On first launch, if `openrouterApiKey` is empty:
 4. Show success/error feedback
 
 ### Deliverables
-- [ ] `desktop/settings-manager.js` — encrypted persistent storage
-- [ ] `desktop/settings/settings.html` — settings UI
-- [ ] `desktop/settings/settings.css` — settings styles (Material Design 3)
-- [ ] `desktop/settings/settings.js` — settings logic with validation
-- [ ] First-run detection and onboarding flow
+- [x] `desktop/settings-manager.js` — encrypted persistent storage
+- [x] `desktop/settings/settings.html` — settings UI
+- [x] `desktop/settings/settings.css` — settings styles (Material Design 3)
+- [x] `desktop/settings/settings.js` — settings logic with validation
+- [x] First-run detection and onboarding flow
+
+> ✅ **Phase 4 completed** — 2026-02-23
+> Additional: `desktop/menu.js` native menu bar, configurable API port (`flaskPort` setting)
 
 ---
 

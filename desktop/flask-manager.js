@@ -39,9 +39,25 @@ class FlaskManager {
       return this.port;
     }
 
-    // Find a free port
+    // Use configured port or find a free one
+    const configuredPort = this.settingsManager.get('flaskPort', 0);
     const getPort = await import('get-port');
-    this.port = await getPort.default({ port: [5050, 5051, 5052, 5053, 5054] });
+
+    if (configuredPort > 0) {
+      // Verify the configured port is actually available
+      const availablePort = await getPort.default({ port: [configuredPort] });
+      if (availablePort === configuredPort) {
+        this.port = configuredPort;
+        console.log(`[FlaskManager] Using configured port ${this.port}`);
+      } else {
+        console.warn(`[FlaskManager] Configured port ${configuredPort} is in use, auto-detecting...`);
+        this.port = await getPort.default({ port: [5050, 5051, 5052, 5053, 5054] });
+        console.log(`[FlaskManager] Fell back to port ${this.port}`);
+      }
+    } else {
+      this.port = await getPort.default({ port: [5050, 5051, 5052, 5053, 5054] });
+      console.log(`[FlaskManager] Auto-detected free port ${this.port}`);
+    }
 
     // Build environment variables from settings
     const env = this._buildEnv();

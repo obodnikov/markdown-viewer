@@ -5,6 +5,7 @@ const fs = require('fs');
 const FlaskManager = require('./flask-manager');
 const SettingsManager = require('./settings-manager');
 const { registerScheme, registerProtocol } = require('./protocol');
+const { setupMenu, openSettings } = require('./menu');
 
 // Register app:// as privileged scheme — must happen before app.whenReady()
 registerScheme();
@@ -89,6 +90,23 @@ app.whenReady().then(async () => {
   }
 
   await createWindow(flaskPort);
+
+  // Setup native menu (needs mainWindow reference)
+  setupMenu(mainWindow, settingsManager);
+
+  // First-run: open settings if no API key configured
+  if (!settingsManager.isConfigured()) {
+    const response = await dialog.showMessageBox(mainWindow, {
+      type: 'info',
+      title: 'Welcome',
+      message: 'Welcome to Markdown Viewer Desktop',
+      detail: 'To use LLM features, please configure your OpenRouter API key in Settings.',
+      buttons: ['Open Settings', 'Later']
+    });
+    if (response.response === 0) {
+      openSettings();
+    }
+  }
 
   app.on('activate', async () => {
     if (BrowserWindow.getAllWindows().length === 0) {
