@@ -12,9 +12,13 @@ except ImportError:
 github_bp = Blueprint('github', __name__, url_prefix='/api/github')
 
 
+
 @github_bp.route('/auth', methods=['GET'])
 def auth():
     """Initiate GitHub OAuth flow.
+
+    Query params:
+        source: 'desktop' if initiated from Electron app (optional)
 
     Returns:
         Redirect to GitHub OAuth page
@@ -22,14 +26,21 @@ def auth():
     if not Config.GITHUB_CLIENT_ID:
         return jsonify({'error': 'GitHub OAuth not configured'}), 500
 
+    # Pass source through OAuth state so we know how to handle the callback
+    source = request.args.get('source', 'web')
+    state = source  # Simple state; extend with CSRF token if needed
+
     github_auth_url = (
         f"https://github.com/login/oauth/authorize"
         f"?client_id={Config.GITHUB_CLIENT_ID}"
         f"&redirect_uri={Config.GITHUB_REDIRECT_URI}"
         f"&scope=repo,user"
+        f"&state={state}"
     )
 
     return redirect(github_auth_url)
+
+
 
 
 @github_bp.route('/callback', methods=['GET'])
@@ -38,13 +49,18 @@ def callback():
 
     Query params:
         code: OAuth code from GitHub
+        state: 'desktop' or 'web' (passed through from /auth)
 
     Returns:
-        Redirect to frontend with success/error
+        Redirect to frontend (web) or HTML success page (desktop)
     """
     code = request.args.get('code')
+    state = request.args.get('state', 'web')
+    is_desktop = state == 'desktop'
 
     if not code:
+        if is_desktop:
+            return _desktop_callback_page(False, 'GitHub authentication was denied or failed.')
         return redirect('/?error=github_auth_failed')
 
     try:
@@ -64,15 +80,74 @@ def callback():
         access_token = token_data.get('access_token')
 
         if not access_token:
+            if is_desktop:
+                return _desktop_callback_page(False, 'Failed to obtain access token from GitHub.')
             return redirect('/?error=github_token_failed')
 
         # Store token in session
         session['github_token'] = access_token
 
+        if is_desktop:
+            return _desktop_callback_page(True)
         return redirect('/?github_auth=success')
 
     except Exception as e:
+        if is_desktop:
+            return _desktop_callback_page(False, str(e))
         return redirect(f'/?error=github_callback_error&message={str(e)}')
+
+
+def _desktop_callback_page(success, error_message=None):
+    """Return an HTML page for the desktop OAuth callback.
+
+    Shown in the user's system browser after GitHub redirects back.
+    """
+    if success:
+        return (
+            '<!DOCTYPE html><html><head><meta charset="utf-8">'
+            '<title>GitHub Authentication</title>'
+            '<style>'
+            'body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;'
+            'display:flex;justify-content:center;align-items:center;'
+            'min-height:100vh;margin:0;background:#0d1117;color:#c9d1d9;}'
+            '.card{text-align:center;padding:48px;border-radius:12px;'
+            'background:#161b22;border:1px solid #30363d;max-width:400px;}'
+            '.icon{font-size:48px;margin-bottom:16px;}'
+            'h2{margin:0 0 8px;color:#58a6ff;}'
+            'p{margin:0;color:#8b949e;}'
+            '</style></head><body>'
+            '<div class="card">'
+            '<div class="icon">&#9989;</div>'
+            '<h2>Authentication Successful</h2>'
+            '<p>You can close this tab and return to Markdown Viewer.</p>'
+            '</div>'
+            '<script>setTimeout(()=>window.close(),3000);</script>'
+            '</body></html>'
+        ), 200
+
+    return (
+        '<!DOCTYPE html><html><head><meta charset="utf-8">'
+        '<title>GitHub Authentication</title>'
+        '<style>'
+        'body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;'
+        'display:flex;justify-content:center;align-items:center;'
+        'min-height:100vh;margin:0;background:#0d1117;color:#c9d1d9;}'
+        '.card{text-align:center;padding:48px;border-radius:12px;'
+        'background:#161b22;border:1px solid #30363d;max-width:400px;}'
+        '.icon{font-size:48px;margin-bottom:16px;}'
+        'h2{margin:0 0 8px;color:#f85149;}'
+        'p{margin:0;color:#8b949e;}'
+        '</style></head><body>'
+        '<div class="card">'
+        '<div class="icon">&#10060;</div>'
+        '<h2>Authentication Failed</h2>'
+        f'<p>{error_message or "An unknown error occurred."}</p>'
+        '</div>'
+        '</body></html>'
+    ), 400
+
+
+
 
 
 @github_bp.route('/user', methods=['GET'])
