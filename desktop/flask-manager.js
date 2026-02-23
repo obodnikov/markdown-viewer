@@ -276,7 +276,7 @@ class FlaskManager {
 
   async _waitForReady(maxRetries = 30, interval = 500) {
     for (let i = 0; i < maxRetries; i++) {
-      // Race: check if process already exited before next health check
+      // Check if process already exited
       if (!this.process) {
         const stderr = this._stderrBuffer.trim();
         throw new Error(
@@ -286,12 +286,15 @@ class FlaskManager {
 
       // Race health check against early process exit
       const result = await Promise.race([
-        this._healthCheck().then(() => 'ready'),
+        this._healthCheck()
+          .then(() => 'ready')
+          .catch(() => 'retry'),  // Connection refused etc. — keep polling
         this._earlyExitPromise.then((code) => ({ exited: true, code }))
       ]);
 
       if (result === 'ready') {
         console.log(`[FlaskManager] Flask is ready (attempt ${i + 1})`);
+        this._stderrBuffer = '';  // Clear buffer on success
         return;
       }
 
@@ -302,6 +305,7 @@ class FlaskManager {
         );
       }
 
+      // result === 'retry' — wait and try again
       await new Promise(resolve => setTimeout(resolve, interval));
     }
     throw new Error('Flask backend failed to start within 15 seconds');

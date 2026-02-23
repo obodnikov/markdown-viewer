@@ -28,9 +28,13 @@ if (!gotTheLock) {
   app.on('second-instance', (event, argv) => {
     const filePath = getFileFromArgs(argv);
     if (filePath) {
-      openFileInRenderer(path.resolve(filePath)).catch(err =>
-        console.error(`[Main] second-instance file open failed: ${err.message}`)
-      );
+      if (mainWindow) {
+        openFileInRenderer(path.resolve(filePath)).catch(err =>
+          console.error(`[Main] second-instance file open failed: ${err.message}`)
+        );
+      } else {
+        pendingFilePath = path.resolve(filePath);
+      }
     }
     if (mainWindow) {
       if (mainWindow.isMinimized()) mainWindow.restore();
@@ -271,8 +275,8 @@ ipcMain.handle('shell:openExternal', async (event, url) => {
     }
     console.warn(`[Main] Blocked openExternal for non-http URL: ${url}`);
     return false;
-  } catch {
-    console.warn(`[Main] Blocked openExternal for invalid URL: ${url}`);
+  } catch (error) {
+    console.warn(`[Main] openExternal failed: ${error.message}`);
     return false;
   }
 });
