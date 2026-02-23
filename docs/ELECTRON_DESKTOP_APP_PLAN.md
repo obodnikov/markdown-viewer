@@ -1396,17 +1396,21 @@ shape and the "MD" text overlay, following platform conventions.
 | Set as default app | Finder → Get Info → Open With | Settings → Default Apps | `xdg-mime default` |
 
 ### Deliverables
-- [ ] Native file dialogs (open/save) via IPC
-- [ ] `desktop/menu.js` — full native menu bar
-- [ ] Window state persistence (size, position, maximized)
-- [ ] macOS dock file drop support
-- [ ] Keyboard shortcuts mapped to menu items
+- [x] Native file dialogs (open/save) via IPC
+- [x] `desktop/menu.js` — full native menu bar
+- [x] Window state persistence (size, position, maximized)
+- [x] macOS dock file drop support
+- [x] Keyboard shortcuts mapped to menu items
 - [ ] File type association for `.md`, `.markdown`, `.txt` extensions
 - [ ] `forge.config.js` `fileAssociations` configured for all platforms
-- [ ] Cold-start file open (app launched by double-clicking a file)
-- [ ] Second-instance handling (file opens in existing window)
+- [x] Cold-start file open (app launched by double-clicking a file)
+- [x] Second-instance handling (file opens in existing window)
 - [ ] Document type icons for file explorer
 - [ ] Manual testing: double-click `.md` opens in app on all 3 platforms
+
+> ✅ **Phase 5 completed** — 2026-02-23
+> File type associations and document icons deferred to Phase 9 (packaging).
+> Native dialogs, menu bar, single-instance lock, open-file events all implemented.
 
 ---
 

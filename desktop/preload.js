@@ -23,5 +23,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
 
   // Open external links in default browser
-  openExternal: (url) => ipcRenderer.invoke('shell:openExternal', url)
+  openExternal: (url) => ipcRenderer.invoke('shell:openExternal', url),
+
+  // File opened via OS file association (double-click .md, drag to dock)
+  onFileOpened: (callback) => {
+    ipcRenderer.on('file:opened', (event, fileData) => callback(fileData));
+  },
+
+  // Menu actions from native menu bar
+  onMenuAction: (action, callback) => {
+    ipcRenderer.on(`menu:${action}`, () => callback());
+  }
 });

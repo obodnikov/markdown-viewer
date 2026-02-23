@@ -6,13 +6,34 @@ export class FileManager {
     constructor() {
         this.fileHandle = null;
         this.supportsFileSystemAccess = 'showOpenFilePicker' in window;
+        this.isElectron = typeof window.electronAPI !== 'undefined';
     }
 
     async openFile() {
+        if (this.isElectron) {
+            return this.openFileElectron();
+        }
         if (this.supportsFileSystemAccess) {
             return this.openFileModern();
         } else {
             return this.openFileFallback();
+        }
+    }
+
+    async openFileElectron() {
+        try {
+            const result = await window.electronAPI.openFile();
+            if (result) {
+                return {
+                    name: result.name,
+                    content: result.content,
+                    filepath: result.path
+                };
+            }
+            return null;
+        } catch (error) {
+            console.error('Electron open file error:', error);
+            throw error;
         }
     }
 
@@ -75,10 +96,29 @@ export class FileManager {
     }
 
     async saveFile(content, filename = 'document.md') {
+        if (this.isElectron) {
+            return this.saveFileElectron(content, filename);
+        }
         if (this.supportsFileSystemAccess) {
             return this.saveFileModern(content, filename);
         } else {
             return this.saveFileFallback(content, filename);
+        }
+    }
+
+    async saveFileElectron(content, filename) {
+        try {
+            const result = await window.electronAPI.saveFile({ content, defaultName: filename });
+            if (result) {
+                return {
+                    success: true,
+                    filepath: result.path
+                };
+            }
+            return null;
+        } catch (error) {
+            console.error('Electron save file error:', error);
+            throw error;
         }
     }
 
