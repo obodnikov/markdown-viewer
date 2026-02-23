@@ -5,7 +5,7 @@ const FIELDS = [
   'translationLanguages',
   'githubClientId', 'githubClientSecret',
   'bookstackUrl', 'bookstackApiTimeout',
-  'pythonPath', 'flaskPort',
+  'pythonPath', 'pandocPath', 'flaskPort',
   'logLevel'
 ];
 

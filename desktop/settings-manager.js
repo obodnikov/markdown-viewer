@@ -4,6 +4,7 @@ const Store = require('electron-store');
 const schema = {
   // Python configuration
   pythonPath: { type: 'string', default: '' },  // Empty = auto-detect
+  pandocPath: { type: 'string', default: '' },  // Empty = auto-detect
 
   // OpenRouter
   openrouterApiKey: { type: 'string', default: '' },
