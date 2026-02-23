@@ -1931,7 +1931,7 @@ Test areas:
 - [ ] Fedora/RHEL Linux
 
 ### Deliverables
-- [ ] Unit test suite for desktop-specific code
+- [x] Unit test suite for desktop-specific code (61 tests across 4 files — 2025-02-23)
 - [ ] Integration test suite
 - [ ] Manual testing checklist completed per platform
 

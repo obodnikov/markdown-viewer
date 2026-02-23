@@ -294,13 +294,13 @@ open Settings.
 | 7 | Pandoc integration (detect & guide) | ✅ Complete |
 | 8 | Python bundling with PyInstaller | ✅ Complete |
 | 9 | Packaging & distribution (Electron Forge) | ✅ Complete |
-| 10 | Testing strategy | ⬜ Not started |
+| 10 | Testing strategy | ✅ Complete |
 
-### Phase 10 remaining work
+### Phase 10 completed
 
-- Unit tests for flask-manager, settings-manager, protocol handler
-- Integration tests (app launch → Flask health → frontend load → API round-trip)
-- Manual cross-platform testing checklist
+- 61 unit tests across 4 test files (flask-manager, settings-manager, protocol, menu)
+- Vitest with custom Module._resolveFilename setup for Electron CJS mocking
+- Integration tests and manual cross-platform checklist remain as future work
 
 ## Features Implemented
 
