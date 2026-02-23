@@ -13,7 +13,7 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-VENV_DIR="$SCRIPT_DIR/work/.buildvenv"
+VENV_DIR="$SCRIPT_DIR/.buildvenv"
 
 echo "============================================"
 echo "  Building Markdown Viewer Backend"
@@ -40,7 +40,7 @@ echo ""
 
 # Create isolated virtual environment for the build
 echo "Creating build virtual environment..."
-python3 -m venv "$VENV_DIR"
+python3 -m venv --clear "$VENV_DIR"
 source "$VENV_DIR/bin/activate"
 
 echo "Installing PyInstaller and backend dependencies..."
@@ -51,10 +51,9 @@ pip install --quiet -r "$PROJECT_ROOT/backend/requirements.txt"
 echo "PyInstaller: $(python -m PyInstaller --version)"
 echo ""
 
-# Clean previous build output (keep venv for faster rebuilds)
+# Clean previous build output
 echo "Cleaning previous build artifacts..."
 rm -rf "$SCRIPT_DIR/dist"
-rm -rf "$SCRIPT_DIR/work/markdown-viewer-backend"
 
 # Build
 echo "Running PyInstaller..."

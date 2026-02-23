@@ -13,7 +13,7 @@ setlocal
 
 set SCRIPT_DIR=%~dp0
 set PROJECT_ROOT=%SCRIPT_DIR%..\..
-set VENV_DIR=%SCRIPT_DIR%work\.buildvenv
+set VENV_DIR=%SCRIPT_DIR%.buildvenv
 
 echo ============================================
 echo   Building Markdown Viewer Backend
@@ -42,7 +42,7 @@ echo.
 
 REM Create isolated virtual environment for the build
 echo Creating build virtual environment...
-python -m venv "%VENV_DIR%"
+python -m venv --clear "%VENV_DIR%"
 call "%VENV_DIR%\Scripts\activate.bat"
 
 echo Installing PyInstaller and backend dependencies...
@@ -51,7 +51,7 @@ pip install --quiet pyinstaller
 pip install --quiet -r "%PROJECT_ROOT%\backend\requirements.txt"
 echo.
 
-REM Clean previous build output (keep venv for faster rebuilds)
+REM Clean previous build output
 echo Cleaning previous build artifacts...
 if exist "%SCRIPT_DIR%dist" rmdir /s /q "%SCRIPT_DIR%dist"
 

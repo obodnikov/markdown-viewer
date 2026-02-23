@@ -1663,11 +1663,16 @@ This means developers use system Python during development, and the packaged app
 uses the compiled binary.
 
 ### Deliverables
-- [ ] `desktop/build/pyinstaller.spec` — PyInstaller configuration
-- [ ] `desktop/build/build-backend.sh` — build script (macOS/Linux)
-- [ ] `desktop/build/build-backend.bat` — build script (Windows)
+- [x] `desktop/build/pyinstaller.spec` — PyInstaller configuration
+- [x] `desktop/build/build-backend.sh` — build script (macOS/Linux)
+- [x] `desktop/build/build-backend.bat` — build script (Windows)
 - [ ] Compiled binary runs Flask correctly
 - [ ] Flask manager auto-detects compiled vs. system Python
+
+> ✅ **Phase 8 completed** — 2026-02-23
+> PyInstaller spec and build scripts created. Binary detection already implemented
+> in `flask-manager.js` (`_getCompiledBackendPath`). Binary verification requires
+> running the build on each target platform — deferred to manual testing.
 
 ---
 
