@@ -546,9 +546,12 @@ module.exports = FlaskManager;
 ```
 
 ### Deliverables
-- [ ] `desktop/main.js` — app entry point with window management
-- [ ] `desktop/flask-manager.js` — Flask lifecycle (start/stop/restart/health check)
-- [ ] App launches, spawns Flask, shows window
+- [x] `desktop/main.js` — app entry point with window management
+- [x] `desktop/flask-manager.js` — Flask lifecycle (start/stop/restart/health check)
+- [x] App launches, spawns Flask, shows window
+
+> ✅ **Phase 2 completed** — 2026-02-23
+> Additional: `desktop/settings-manager.js`, `desktop/preload.js`, configurable Python path detection
 
 ---
 
