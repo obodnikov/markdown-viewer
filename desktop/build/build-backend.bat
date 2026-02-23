@@ -13,6 +13,7 @@ setlocal
 
 set SCRIPT_DIR=%~dp0
 set PROJECT_ROOT=%SCRIPT_DIR%..\..
+set VENV_DIR=%SCRIPT_DIR%work\.buildvenv
 
 echo ============================================
 echo   Building Markdown Viewer Backend
@@ -20,33 +21,39 @@ echo ============================================
 echo Project root: %PROJECT_ROOT%
 echo.
 
-REM Check for Python
+REM Check for Python 3
 where python >nul 2>nul
 if %ERRORLEVEL% neq 0 (
     echo ERROR: python not found. Please install Python 3.
     exit /b 1
 )
 
-python --version
-
-REM Install PyInstaller if not present
-python -m PyInstaller --version >nul 2>nul
+REM Verify Python 3
+python -c "import sys; exit(0 if sys.version_info.major == 3 else 1)" 2>nul
 if %ERRORLEVEL% neq 0 (
-    echo Installing PyInstaller...
-    pip install pyinstaller
+    echo ERROR: Python 3 is required.
+    python --version
+    exit /b 1
 )
 
+for /f "tokens=*" %%i in ('python -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')"') do set PYTHON_VERSION=%%i
+echo Python: %PYTHON_VERSION%
 echo.
 
-REM Install backend dependencies
-echo Installing backend dependencies...
-pip install -r "%PROJECT_ROOT%\backend\requirements.txt"
+REM Create isolated virtual environment for the build
+echo Creating build virtual environment...
+python -m venv "%VENV_DIR%"
+call "%VENV_DIR%\Scripts\activate.bat"
+
+echo Installing PyInstaller and backend dependencies...
+pip install --quiet --upgrade pip
+pip install --quiet pyinstaller
+pip install --quiet -r "%PROJECT_ROOT%\backend\requirements.txt"
 echo.
 
-REM Clean previous build
+REM Clean previous build output (keep venv for faster rebuilds)
 echo Cleaning previous build artifacts...
 if exist "%SCRIPT_DIR%dist" rmdir /s /q "%SCRIPT_DIR%dist"
-if exist "%SCRIPT_DIR%work" rmdir /s /q "%SCRIPT_DIR%work"
 
 REM Build
 echo Running PyInstaller...
@@ -56,6 +63,9 @@ python -m PyInstaller "%SCRIPT_DIR%pyinstaller.spec" ^
     --workpath "%SCRIPT_DIR%work" ^
     --clean ^
     --noconfirm
+
+REM Deactivate venv
+call deactivate
 
 echo.
 echo ============================================

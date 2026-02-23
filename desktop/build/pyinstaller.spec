@@ -106,7 +106,7 @@ exe = EXE(
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=True,
+    upx=False,
     console=True,  # Keep console for logging output
     target_arch=None,
 )
