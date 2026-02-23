@@ -61,8 +61,12 @@ desktop/
 ├── settings-manager.js      # Encrypted persistent settings (electron-store)
 ├── menu.js                  # Native application menu bar
 ├── package.json             # Dependencies & scripts
-├── placeholder.html         # Fallback page (Phase 1 artifact)
+├── forge.config.js          # Electron Forge packaging configuration
 ├── .gitignore
+├── icons/
+│   ├── icon.icns            # macOS app icon
+│   ├── icon.ico             # Windows app icon
+│   └── icon.png             # Linux app icon (512×512)
 ├── settings/
 │   ├── settings.html        # Settings window UI
 │   ├── settings.css         # Settings window styles (dark theme)
@@ -112,29 +116,134 @@ npm start
 Flask manager auto-detects Python from: user setting → `python3` → `python` →
 platform-specific paths. Configure a custom path in Settings → Python Path if needed.
 
-## Production Build
+## Production Build & Installation Guide
 
-### 1. Compile Flask backend (PyInstaller)
+### Step 1: Prerequisites
 
+Install the required tools on your build machine:
+
+```bash
+# Node.js 18+ (check with: node --version)
+# Python 3.11+ (check with: python3 --version)
+# pip packages
+pip install -r backend/requirements.txt
+pip install pyinstaller
+```
+
+### Step 2: Install desktop dependencies
+
+```bash
+cd desktop
+npm install
+```
+
+### Step 3: Compile the Flask backend
+
+This creates a standalone binary so end users don't need Python installed.
+
+**macOS / Linux:**
 ```bash
 cd desktop
 npm run build:backend
-# Output: desktop/build/dist/markdown-viewer-backend
 ```
 
-The build script creates an isolated virtualenv, installs dependencies, and runs
-PyInstaller. The resulting binary is ~50 MB and includes all Python dependencies.
+**Windows:**
+```cmd
+cd desktop
+build\build-backend.bat
+```
 
-### 2. Package Electron app (Electron Forge)
+The build script:
+1. Creates an isolated virtualenv in `build/.buildvenv/`
+2. Installs PyInstaller and backend dependencies
+3. Runs PyInstaller with `build/pyinstaller.spec`
+4. Outputs the binary to `build/dist/markdown-viewer-backend` (or `.exe` on Windows)
+
+Verify the binary works:
+```bash
+desktop/build/dist/markdown-viewer-backend --port 5050 --host 127.0.0.1
+# Should start Flask on port 5050 — Ctrl+C to stop
+```
+
+### Step 4: Package the Electron app
 
 ```bash
 cd desktop
-npm run package    # creates app in desktop/out/
-npm run make       # creates platform installers in desktop/out/make/
+npm run package
 ```
 
-When packaged, `flask-manager.js` automatically detects the compiled binary at
-`build/dist/markdown-viewer-backend` and uses it instead of system Python.
+This creates the unpacked app in `desktop/out/`:
+- macOS: `out/Markdown Viewer-darwin-arm64/Markdown Viewer.app`
+- Windows: `out/Markdown Viewer-win32-x64/Markdown Viewer.exe`
+- Linux: `out/Markdown Viewer-linux-x64/markdown-viewer`
+
+You can test the packaged app directly from this directory.
+
+### Step 5: Create platform installers
+
+```bash
+cd desktop
+npm run make
+```
+
+This creates distributable installers in `desktop/out/make/`:
+
+| Platform | Installer | Location |
+|----------|-----------|----------|
+| macOS | DMG | `out/make/Markdown Viewer-<version>-arm64.dmg` |
+| macOS | ZIP | `out/make/zip/darwin/arm64/Markdown Viewer-<version>-darwin-arm64.zip` |
+| Windows | Squirrel EXE | `out/make/squirrel.windows/x64/MarkdownViewerSetup.exe` |
+| Linux | DEB | `out/make/deb/x64/markdown-viewer_<version>_amd64.deb` |
+| Linux | RPM | `out/make/rpm/x64/markdown-viewer-<version>.x86_64.rpm` |
+
+### Step 6: Install on target machine
+
+**macOS:**
+1. Open the `.dmg` file
+2. Drag "Markdown Viewer" to the Applications folder
+3. Launch from Applications or Spotlight
+
+**Windows:**
+1. Run `MarkdownViewerSetup.exe`
+2. The installer creates a Start Menu shortcut and desktop shortcut
+3. Launch from Start Menu → Markdown Viewer
+
+**Linux (Debian/Ubuntu):**
+```bash
+sudo dpkg -i markdown-viewer_<version>_amd64.deb
+# If dependencies are missing:
+sudo apt-get install -f
+```
+
+**Linux (Fedora/RHEL):**
+```bash
+sudo rpm -i markdown-viewer-<version>.x86_64.rpm
+```
+
+### Step 7: First launch
+
+1. On first launch, if no OpenRouter API key is configured, a welcome dialog appears
+2. Click "Open Settings" to configure your API key and preferences
+3. The app is ready to use — open `.md` files via File → Open or drag & drop
+
+### Build without PyInstaller (development distribution)
+
+If you want to distribute the app but keep the Python dependency (smaller package,
+faster build):
+
+1. Skip Step 3 (don't run `build:backend`)
+2. The packaged app will use system Python instead of the compiled binary
+3. End users will need Python 3.11+ and `pip install -r backend/requirements.txt`
+
+### Cross-platform builds
+
+Each platform installer must be built on its target OS:
+- macOS DMG → build on macOS
+- Windows Squirrel → build on Windows
+- Linux DEB/RPM → build on Linux
+
+For CI/CD, use a matrix build (see `docs/ELECTRON_DESKTOP_APP_PLAN.md` Phase 9 for
+a GitHub Actions example).
 
 ## npm Scripts
 
@@ -183,17 +292,9 @@ open Settings.
 | 5 | Native desktop integrations (menus, dialogs, single-instance) | ✅ Complete |
 | 6 | GitHub OAuth for desktop (system browser + polling) | ✅ Complete |
 | 7 | Pandoc integration (detect & guide) | ✅ Complete |
-| 8 | Python bundling with PyInstaller | ✅ Complete (scripts ready, binary untested) |
-| 9 | Packaging & distribution (Electron Forge) | ⬜ Not started |
+| 8 | Python bundling with PyInstaller | ✅ Complete |
+| 9 | Packaging & distribution (Electron Forge) | ✅ Complete |
 | 10 | Testing strategy | ⬜ Not started |
-
-### Phase 9 remaining work
-
-- `forge.config.js` — Electron Forge packaging configuration
-- App icons (`icon.icns`, `icon.ico`, `icon.png`)
-- File type associations for `.md` / `.markdown` / `.txt`
-- Document type icons for file explorer
-- Platform-specific installer testing (DMG, Squirrel, DEB, RPM)
 
 ### Phase 10 remaining work
 
@@ -219,3 +320,6 @@ open Settings.
 - **Pandoc detection** — non-blocking dialog with install link if pandoc is missing
 - **GitHub OAuth** — opens system browser, polls for completion, no redirect needed
 - **Secure IPC bridge** — contextIsolation enabled, no nodeIntegration, explicit API surface
+- **Electron Forge packaging** — DMG (macOS), Squirrel (Windows), DEB/RPM (Linux), ZIP
+- **App icons** — `.icns` (macOS), `.ico` (Windows), `.png` (Linux) generated from source
+- **File type associations** — `.md` and `.markdown` registered in packager config
