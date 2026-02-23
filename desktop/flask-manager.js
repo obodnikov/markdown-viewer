@@ -96,7 +96,7 @@ class FlaskManager {
       await this._waitForReady();
     } catch (error) {
       // Kill orphaned process if health check never succeeded
-      this.stop();
+      await this._stopAndWait();
       throw error;
     }
 

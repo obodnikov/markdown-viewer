@@ -191,12 +191,13 @@ ipcMain.handle('app:isElectron', () => true);
 
 ipcMain.handle('app:getVersion', () => app.getVersion());
 
-ipcMain.handle('shell:openExternal', (event, url) => {
+ipcMain.handle('shell:openExternal', async (event, url) => {
   // Only allow http/https URLs for security
   try {
     const parsed = new URL(url);
     if (parsed.protocol === 'https:' || parsed.protocol === 'http:') {
-      return shell.openExternal(url);
+      await shell.openExternal(url);
+      return true;
     }
     console.warn(`[Main] Blocked openExternal for non-http URL: ${url}`);
     return false;
