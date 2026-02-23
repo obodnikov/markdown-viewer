@@ -90,6 +90,7 @@ async function createWindow(flaskPort) {
       minWidth: 800,
       minHeight: 600,
       title: 'Markdown Viewer',
+      icon: path.join(__dirname, '..', 'icons', 'icon-512.png'),
       webPreferences: {
         preload: path.join(__dirname, 'preload.js'),
         contextIsolation: true,
