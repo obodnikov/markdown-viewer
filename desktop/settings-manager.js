@@ -33,6 +33,7 @@ const schema = {
   logLevel: { type: 'string', default: 'INFO' },
   secretKey: { type: 'string', default: '' },
   devFlaskPort: { type: 'number', default: 5050 },
+  flaskPort: { type: 'number', default: 0 },  // 0 = auto-detect free port
 
   // Window state
   windowWidth: { type: 'number', default: 1400 },

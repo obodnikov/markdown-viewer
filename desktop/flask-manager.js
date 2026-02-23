@@ -1,5 +1,5 @@
 // desktop/flask-manager.js — Flask process lifecycle management
-const { spawn, execSync } = require('child_process');
+const { spawn, execFileSync } = require('child_process');
 const path = require('path');
 const http = require('http');
 const fs = require('fs');
@@ -39,9 +39,25 @@ class FlaskManager {
       return this.port;
     }
 
-    // Find a free port
+    // Use configured port or find a free one
+    const configuredPort = this.settingsManager.get('flaskPort', 0);
     const getPort = await import('get-port');
-    this.port = await getPort.default({ port: [5050, 5051, 5052, 5053, 5054] });
+
+    if (configuredPort > 0) {
+      // Verify the configured port is actually available
+      const availablePort = await getPort.default({ port: [configuredPort] });
+      if (availablePort === configuredPort) {
+        this.port = configuredPort;
+        console.log(`[FlaskManager] Using configured port ${this.port}`);
+      } else {
+        console.warn(`[FlaskManager] Configured port ${configuredPort} is in use, auto-detecting...`);
+        this.port = await getPort.default({ port: [5050, 5051, 5052, 5053, 5054] });
+        console.log(`[FlaskManager] Fell back to port ${this.port}`);
+      }
+    } else {
+      this.port = await getPort.default({ port: [5050, 5051, 5052, 5053, 5054] });
+      console.log(`[FlaskManager] Auto-detected free port ${this.port}`);
+    }
 
     // Build environment variables from settings
     const env = this._buildEnv();
@@ -76,7 +92,13 @@ class FlaskManager {
     });
 
     // Wait for Flask to be ready
-    await this._waitForReady();
+    try {
+      await this._waitForReady();
+    } catch (error) {
+      // Kill orphaned process if health check never succeeded
+      this.stop();
+      throw error;
+    }
 
     return this.port;
   }
@@ -162,9 +184,10 @@ class FlaskManager {
 
   _isPythonValid(pythonPath) {
     try {
-      const version = execSync(`"${pythonPath}" --version 2>&1`, {
+      const version = execFileSync(pythonPath, ['--version'], {
         timeout: 5000,
-        encoding: 'utf-8'
+        encoding: 'utf-8',
+        stdio: ['pipe', 'pipe', 'pipe']
       }).trim();
       console.log(`[FlaskManager] Found ${version} at ${pythonPath}`);
       return true;

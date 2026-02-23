@@ -1,7 +1,21 @@
 // desktop/protocol.js — Custom app:// protocol handler
-const { protocol, net } = require('electron');
+const { protocol, net, app } = require('electron');
 const path = require('path');
 const fs = require('fs');
+
+// Register app:// as a privileged scheme (must be called before app.whenReady)
+function registerScheme() {
+  protocol.registerSchemesAsPrivileged([{
+    scheme: 'app',
+    privileges: {
+      standard: true,
+      secure: true,
+      supportFetchAPI: true,
+      corsEnabled: true,
+      stream: true
+    }
+  }]);
+}
 
 const MIME_TYPES = {
   '.html': 'text/html',
@@ -102,9 +116,10 @@ async function serveStaticFile(pathname) {
     filePath = path.join(projectRoot, 'public', pathname);
   }
 
-  // Security: prevent path traversal
+  // Security: prevent path traversal (use path.sep to avoid prefix false positives)
   const resolvedPath = path.resolve(filePath);
-  if (!resolvedPath.startsWith(path.resolve(projectRoot))) {
+  const resolvedRoot = path.resolve(projectRoot) + path.sep;
+  if (!resolvedPath.startsWith(resolvedRoot) && resolvedPath !== resolvedRoot.slice(0, -1)) {
     console.warn(`[Protocol] Path traversal blocked: ${pathname}`);
     return new Response('Forbidden', { status: 403 });
   }
@@ -129,4 +144,4 @@ async function serveStaticFile(pathname) {
   }
 }
 
-module.exports = { registerProtocol };
+module.exports = { registerScheme, registerProtocol };
