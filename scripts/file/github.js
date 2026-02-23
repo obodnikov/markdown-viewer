@@ -121,10 +121,26 @@ export class GitHubUI {
                     content.innerHTML = await this.renderRepoList();
                     return;
                 }
+                if (result.error === 'nonce_expired_or_invalid') {
+                    delete window._cancelGitHubPoll;
+                    content.innerHTML = `
+                        <div class="github-auth">
+                            <div class="github-auth__icon">⚠️</div>
+                            <h3>Authentication Session Expired</h3>
+                            <p class="github-auth__text">
+                                The authentication session expired or was invalid. Please try again.
+                            </p>
+                            <button class="github-auth__button" onclick="window.connectGitHub()">
+                                Try Again
+                            </button>
+                        </div>
+                    `;
+                    return;
+                }
                 // result.pending === true means still waiting
             } catch (error) {
                 // Log unexpected errors for debugging
-                if (error?.status && error.status !== 401) {
+                if (error?.status && error.status !== 401 && error.status !== 404) {
                     console.warn('[GitHub Poll] Unexpected error:', error);
                 }
             }
