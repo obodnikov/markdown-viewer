@@ -193,6 +193,15 @@ async function createWindow(options = {}) {
 
     win.loadURL('app://./index.html');
 
+    // --- Close interception for unsaved changes ---
+    win.on('close', (e) => {
+      const entry = windows.get(windowId);
+      if (entry && entry.isDirty && !entry.forceClose) {
+        e.preventDefault();
+        handleDirtyWindowClose(windowId, win);
+      }
+    });
+
     win.on('closed', () => {
       windows.delete(windowId);
     });
@@ -222,6 +231,149 @@ function saveWindowBounds(win) {
     settingsManager.set('windowX', bounds.x);
     settingsManager.set('windowY', bounds.y);
   }
+}
+
+// --- Dirty window close handling ---
+
+// Pending save confirmations: windowId → { resolve }
+const pendingSaveConfirmations = new Map();
+
+const SAVE_TIMEOUT_MS = 10000; // 10 seconds safety timeout
+
+function waitForSaveConfirmation(windowId) {
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => {
+      pendingSaveConfirmations.delete(windowId);
+      resolve('timeout');
+    }, SAVE_TIMEOUT_MS);
+
+    pendingSaveConfirmations.set(windowId, {
+      resolve: (result) => {
+        clearTimeout(timer);
+        pendingSaveConfirmations.delete(windowId);
+        resolve(result);
+      }
+    });
+  });
+}
+
+function resolveSaveConfirmation(windowId, result) {
+  const pending = pendingSaveConfirmations.get(windowId);
+  if (pending) {
+    pending.resolve(result);
+  }
+}
+
+async function promptDirtyWindow(win, windowId, actionLabel) {
+  const entry = windows.get(windowId);
+  if (!entry || !win || win.isDestroyed()) return 'cancel';
+
+  const fileName = entry.filePath ? path.basename(entry.filePath) : 'Untitled';
+
+  const { response } = await dialog.showMessageBox(win, {
+    type: 'warning',
+    title: 'Unsaved Changes',
+    message: `"${fileName}" has unsaved changes.`,
+    detail: `Do you want to save before ${actionLabel}?`,
+    buttons: ['Save', 'Discard', 'Cancel'],
+    defaultId: 0,
+    cancelId: 2,
+    noLink: true
+  });
+
+  if (response === 0) {
+    // Save — ask renderer to save, wait for confirmation
+    if (win.isDestroyed() || win.webContents.isDestroyed()) {
+      return 'failed';
+    }
+    try {
+      win.webContents.send('window:saveAndClose');
+    } catch (err) {
+      console.error(`[Main] Failed to send saveAndClose to window ${windowId}: ${err.message}`);
+      return 'failed';
+    }
+    const result = await waitForSaveConfirmation(windowId);
+    // result: 'saved', 'failed', or 'timeout'
+    return result === 'saved' ? 'saved' : 'failed';
+  } else if (response === 1) {
+    return 'discard';
+  }
+  return 'cancel';
+}
+
+async function handleDirtyWindowClose(windowId, win) {
+  const result = await promptDirtyWindow(win, windowId, 'closing');
+
+  if (result === 'saved') {
+    // closeConfirmed handler already closes the window
+    return;
+  } else if (result === 'discard') {
+    const entry = windows.get(windowId);
+    if (entry) entry.forceClose = true;
+    win.close();
+  } else if (result === 'failed') {
+    // Save failed or timed out — show error, keep window open
+    dialog.showErrorBox('Save Failed', 'The file could not be saved. The window will remain open.');
+  }
+  // 'cancel' — do nothing, window stays open
+}
+
+// --- Quit coordination ---
+let isQuitting = false;
+
+async function handleAppQuit(e) {
+  if (isQuitting) return;
+
+  const dirtyWindows = [];
+  for (const [id, entry] of windows) {
+    if (entry.isDirty && !entry.forceClose) {
+      dirtyWindows.push({ id, entry });
+    }
+  }
+
+  if (dirtyWindows.length === 0) return; // All clean, quit proceeds
+
+  e.preventDefault();
+  isQuitting = true;
+
+  for (const { id, entry } of dirtyWindows) {
+    const win = entry.browserWindow;
+    if (!win || win.isDestroyed()) continue;
+
+    // Re-check dirty state — may have been resolved by a previous iteration
+    const currentEntry = windows.get(id);
+    if (!currentEntry || !currentEntry.isDirty) continue;
+
+    const result = await promptDirtyWindow(win, id, 'quitting');
+
+    if (result === 'saved') {
+      // Window will be closed by closeConfirmed handler — verify it's gone
+      if (win && !win.isDestroyed()) {
+        // closeConfirmed may not have fired yet; mark for force close
+        const updatedEntry = windows.get(id);
+        if (updatedEntry) updatedEntry.forceClose = true;
+      }
+      continue;
+    } else if (result === 'discard') {
+      entry.forceClose = true;
+    } else if (result === 'failed') {
+      // Save failed — abort quit, keep window open
+      dialog.showErrorBox('Save Failed', 'The file could not be saved. Quit cancelled.');
+      isQuitting = false;
+      return;
+    } else {
+      // Cancel — abort entire quit
+      isQuitting = false;
+      return;
+    }
+  }
+
+  // All dirty windows handled — force close remaining and quit
+  for (const [id, entry] of windows) {
+    entry.forceClose = true;
+  }
+  isQuitting = false;
+  app.quit();
 }
 
 // --- App lifecycle ---
@@ -312,7 +464,8 @@ app.on('window-all-closed', () => {
   }
 });
 
-app.on('before-quit', () => {
+app.on('before-quit', (e) => {
+  handleAppQuit(e);
   if (flaskManager) {
     flaskManager.stop();
   }
@@ -447,6 +600,41 @@ ipcMain.on('window:setTitle', (event, title) => {
   const senderWindow = BrowserWindow.fromWebContents(event.sender);
   if (senderWindow) {
     senderWindow.setTitle(title);
+  }
+});
+
+ipcMain.on('window:setDirty', (event, isDirty) => {
+  const senderWindow = BrowserWindow.fromWebContents(event.sender);
+  if (senderWindow) {
+    const entry = getWindowEntry(senderWindow);
+    if (entry) {
+      windows.get(entry.id).isDirty = !!isDirty;
+    }
+  }
+});
+
+ipcMain.on('window:closeConfirmed', (event) => {
+  // Renderer confirms it has saved and is ready to close
+  const senderWindow = BrowserWindow.fromWebContents(event.sender);
+  if (senderWindow) {
+    const entry = getWindowEntry(senderWindow);
+    if (entry) {
+      windows.get(entry.id).isDirty = false;
+      windows.get(entry.id).forceClose = true;
+      resolveSaveConfirmation(entry.id, 'saved');
+    }
+    senderWindow.close();
+  }
+});
+
+ipcMain.on('window:closeCancelled', (event) => {
+  // Renderer signals save failed — window stays open
+  const senderWindow = BrowserWindow.fromWebContents(event.sender);
+  if (senderWindow) {
+    const entry = getWindowEntry(senderWindow);
+    if (entry) {
+      resolveSaveConfirmation(entry.id, 'failed');
+    }
   }
 });
 

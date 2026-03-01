@@ -27,6 +27,20 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.send('window:setTitle', title);
   },
 
+  // Dirty state — renderer notifies main process when content changes
+  setDirty: (isDirty) => ipcRenderer.send('window:setDirty', isDirty),
+
+  // Close negotiation — main process asks renderer to save before close
+  onSaveAndClose: (callback) => {
+    ipcRenderer.on('window:saveAndClose', () => callback());
+  },
+
+  // Renderer confirms save is done and window can close
+  confirmClose: () => ipcRenderer.send('window:closeConfirmed'),
+
+  // Renderer signals save failed — window stays open
+  cancelClose: () => ipcRenderer.send('window:closeCancelled'),
+
   // Open external links in default browser
   openExternal: (url) => ipcRenderer.invoke('shell:openExternal', url),
 
