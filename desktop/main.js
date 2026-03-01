@@ -1,4 +1,4 @@
-// desktop/main.js — Electron main process
+// desktop/main.js — Electron main process (multi-window support)
 const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
@@ -13,12 +13,17 @@ registerScheme();
 // Parse CLI args
 const isDev = process.argv.includes('--dev');
 
-let mainWindow = null;
+// --- Window Registry ---
+// Replaces single mainWindow variable. Each entry tracks per-window metadata.
+const windows = new Map();
+let nextWindowId = 1;
+
 let flaskManager = null;
+let flaskPort = null;
 const settingsManager = new SettingsManager();
 
 // --- Single instance lock ---
-let pendingFilePath = null;
+let pendingFilePaths = [];
 
 const gotTheLock = app.requestSingleInstanceLock();
 
@@ -28,17 +33,17 @@ if (!gotTheLock) {
   app.on('second-instance', (event, argv) => {
     const filePath = getFileFromArgs(argv);
     if (filePath) {
-      if (mainWindow) {
-        openFileInRenderer(path.resolve(filePath)).catch(err =>
-          console.error(`[Main] second-instance file open failed: ${err.message}`)
-        );
+      createWindow({ filePath: path.resolve(filePath), focus: true });
+    } else {
+      // No file — focus an existing window or create a new one
+      const allWindows = BrowserWindow.getAllWindows();
+      if (allWindows.length > 0) {
+        const win = allWindows[0];
+        if (win.isMinimized()) win.restore();
+        win.focus();
       } else {
-        pendingFilePath = path.resolve(filePath);
+        createWindow({ isNewEmptyDocument: true, focus: true });
       }
-    }
-    if (mainWindow) {
-      if (mainWindow.isMinimized()) mainWindow.restore();
-      mainWindow.focus();
     }
   });
 }
@@ -46,10 +51,10 @@ if (!gotTheLock) {
 // macOS: file opened via double-click or drag to dock
 app.on('open-file', (event, filePath) => {
   event.preventDefault();
-  if (mainWindow) {
-    openFileInRenderer(filePath);
+  if (app.isReady()) {
+    createWindow({ filePath, focus: true });
   } else {
-    pendingFilePath = filePath;
+    pendingFilePaths.push(filePath);
   }
 });
 
@@ -64,29 +69,64 @@ function getFileFromArgs(argv) {
   return fileArg || null;
 }
 
-async function openFileInRenderer(filePath) {
+// --- Window Management ---
+
+function getWindowEntry(browserWindow) {
+  for (const [id, entry] of windows) {
+    if (entry.browserWindow === browserWindow) return { id, ...entry };
+  }
+  return null;
+}
+
+function getWindowEntryByWebContents(webContents) {
+  for (const [id, entry] of windows) {
+    if (entry.browserWindow && entry.browserWindow.webContents === webContents) {
+      return { id, ...entry };
+    }
+  }
+  return null;
+}
+
+async function openFileInWindow(browserWindow, filePath) {
   try {
     const absolutePath = path.resolve(filePath);
     const content = await fs.promises.readFile(absolutePath, 'utf-8');
-    mainWindow.webContents.send('file:opened', {
+    browserWindow.webContents.send('file:opened', {
       path: absolutePath,
       name: path.basename(absolutePath),
       content
     });
-    mainWindow.setTitle(`${path.basename(absolutePath)} — Markdown Viewer`);
+    browserWindow.setTitle(`${path.basename(absolutePath)} — Markdown Viewer`);
+
+    // Update registry
+    const entry = getWindowEntry(browserWindow);
+    if (entry) {
+      windows.get(entry.id).filePath = absolutePath;
+    }
   } catch (error) {
     console.error(`[Main] Failed to open file: ${error.message}`);
     dialog.showErrorBox('File Open Error', `Could not open file:\n${filePath}\n\n${error.message}`);
   }
 }
 
-async function createWindow(flaskPort) {
+async function createWindow(options = {}) {
+  const { filePath = null, isNewEmptyDocument = false, focus = true } = options;
+
   try {
-    mainWindow = new BrowserWindow({
-      width: settingsManager.get('windowWidth', 1400),
-      height: settingsManager.get('windowHeight', 900),
-      x: settingsManager.get('windowX'),
-      y: settingsManager.get('windowY'),
+    const windowId = nextWindowId++;
+
+    // Offset new windows so they don't stack exactly on top of each other
+    const existingCount = BrowserWindow.getAllWindows().length;
+    const offset = existingCount * 30;
+
+    const defaultWidth = settingsManager.get('windowWidth', 1400);
+    const defaultHeight = settingsManager.get('windowHeight', 900);
+    const defaultX = settingsManager.get('windowX');
+    const defaultY = settingsManager.get('windowY');
+
+    const winOptions = {
+      width: defaultWidth,
+      height: defaultHeight,
       minWidth: 800,
       minHeight: 600,
       title: 'Markdown Viewer',
@@ -97,36 +137,86 @@ async function createWindow(flaskPort) {
         nodeIntegration: false,
         sandbox: false
       }
-    });
+    };
 
-    if (settingsManager.get('windowMaximized', false)) {
-      mainWindow.maximize();
+    // Position: use saved position for first window, offset for subsequent
+    if (existingCount === 0 && defaultX !== undefined && defaultY !== undefined) {
+      winOptions.x = defaultX;
+      winOptions.y = defaultY;
+    } else if (existingCount > 0) {
+      // Offset from the last existing window's position, or from saved defaults
+      const allWins = BrowserWindow.getAllWindows();
+      const lastWin = allWins[allWins.length - 1];
+      const baseBounds = lastWin ? lastWin.getBounds() : null;
+
+      if (baseBounds) {
+        winOptions.x = baseBounds.x + 30;
+        winOptions.y = baseBounds.y + 30;
+      } else if (defaultX !== undefined && defaultY !== undefined) {
+        winOptions.x = defaultX + offset;
+        winOptions.y = defaultY + offset;
+      }
+      // If neither exists, omit x/y and let Electron center the window
     }
 
-    mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
-      console.error(`[Main] Failed to load: ${errorDescription} (code: ${errorCode})`);
+    const win = new BrowserWindow(winOptions);
+
+    // Only maximize the first window if that was the saved state
+    if (existingCount === 0 && settingsManager.get('windowMaximized', false)) {
+      win.maximize();
+    }
+
+    // Register in window map
+    windows.set(windowId, {
+      browserWindow: win,
+      filePath: filePath,
+      isDirty: false,
+      isReady: false,
+      pendingOpenPath: filePath
     });
 
-    // Register custom protocol and load the app
-    mainWindow.loadURL('app://./index.html');
-
-    mainWindow.on('closed', () => {
-      mainWindow = null;
+    win.webContents.on('did-finish-load', () => {
+      const entry = windows.get(windowId);
+      if (entry) {
+        entry.isReady = true;
+        // Open pending file after renderer is ready
+        if (entry.pendingOpenPath) {
+          openFileInWindow(win, entry.pendingOpenPath);
+          entry.pendingOpenPath = null;
+        }
+      }
     });
 
-    // Persist window state
-    mainWindow.on('resize', () => saveWindowBounds());
-    mainWindow.on('move', () => saveWindowBounds());
-    mainWindow.on('maximize', () => settingsManager.set('windowMaximized', true));
-    mainWindow.on('unmaximize', () => settingsManager.set('windowMaximized', false));
+    win.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
+      console.error(`[Main] Window ${windowId} failed to load: ${errorDescription} (code: ${errorCode})`);
+    });
+
+    win.loadURL('app://./index.html');
+
+    win.on('closed', () => {
+      windows.delete(windowId);
+    });
+
+    // Persist window bounds from the focused window
+    win.on('resize', () => saveWindowBounds(win));
+    win.on('move', () => saveWindowBounds(win));
+    win.on('maximize', () => settingsManager.set('windowMaximized', true));
+    win.on('unmaximize', () => settingsManager.set('windowMaximized', false));
+
+    if (focus) {
+      win.focus();
+    }
+
+    return windowId;
   } catch (error) {
     console.error(`[Main] Failed to create window: ${error.message}`);
+    return null;
   }
 }
 
-function saveWindowBounds() {
-  if (mainWindow && !mainWindow.isMaximized()) {
-    const bounds = mainWindow.getBounds();
+function saveWindowBounds(win) {
+  if (win && !win.isMaximized()) {
+    const bounds = win.getBounds();
     settingsManager.set('windowWidth', bounds.width);
     settingsManager.set('windowHeight', bounds.height);
     settingsManager.set('windowX', bounds.x);
@@ -140,7 +230,6 @@ app.whenReady().then(async () => {
   // Start Flask backend
   flaskManager = new FlaskManager(settingsManager, isDev);
 
-  let flaskPort = null;
   try {
     flaskPort = await flaskManager.start();
     console.log(`[Main] Flask backend running on port ${flaskPort}`);
@@ -155,15 +244,33 @@ app.whenReady().then(async () => {
   // Register protocol once — must happen before first loadURL
   registerProtocol(flaskPort);
 
-  await createWindow(flaskPort);
+  // Open pending files from macOS open-file events or CLI args
+  const filesToOpen = [...pendingFilePaths];
+  pendingFilePaths = [];
 
-  // Setup native menu (needs mainWindow reference)
-  setupMenu(settingsManager);
+  const fileFromArgs = getFileFromArgs(process.argv);
+  if (fileFromArgs) {
+    filesToOpen.push(fileFromArgs);
+  }
 
-  // Check for pandoc (non-blocking)
+  if (filesToOpen.length > 0) {
+    // Open each file in its own window
+    for (const fp of filesToOpen) {
+      await createWindow({ filePath: fp, focus: true });
+    }
+  } else {
+    // No files — open one empty window
+    await createWindow({ isNewEmptyDocument: true, focus: true });
+  }
+
+  // Setup native menu — pass createWindow so menu can create new windows
+  setupMenu(settingsManager, createWindow);
+
+  // Check for pandoc (non-blocking) — show in first window
+  const firstWin = BrowserWindow.getAllWindows()[0];
   const pandoc = flaskManager.checkPandoc();
-  if (!pandoc.available) {
-    dialog.showMessageBox(mainWindow, {
+  if (!pandoc.available && firstWin) {
+    dialog.showMessageBox(firstWin, {
       type: 'info',
       title: 'Pandoc Not Found',
       message: 'PDF and DOCX export requires pandoc',
@@ -178,8 +285,8 @@ app.whenReady().then(async () => {
   }
 
   // First-run: open settings if no API key configured
-  if (!settingsManager.isConfigured()) {
-    const response = await dialog.showMessageBox(mainWindow, {
+  if (!settingsManager.isConfigured() && firstWin) {
+    const response = await dialog.showMessageBox(firstWin, {
       type: 'info',
       title: 'Welcome',
       message: 'Welcome to Markdown Viewer Desktop',
@@ -191,20 +298,10 @@ app.whenReady().then(async () => {
     }
   }
 
-  // Open file from CLI args (Windows/Linux) or pending macOS open-file event
-  if (pendingFilePath) {
-    await openFileInRenderer(pendingFilePath);
-    pendingFilePath = null;
-  } else {
-    const fileFromArgs = getFileFromArgs(process.argv);
-    if (fileFromArgs) {
-      await openFileInRenderer(fileFromArgs);
-    }
-  }
-
   app.on('activate', async () => {
+    // macOS: re-create window when dock icon clicked and no windows open
     if (BrowserWindow.getAllWindows().length === 0) {
-      await createWindow(flaskPort);
+      await createWindow({ isNewEmptyDocument: true, focus: true });
     }
   });
 });
@@ -224,7 +321,9 @@ app.on('before-quit', () => {
 // --- IPC Handlers ---
 
 ipcMain.handle('dialog:openFile', async (event, options) => {
-  const result = await dialog.showOpenDialog(mainWindow, {
+  // Resolve the window that sent this request
+  const senderWindow = BrowserWindow.fromWebContents(event.sender);
+  const result = await dialog.showOpenDialog(senderWindow || BrowserWindow.getFocusedWindow(), {
     filters: [
       { name: 'Markdown', extensions: ['md', 'markdown', 'txt'] },
       { name: 'All Files', extensions: ['*'] }
@@ -244,7 +343,8 @@ ipcMain.handle('dialog:openFile', async (event, options) => {
 });
 
 ipcMain.handle('dialog:saveFile', async (event, { content, defaultName }) => {
-  const result = await dialog.showSaveDialog(mainWindow, {
+  const senderWindow = BrowserWindow.fromWebContents(event.sender);
+  const result = await dialog.showSaveDialog(senderWindow || BrowserWindow.getFocusedWindow(), {
     defaultPath: defaultName || 'untitled.md',
     filters: [
       { name: 'Markdown', extensions: ['md'] },
@@ -302,7 +402,11 @@ ipcMain.handle('shell:openExternal', async (event, url) => {
 });
 
 ipcMain.on('window:setTitle', (event, title) => {
-  if (mainWindow) {
-    mainWindow.setTitle(title);
+  const senderWindow = BrowserWindow.fromWebContents(event.sender);
+  if (senderWindow) {
+    senderWindow.setTitle(title);
   }
 });
+
+// Expose createWindow for external use (e.g., menu module)
+module.exports = { createWindow };

@@ -1,8 +1,12 @@
-// desktop/menu.js — Native application menu
-const { Menu, app, shell, BrowserWindow } = require('electron');
+// desktop/menu.js — Native application menu (multi-window aware)
+const { Menu, app, shell, BrowserWindow, dialog } = require('electron');
 const path = require('path');
+const fs = require('fs');
 
-function setupMenu(settingsManager) {
+let _createWindow = null;
+
+function setupMenu(settingsManager, createWindow) {
+  _createWindow = createWindow;
   const isMac = process.platform === 'darwin';
 
   // Always get the current focused/active window at click time
@@ -36,15 +40,43 @@ function setupMenu(settingsManager) {
       label: 'File',
       submenu: [
         {
+          label: 'New Window',
+          accelerator: 'CmdOrCtrl+Shift+N',
+          click: () => {
+            if (_createWindow) {
+              _createWindow({ isNewEmptyDocument: true, focus: true });
+            }
+          }
+        },
+        {
           label: 'New Document',
           accelerator: 'CmdOrCtrl+N',
           click: () => getWin()?.webContents.send('menu:new')
         },
+        { type: 'separator' },
         {
           label: 'Open...',
           accelerator: 'CmdOrCtrl+O',
           click: () => getWin()?.webContents.send('menu:open')
         },
+        {
+          label: 'Open in New Window...',
+          accelerator: 'CmdOrCtrl+Shift+O',
+          click: async () => {
+            if (!_createWindow) return;
+            const result = await dialog.showOpenDialog(getWin() || undefined, {
+              filters: [
+                { name: 'Markdown', extensions: ['md', 'markdown', 'txt'] },
+                { name: 'All Files', extensions: ['*'] }
+              ],
+              properties: ['openFile']
+            });
+            if (!result.canceled && result.filePaths.length > 0) {
+              _createWindow({ filePath: result.filePaths[0], focus: true });
+            }
+          }
+        },
+        { type: 'separator' },
         {
           label: 'Save',
           accelerator: 'CmdOrCtrl+S',

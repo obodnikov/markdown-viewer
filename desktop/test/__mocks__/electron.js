@@ -2,26 +2,60 @@
 // This is loaded via vitest resolve.alias for ALL require('electron') calls
 'use strict';
 
+const _allWindows = [];
+
 class BrowserWindow {
   constructor(opts = {}) {
+    this._id = BrowserWindow._nextId++;
     this._title = opts.title || '';
-    this.webContents = { send: () => {}, on: () => {} };
+    this._bounds = {
+      width: opts.width || 800,
+      height: opts.height || 600,
+      x: opts.x || 0,
+      y: opts.y || 0
+    };
+    this._minimized = false;
+    this._maximized = false;
+    this._destroyed = false;
+    this.webContents = {
+      send: () => {},
+      on: () => {},
+      _ownerWindow: this
+    };
+    _allWindows.push(this);
   }
+  get id() { return this._id; }
   getTitle() { return this._title; }
   setTitle(t) { this._title = t; }
-  getBounds() { return { width: 800, height: 600, x: 0, y: 0 }; }
-  isMinimized() { return false; }
-  isMaximized() { return false; }
-  maximize() {}
-  restore() {}
+  getBounds() { return { ...this._bounds }; }
+  isMinimized() { return this._minimized; }
+  isMaximized() { return this._maximized; }
+  maximize() { this._maximized = true; }
+  restore() { this._minimized = false; }
   focus() {}
-  close() {}
+  close() {
+    this._destroyed = true;
+    const idx = _allWindows.indexOf(this);
+    if (idx !== -1) _allWindows.splice(idx, 1);
+  }
   on() { return this; }
   loadURL() { return Promise.resolve(); }
   loadFile() { return Promise.resolve(); }
   setMenuBarVisibility() {}
 }
-BrowserWindow.getAllWindows = () => [];
+
+BrowserWindow._nextId = 1;
+BrowserWindow.getAllWindows = () => [..._allWindows];
+BrowserWindow.getFocusedWindow = () => _allWindows[0] || null;
+BrowserWindow.fromWebContents = (wc) => {
+  if (wc && wc._ownerWindow) return wc._ownerWindow;
+  return null;
+};
+// Test helper: clear all tracked windows
+BrowserWindow._resetAll = () => {
+  _allWindows.length = 0;
+  BrowserWindow._nextId = 1;
+};
 
 const app = {
   isPackaged: false,
@@ -29,6 +63,7 @@ const app = {
   getVersion: () => '2.0.0',
   getPath: (name) => `/mock/${name}`,
   requestSingleInstanceLock: () => true,
+  isReady: () => true,
   whenReady: () => Promise.resolve(),
   on: () => {},
   quit: () => {},
