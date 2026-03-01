@@ -87,6 +87,49 @@ function getWindowEntryByWebContents(webContents) {
   return null;
 }
 
+// --- Recent Files ---
+
+const MAX_RECENT_FILES = 10;
+
+function addRecentFile(filePath) {
+  if (!filePath) return;
+  const absolutePath = path.resolve(filePath);
+  let recent = settingsManager.get('recentFiles', []);
+  // Remove if already present, then prepend
+  recent = recent.filter(f => f !== absolutePath);
+  recent.unshift(absolutePath);
+  // Limit to max
+  if (recent.length > MAX_RECENT_FILES) {
+    recent = recent.slice(0, MAX_RECENT_FILES);
+  }
+  settingsManager.set('recentFiles', recent);
+  // Rebuild menu to reflect new recent files
+  if (_refreshMenu) _refreshMenu();
+}
+
+function clearRecentFiles() {
+  settingsManager.set('recentFiles', []);
+  if (_refreshMenu) _refreshMenu();
+}
+
+// Menu refresh callback — set by setupMenu
+let _refreshMenu = null;
+
+// --- Window Title Helpers ---
+
+function buildWindowTitle(fileName, isDirty) {
+  const dirtyIndicator = isDirty ? '● ' : '';
+  const name = fileName || 'Untitled';
+  return `${dirtyIndicator}${name} — Markdown Viewer`;
+}
+
+function updateWindowTitle(browserWindow, windowId) {
+  const entry = windows.get(windowId);
+  if (!entry || !browserWindow || browserWindow.isDestroyed()) return;
+  const fileName = entry.filePath ? path.basename(entry.filePath) : null;
+  browserWindow.setTitle(buildWindowTitle(fileName, entry.isDirty));
+}
+
 async function openFileInWindow(browserWindow, filePath) {
   try {
     const absolutePath = path.resolve(filePath);
@@ -96,13 +139,16 @@ async function openFileInWindow(browserWindow, filePath) {
       name: path.basename(absolutePath),
       content
     });
-    browserWindow.setTitle(`${path.basename(absolutePath)} — Markdown Viewer`);
 
     // Update registry
     const entry = getWindowEntry(browserWindow);
     if (entry) {
       windows.get(entry.id).filePath = absolutePath;
+      windows.get(entry.id).isDirty = false;
+      updateWindowTitle(browserWindow, entry.id);
     }
+
+    addRecentFile(absolutePath);
   } catch (error) {
     console.error(`[Main] Failed to open file: ${error.message}`);
     dialog.showErrorBox('File Open Error', `Could not open file:\n${filePath}\n\n${error.message}`);
@@ -129,7 +175,7 @@ async function createWindow(options = {}) {
       height: defaultHeight,
       minWidth: 800,
       minHeight: 600,
-      title: 'Markdown Viewer',
+      title: buildWindowTitle(filePath ? path.basename(filePath) : null, false),
       icon: path.join(__dirname, 'icons', 'icon.png'),
       webPreferences: {
         preload: path.join(__dirname, 'preload.js'),
@@ -416,7 +462,8 @@ app.whenReady().then(async () => {
   }
 
   // Setup native menu — pass createWindow so menu can create new windows
-  setupMenu(settingsManager, createWindow);
+  const refreshMenu = setupMenu(settingsManager, createWindow);
+  _refreshMenu = refreshMenu;
 
   // Check for pandoc (non-blocking) — show in first window
   const firstWin = BrowserWindow.getAllWindows()[0];
@@ -556,9 +603,11 @@ ipcMain.handle('dialog:saveFile', async (event, { content, defaultName }) => {
       if (entry) {
         windows.get(entry.id).filePath = result.filePath;
         windows.get(entry.id).isDirty = false;
+        updateWindowTitle(senderWindow, entry.id);
       }
-      senderWindow.setTitle(`${path.basename(result.filePath)} — Markdown Viewer`);
     }
+
+    addRecentFile(result.filePath);
 
     return { path: result.filePath, name: path.basename(result.filePath) };
   } catch (error) {
@@ -591,6 +640,15 @@ ipcMain.handle('app:isElectron', () => true);
 
 ipcMain.handle('app:getVersion', () => app.getVersion());
 
+ipcMain.handle('app:getRecentFiles', () => {
+  return settingsManager.get('recentFiles', []);
+});
+
+ipcMain.handle('app:clearRecentFiles', () => {
+  clearRecentFiles();
+  return { success: true };
+});
+
 ipcMain.handle('shell:openExternal', async (event, url) => {
   // Only allow http/https URLs for security
   try {
@@ -620,6 +678,7 @@ ipcMain.on('window:setDirty', (event, isDirty) => {
     const entry = getWindowEntry(senderWindow);
     if (entry) {
       windows.get(entry.id).isDirty = !!isDirty;
+      updateWindowTitle(senderWindow, entry.id);
     }
   }
 });

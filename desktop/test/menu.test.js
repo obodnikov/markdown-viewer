@@ -2,10 +2,16 @@ import { describe, it, expect, beforeEach } from 'vitest';
 
 // electron mock is handled by test/setup.js
 const { Menu, BrowserWindow } = require('electron');
-const { setupMenu, openSettings } = require('../menu');
+const { setupMenu, openSettings, refreshMenu } = require('../menu');
 
 function createMockSettings() {
-  return { get: (key, def) => def, set: () => {}, getAll: () => ({}) };
+  const data = { recentFiles: [] };
+  return {
+    get: (key, def) => (key in data ? data[key] : def),
+    set: (key, val) => { data[key] = val; },
+    getAll: () => ({ ...data }),
+    _data: data
+  };
 }
 
 function createMockCreateWindow() {
@@ -28,7 +34,12 @@ describe('menu', () => {
       expect(Array.isArray(template)).toBe(true);
     });
 
-    it('includes File menu with New Window, New Document, Open, Open in New Window, Save, Export', () => {
+    it('returns a refreshMenu function', () => {
+      const refresh = setupMenu(createMockSettings(), createMockCreateWindow());
+      expect(typeof refresh).toBe('function');
+    });
+
+    it('includes File menu with New Window, New Document, Open, Open in New Window, Open Recent, Save, Export', () => {
       setupMenu(createMockSettings(), createMockCreateWindow());
       const template = Menu._getLastTemplate();
       const fileMenu = template.find(m => m.label === 'File');
@@ -38,6 +49,7 @@ describe('menu', () => {
       expect(labels).toContain('New Document');
       expect(labels).toContain('Open...');
       expect(labels).toContain('Open in New Window...');
+      expect(labels).toContain('Open Recent');
       expect(labels).toContain('Save');
       expect(labels).toContain('Export...');
     });
@@ -51,6 +63,30 @@ describe('menu', () => {
       newWindowItem.click();
       expect(mockCreate.calls).toHaveLength(1);
       expect(mockCreate.calls[0]).toEqual({ isNewEmptyDocument: true, focus: true });
+    });
+
+    it('Open Recent shows "No Recent Files" when empty', () => {
+      setupMenu(createMockSettings(), createMockCreateWindow());
+      const template = Menu._getLastTemplate();
+      const fileMenu = template.find(m => m.label === 'File');
+      const recentItem = fileMenu.submenu.find(i => i.label === 'Open Recent');
+      expect(recentItem.submenu).toBeDefined();
+      expect(recentItem.submenu[0].label).toBe('No Recent Files');
+      expect(recentItem.submenu[0].enabled).toBe(false);
+    });
+
+    it('Open Recent shows file entries when recent files exist', () => {
+      const settings = createMockSettings();
+      // Use real files that exist on disk (fs.existsSync check in menu)
+      settings._data.recentFiles = [__filename, require.resolve('../menu.js')];
+      setupMenu(settings, createMockCreateWindow());
+      const template = Menu._getLastTemplate();
+      const fileMenu = template.find(m => m.label === 'File');
+      const recentItem = fileMenu.submenu.find(i => i.label === 'Open Recent');
+      const labels = recentItem.submenu.map(i => i.label);
+      expect(labels).toContain(require('path').basename(__filename));
+      expect(labels).toContain('menu.js');
+      expect(labels).toContain('Clear Recent');
     });
 
     it('includes Edit menu with standard roles', () => {
@@ -95,6 +131,12 @@ describe('menu', () => {
     });
     it('does not throw when called', () => {
       expect(() => openSettings()).not.toThrow();
+    });
+  });
+
+  describe('refreshMenu', () => {
+    it('is a function', () => {
+      expect(typeof refreshMenu).toBe('function');
     });
   });
 });

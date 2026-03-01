@@ -4,15 +4,51 @@ const path = require('path');
 const fs = require('fs');
 
 let _createWindow = null;
+let _settingsManager = null;
 
-function setupMenu(settingsManager, createWindow) {
-  _createWindow = createWindow;
+function buildRecentFilesSubmenu() {
+  let recent = _settingsManager ? _settingsManager.get('recentFiles', []) : [];
+
+  // Filter out files that no longer exist
+  const valid = recent.filter(f => fs.existsSync(f));
+  if (valid.length !== recent.length && _settingsManager) {
+    _settingsManager.set('recentFiles', valid);
+  }
+  recent = valid;
+
+  if (recent.length === 0) {
+    return [{ label: 'No Recent Files', enabled: false }];
+  }
+
+  const items = recent.map(filePath => ({
+    label: path.basename(filePath),
+    toolTip: filePath,
+    click: () => {
+      if (_createWindow) {
+        _createWindow({ filePath, focus: true });
+      }
+    }
+  }));
+
+  items.push({ type: 'separator' });
+  items.push({
+    label: 'Clear Recent',
+    click: () => {
+      if (_settingsManager) {
+        _settingsManager.set('recentFiles', []);
+        refreshMenu();
+      }
+    }
+  });
+
+  return items;
+}
+
+function buildMenuTemplate() {
   const isMac = process.platform === 'darwin';
-
-  // Always get the current focused/active window at click time
   const getWin = () => BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0];
 
-  const template = [
+  return [
     // App menu (macOS only)
     ...(isMac ? [{
       label: app.name,
@@ -75,6 +111,10 @@ function setupMenu(settingsManager, createWindow) {
               _createWindow({ filePath: result.filePaths[0], focus: true });
             }
           }
+        },
+        {
+          label: 'Open Recent',
+          submenu: buildRecentFilesSubmenu()
         },
         { type: 'separator' },
         {
@@ -162,9 +202,20 @@ function setupMenu(settingsManager, createWindow) {
       ]
     }
   ];
+}
 
+function refreshMenu() {
+  const template = buildMenuTemplate();
   const menu = Menu.buildFromTemplate(template);
   Menu.setApplicationMenu(menu);
+}
+
+function setupMenu(settingsManager, createWindow) {
+  _settingsManager = settingsManager;
+  _createWindow = createWindow;
+  refreshMenu();
+  // Return refreshMenu so main.js can trigger rebuilds
+  return refreshMenu;
 }
 
 function openSettings() {
@@ -193,4 +244,4 @@ function openSettings() {
   settingsWindow.setMenuBarVisibility(false);
 }
 
-module.exports = { setupMenu, openSettings };
+module.exports = { setupMenu, openSettings, refreshMenu };
