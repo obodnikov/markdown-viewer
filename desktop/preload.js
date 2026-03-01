@@ -4,7 +4,12 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('electronAPI', {
   // File dialogs
   openFile: (options) => ipcRenderer.invoke('dialog:openFile', options),
+  openFileInNewWindow: (filePath) => ipcRenderer.invoke('dialog:openFileInNewWindow', filePath || null),
   saveFile: (data) => ipcRenderer.invoke('dialog:saveFile', data),
+
+  // Drag-and-drop file handling
+  dropOpen: (filePath) => ipcRenderer.invoke('file:dropOpen', filePath),
+  dropOpenNewWindow: (filePath) => ipcRenderer.invoke('file:dropOpenNewWindow', filePath),
 
   // Settings
   getSettings: () => ipcRenderer.invoke('settings:get'),
@@ -21,6 +26,20 @@ contextBridge.exposeInMainWorld('electronAPI', {
     document.title = title;
     ipcRenderer.send('window:setTitle', title);
   },
+
+  // Dirty state — renderer notifies main process when content changes
+  setDirty: (isDirty) => ipcRenderer.send('window:setDirty', isDirty),
+
+  // Close negotiation — main process asks renderer to save before close
+  onSaveAndClose: (callback) => {
+    ipcRenderer.on('window:saveAndClose', () => callback());
+  },
+
+  // Renderer confirms save is done and window can close
+  confirmClose: () => ipcRenderer.send('window:closeConfirmed'),
+
+  // Renderer signals save failed — window stays open
+  cancelClose: () => ipcRenderer.send('window:closeCancelled'),
 
   // Open external links in default browser
   openExternal: (url) => ipcRenderer.invoke('shell:openExternal', url),

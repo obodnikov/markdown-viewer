@@ -1,14 +1,54 @@
-// desktop/menu.js — Native application menu
-const { Menu, app, shell, BrowserWindow } = require('electron');
+// desktop/menu.js — Native application menu (multi-window aware)
+const { Menu, app, shell, BrowserWindow, dialog } = require('electron');
 const path = require('path');
+const fs = require('fs');
 
-function setupMenu(settingsManager) {
+let _createWindow = null;
+let _settingsManager = null;
+
+function buildRecentFilesSubmenu() {
+  let recent = _settingsManager ? _settingsManager.get('recentFiles', []) : [];
+
+  // Filter out files that no longer exist
+  const valid = recent.filter(f => fs.existsSync(f));
+  if (valid.length !== recent.length && _settingsManager) {
+    _settingsManager.set('recentFiles', valid);
+  }
+  recent = valid;
+
+  if (recent.length === 0) {
+    return [{ label: 'No Recent Files', enabled: false }];
+  }
+
+  const items = recent.map(filePath => ({
+    label: path.basename(filePath),
+    toolTip: filePath,
+    click: () => {
+      if (_createWindow) {
+        _createWindow({ filePath, focus: true });
+      }
+    }
+  }));
+
+  items.push({ type: 'separator' });
+  items.push({
+    label: 'Clear Recent',
+    click: () => {
+      if (_settingsManager) {
+        _settingsManager.set('recentFiles', []);
+        refreshMenu();
+      }
+    }
+  });
+
+  return items;
+}
+
+function buildMenuTemplate() {
   const isMac = process.platform === 'darwin';
-
-  // Always get the current focused/active window at click time
   const getWin = () => BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0];
 
-  const template = [
+  return [
     // App menu (macOS only)
     ...(isMac ? [{
       label: app.name,
@@ -36,15 +76,47 @@ function setupMenu(settingsManager) {
       label: 'File',
       submenu: [
         {
+          label: 'New Window',
+          accelerator: 'CmdOrCtrl+Shift+N',
+          click: () => {
+            if (_createWindow) {
+              _createWindow({ isNewEmptyDocument: true, focus: true });
+            }
+          }
+        },
+        {
           label: 'New Document',
           accelerator: 'CmdOrCtrl+N',
           click: () => getWin()?.webContents.send('menu:new')
         },
+        { type: 'separator' },
         {
           label: 'Open...',
           accelerator: 'CmdOrCtrl+O',
           click: () => getWin()?.webContents.send('menu:open')
         },
+        {
+          label: 'Open in New Window...',
+          accelerator: 'CmdOrCtrl+Shift+O',
+          click: async () => {
+            if (!_createWindow) return;
+            const result = await dialog.showOpenDialog(getWin() || undefined, {
+              filters: [
+                { name: 'Markdown', extensions: ['md', 'markdown', 'txt'] },
+                { name: 'All Files', extensions: ['*'] }
+              ],
+              properties: ['openFile']
+            });
+            if (!result.canceled && result.filePaths.length > 0) {
+              _createWindow({ filePath: result.filePaths[0], focus: true });
+            }
+          }
+        },
+        {
+          label: 'Open Recent',
+          submenu: buildRecentFilesSubmenu()
+        },
+        { type: 'separator' },
         {
           label: 'Save',
           accelerator: 'CmdOrCtrl+S',
@@ -130,9 +202,20 @@ function setupMenu(settingsManager) {
       ]
     }
   ];
+}
 
+function refreshMenu() {
+  const template = buildMenuTemplate();
   const menu = Menu.buildFromTemplate(template);
   Menu.setApplicationMenu(menu);
+}
+
+function setupMenu(settingsManager, createWindow) {
+  _settingsManager = settingsManager;
+  _createWindow = createWindow;
+  refreshMenu();
+  // Return refreshMenu so main.js can trigger rebuilds
+  return refreshMenu;
 }
 
 function openSettings() {
@@ -161,4 +244,4 @@ function openSettings() {
   settingsWindow.setMenuBarVisibility(false);
 }
 
-module.exports = { setupMenu, openSettings };
+module.exports = { setupMenu, openSettings, refreshMenu };

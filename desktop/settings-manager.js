@@ -41,7 +41,14 @@ const schema = {
   windowHeight: { type: 'number', default: 900 },
   windowX: { type: 'number' },
   windowY: { type: 'number' },
-  windowMaximized: { type: 'boolean', default: false }
+  windowMaximized: { type: 'boolean', default: false },
+
+  // Recent files
+  recentFiles: {
+    type: 'array',
+    default: [],
+    items: { type: 'string' }
+  }
 };
 
 class SettingsManager {
