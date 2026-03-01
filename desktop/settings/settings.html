@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Settings</title>
+  <link rel="stylesheet" href="settings.css">
+</head>
+<body>
+  <div class="settings">
+    <h1>Settings</h1>
+
+    <form id="settings-form">
+      <!-- OpenRouter -->
+      <section class="settings__section">
+        <h2>OpenRouter</h2>
+        <div class="field">
+          <label for="openrouterApiKey">API Key</label>
+          <input type="password" id="openrouterApiKey" placeholder="sk-or-..." autocomplete="off">
+        </div>
+        <div class="field">
+          <label for="openrouterDefaultModel">Default Model</label>
+          <input type="text" id="openrouterDefaultModel" placeholder="anthropic/claude-3.5-sonnet">
+        </div>
+        <div class="field">
+          <label for="openrouterModels">Available Models <span class="hint">(comma-separated)</span></label>
+          <textarea id="openrouterModels" rows="3" placeholder="anthropic/claude-3.5-sonnet,openai/gpt-4-turbo,..."></textarea>
+        </div>
+        <div class="field">
+          <label for="openrouterMaxTokens">Max Tokens</label>
+          <input type="number" id="openrouterMaxTokens" min="100" max="128000" step="100">
+        </div>
+      </section>
+
+      <!-- Translation -->
+      <section class="settings__section">
+        <h2>Translation</h2>
+        <div class="field">
+          <label for="translationLanguages">Languages <span class="hint">(comma-separated)</span></label>
+          <textarea id="translationLanguages" rows="2" placeholder="Spanish,French,German,..."></textarea>
+        </div>
+      </section>
+
+      <!-- GitHub OAuth -->
+      <section class="settings__section">
+        <h2>GitHub OAuth <span class="hint">(optional)</span></h2>
+        <div class="field">
+          <label for="githubClientId">Client ID</label>
+          <input type="text" id="githubClientId" placeholder="Iv1.abc123...">
+        </div>
+        <div class="field">
+          <label for="githubClientSecret">Client Secret</label>
+          <input type="password" id="githubClientSecret" autocomplete="off">
+        </div>
+      </section>
+
+      <!-- BookStack -->
+      <section class="settings__section">
+        <h2>BookStack <span class="hint">(optional)</span></h2>
+        <div class="field">
+          <label for="bookstackUrl">BookStack URL</label>
+          <input type="url" id="bookstackUrl" placeholder="https://bookstack.example.com">
+        </div>
+        <div class="field">
+          <label for="bookstackApiTimeout">API Timeout (seconds)</label>
+          <input type="number" id="bookstackApiTimeout" min="5" max="120">
+        </div>
+      </section>
+
+      <!-- Backend -->
+      <section class="settings__section">
+        <h2>Backend</h2>
+        <div class="field">
+          <label for="pythonPath">Python Path <span class="hint">(development only — not needed in packaged app)</span></label>
+          <input type="text" id="pythonPath" placeholder="/usr/bin/python3 or leave empty">
+        </div>
+        <div class="field">
+          <label for="pandocPath">Pandoc Path <span class="hint">(leave empty to auto-detect)</span></label>
+          <input type="text" id="pandocPath" placeholder="/usr/local/bin/pandoc or leave empty">
+        </div>
+        <div class="field">
+          <label for="flaskPort">API Port <span class="hint">(0 = auto-detect free port)</span></label>
+          <input type="number" id="flaskPort" min="0" max="65535">
+        </div>
+      </section>
+
+      <!-- Advanced -->
+      <section class="settings__section">
+        <h2>Advanced</h2>
+        <div class="field">
+          <label for="logLevel">Log Level</label>
+          <select id="logLevel">
+            <option value="DEBUG">DEBUG</option>
+            <option value="INFO">INFO</option>
+            <option value="WARNING">WARNING</option>
+            <option value="ERROR">ERROR</option>
+          </select>
+        </div>
+      </section>
+
+      <!-- Actions -->
+      <div class="settings__actions">
+        <span id="status" class="status"></span>
+        <button type="button" id="btn-cancel" class="btn btn--secondary">Close</button>
+        <button type="submit" class="btn btn--primary">Save & Restart Backend</button>
+      </div>
+    </form>
+  </div>
+
+  <script src="settings.js"></script>
+</body>
+</html>

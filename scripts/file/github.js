@@ -10,6 +10,8 @@ export class GitHubUI {
         this.loadDocument = loadDocumentCallback;
         this.authenticated = false;
         this.currentRepo = null;
+        // Expose instance for global onclick handlers (desktop polling)
+        window._githubUIInstance = this;
     }
 
     // Helper to get backend URL for OAuth redirect
@@ -73,7 +75,93 @@ export class GitHubUI {
 
     connectGitHub() {
         const backendUrl = this.getBackendBaseURL();
-        window.location.href = `${backendUrl}/api/github/auth`;
+        const authUrl = `${backendUrl}/api/github/auth`;
+
+        // In Electron, open auth in system browser and poll for completion
+        if (typeof window.electronAPI !== 'undefined') {
+            const nonce = crypto.randomUUID();
+            window.electronAPI.openExternal(`${authUrl}?source=desktop&nonce=${nonce}`);
+            this._pollForAuth(nonce);
+            return;
+        }
+
+        // Web: redirect as usual
+        window.location.href = authUrl;
+    }
+
+    async _pollForAuth(nonce, maxAttempts = 60, interval = 2000) {
+        const content = document.getElementById('github-content');
+        content.innerHTML = `
+            <div class="github-auth">
+                <div class="github-auth__icon">⏳</div>
+                <h3>Waiting for GitHub Authentication...</h3>
+                <p class="github-auth__text">
+                    Complete the sign-in in your browser, then return here.
+                </p>
+                <button class="github-auth__button" onclick="window._cancelGitHubPoll && window._cancelGitHubPoll()">
+                    Cancel
+                </button>
+            </div>
+        `;
+
+        let cancelled = false;
+        window._cancelGitHubPoll = () => {
+            cancelled = true;
+            delete window._cancelGitHubPoll;
+            this.show();
+        };
+
+        for (let i = 0; i < maxAttempts; i++) {
+            if (cancelled) return;
+            try {
+                const result = await APIClient.get(`/github/desktop-status?nonce=${nonce}`);
+                if (result.success) {
+                    delete window._cancelGitHubPoll;
+                    this.authenticated = true;
+                    content.innerHTML = await this.renderRepoList();
+                    return;
+                }
+                if (result.error === 'nonce_expired_or_invalid') {
+                    cancelled = true;
+                    delete window._cancelGitHubPoll;
+                    content.innerHTML = `
+                        <div class="github-auth">
+                            <div class="github-auth__icon">⚠️</div>
+                            <h3>Authentication Session Expired</h3>
+                            <p class="github-auth__text">
+                                The authentication session expired or was invalid. Please try again.
+                            </p>
+                            <button class="github-auth__button" onclick="window.connectGitHub()">
+                                Try Again
+                            </button>
+                        </div>
+                    `;
+                    return;
+                }
+                // result.pending === true means still waiting
+            } catch (error) {
+                // Log unexpected errors for debugging
+                if (error?.status && error.status !== 401 && error.status !== 404) {
+                    console.warn('[GitHub Poll] Unexpected error:', error);
+                }
+            }
+            await new Promise(resolve => setTimeout(resolve, interval));
+        }
+
+        // Timed out
+        delete window._cancelGitHubPoll;
+        content.innerHTML = `
+            <div class="github-auth">
+                <div class="github-auth__icon">⚠️</div>
+                <h3>Authentication Timed Out</h3>
+                <p class="github-auth__text">
+                    GitHub authentication did not complete in time. Please try again.
+                </p>
+                <button class="github-auth__button" onclick="window.connectGitHub()">
+                    Try Again
+                </button>
+            </div>
+        `;
     }
 
     async renderRepoList() {
@@ -186,7 +274,21 @@ window.connectGitHub = function() {
         backendUrl = apiUrl.replace(/\/api$/, '');
     }
 
-    window.location.href = `${backendUrl}/api/github/auth`;
+    const authUrl = `${backendUrl}/api/github/auth`;
+
+    // In Electron, open auth in system browser and poll via GitHubUI instance
+    if (typeof window.electronAPI !== 'undefined') {
+        const nonce = crypto.randomUUID();
+        window.electronAPI.openExternal(`${authUrl}?source=desktop&nonce=${nonce}`);
+        // If a GitHubUI instance is available, use its polling
+        if (window._githubUIInstance) {
+            window._githubUIInstance._pollForAuth(nonce);
+        }
+        return;
+    }
+
+    // Web: redirect as usual
+    window.location.href = authUrl;
 };
 
 window.disconnectGitHub = async function() {
