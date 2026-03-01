@@ -1,6 +1,6 @@
 {
   "name": "markdown-viewer-desktop",
-  "version": "2.0.0",
+  "version": "2.6.0",
   "description": "Markdown Viewer & Editor — Desktop Application",
   "main": "main.js",
   "scripts": {

@@ -5,6 +5,19 @@ All notable changes to the Markdown Viewer & Editor project will be documented i
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.6.0] - 2026-03-01
+
+### Added
+- **Electron Desktop App** — all 10 phases complete (macOS, Windows, Linux)
+- **AI_ELECTRON.md** — desktop-specific coding rules derived from real implementation bugs
+- **Desktop test suite** — 61 unit tests across 4 test files (flask-manager, settings-manager, protocol, menu)
+- **Windows build script** — `desktop/build/build-backend.bat` for PyInstaller on Windows
+
+### Changed
+- ARCHITECTURE.md updated to v2.6.0 with desktop stability zones and AI_ELECTRON.md in rule hierarchy
+- Desktop stability zone promoted from "Phase 10 testing pending" to "Semi-Stable (all phases complete)"
+- Version aligned across all project files to 2.6.0
+
 ## [1.4.1] - 2025-12-25
 
 ### Changed

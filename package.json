@@ -1,6 +1,6 @@
 {
   "name": "markdown-viewer-frontend",
-  "version": "1.4.0",
+  "version": "2.6.0",
   "description": "Modern markdown editor with LLM transformations and integrations",
   "type": "module",
   "scripts": {

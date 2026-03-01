@@ -1,7 +1,7 @@
 # ARCHITECTURE.md
 
-**Version:** 1.5.0
-**Last Updated:** 2026-02-23
+**Version:** 2.6.0
+**Last Updated:** 2026-03-01
 **Status:** ✅ Current
 
 ---
@@ -148,9 +148,18 @@ markdown-viewer/
 │   ├── package.json           # Desktop dependencies & scripts
 │   ├── icons/                 # App icons (.icns, .ico, .png)
 │   ├── settings/              # Settings window (HTML/CSS/JS)
-│   └── build/                 # PyInstaller spec & build scripts
+│   ├── build/                 # PyInstaller spec & build scripts
+│   ├── test/                  # Desktop unit tests (Vitest)
+│   │   ├── __mocks__/        # Electron module mocks
+│   │   ├── setup.js          # Test setup (CJS module resolution)
+│   │   ├── flask-manager.test.js
+│   │   ├── settings-manager.test.js
+│   │   ├── protocol.test.js
+│   │   └── menu.test.js
+│   └── vitest.config.js       # Desktop test configuration
 │
 ├── AI.md                       # Frontend coding rules (HTML/CSS/JS)
+├── AI_ELECTRON.md              # Desktop coding rules (Electron/Node)
 ├── AI_FLASK.md                 # Backend coding rules (Python/Flask)
 ├── CLAUDE.md                   # Project-level AI instructions
 ├── README.md                   # User documentation
@@ -494,7 +503,7 @@ Components mapped by production-readiness and change risk:
 **Backend:**
 - BookStack conflict resolution strategy (may enhance diff viewer)
 
-### 🔄 Desktop (Functional, Phase 10 testing pending)
+### 🔄 Desktop (Semi-Stable, all phases complete)
 
 - `desktop/main.js` - Electron main process, IPC handlers
 - `desktop/flask-manager.js` - Flask lifecycle, Python auto-detection
@@ -505,6 +514,7 @@ Components mapped by production-readiness and change risk:
 - `desktop/forge.config.js` - Electron Forge packaging config
 - `desktop/settings/` - Settings window UI
 - `desktop/build/` - PyInstaller spec & build scripts
+- `desktop/test/` - 61 unit tests (flask-manager, settings-manager, protocol, menu)
 
 ### 🔮 Planned (Not yet implemented)
 
@@ -527,10 +537,11 @@ When coding rules conflict, follow this priority order (highest to lowest):
 
 ```
 1. CLAUDE.md           - Project-level overrides (Python path, venv, behavior)
-2. AI_FLASK.md         - Backend-specific rules (Flask, testing, structure)
-3. AI.md               - Frontend-specific rules (HTML/CSS/JS, Material Design)
-4. ARCHITECTURE.md     - Architectural constraints (stability zones)
-5. Language defaults   - PEP8, ES6 best practices
+2. AI_ELECTRON.md      - Desktop-specific rules (Electron, packaging, protocols)
+3. AI_FLASK.md         - Backend-specific rules (Flask, testing, structure)
+4. AI.md               - Frontend-specific rules (HTML/CSS/JS, Material Design)
+5. ARCHITECTURE.md     - Architectural constraints (stability zones)
+6. Language defaults   - PEP8, ES6 best practices
 ```
 
 **Example conflict resolution:**
@@ -556,7 +567,15 @@ When coding rules conflict, follow this priority order (highest to lowest):
    - Mock external APIs (OpenRouter, GitHub, BookStack, pandoc)
    - Files ≤ 800 lines
 
-3. **[AI.md](AI.md)** - Frontend coding rules
+3. **[AI_ELECTRON.md](AI_ELECTRON.md)** - Desktop coding rules
+   - Resource paths: use `process.resourcesPath` directly, not hardcoded subdirectories
+   - Protocol: `registerScheme()` before `app.whenReady()`, `registerProtocol()` once only
+   - Window/menu lifecycle: never close over stale `BrowserWindow` references
+   - PyInstaller: only `backend.*` prefixed hidden imports
+   - External tools: always provide user-configurable paths, never assume PATH
+   - node_modules: don't blanket-ignore in forge config, pin CJS-compatible versions
+
+4. **[AI.md](AI.md)** - Frontend coding rules
    - Material Design 3 principles (8px spacing, elevation, tokens)
    - **No inline CSS/JS** (strict separation of concerns)
    - ES6 modules, each file ≤ 800 lines
@@ -621,10 +640,11 @@ When coding rules conflict, follow this priority order (highest to lowest):
 ### Step 1: Read Rule Files (< 2 min)
 
 ```bash
-cat CLAUDE.md      # Project behavior & constraints
-cat AI_FLASK.md    # Backend rules (if touching Python)
-cat AI.md          # Frontend rules (if touching JS/CSS)
-cat desktop/README.md  # Desktop rules (if touching Electron)
+cat CLAUDE.md         # Project behavior & constraints
+cat AI_FLASK.md       # Backend rules (if touching Python)
+cat AI.md             # Frontend rules (if touching JS/CSS)
+cat AI_ELECTRON.md    # Desktop rules (if touching Electron)
+cat desktop/README.md # Desktop architecture & build guide
 ```
 
 ### Step 2: Check Prior Context (< 1 min)

@@ -1,6 +1,6 @@
 # Markdown Viewer & Editor
 
-**Version 1.4.3**
+**Version 2.6.0**
 
 A modern, feature-rich markdown editor with GitHub Flavored Markdown support, LLM-powered transformations, GitHub integration, and BookStack wiki integration.
 
@@ -476,7 +476,7 @@ MIT License - see LICENSE file for details
 
 ## Roadmap
 
-### Phase 1 (Completed) - v1.4.3 ✅
+### Phase 1 (Completed) - v2.6.0 ✅
 - ✅ Core editor with GFM support
 - ✅ LLM transformations (translation, tone adjustment, summarization, expansion)
 - ✅ GitHub integration with OAuth
@@ -484,7 +484,7 @@ MIT License - see LICENSE file for details
 - ✅ Synchronized scrolling in split view
 - ✅ BookStack integration with smart save, conflict detection, and export from any source
 
-### Phase 2 (Future) - v1.5.0+
+### Phase 2 (Future) - v2.7.0+
 - [ ] Real-time collaboration
 - [ ] More cloud storage providers (Dropbox, Google Drive)
 - [ ] Custom markdown extensions
