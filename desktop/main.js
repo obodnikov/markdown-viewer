@@ -335,10 +335,52 @@ ipcMain.handle('dialog:openFile', async (event, options) => {
   const filePath = result.filePaths[0];
   try {
     const content = await fs.promises.readFile(filePath, 'utf-8');
+
+    // Update registry so main process knows which file this window has open
+    if (senderWindow) {
+      const entry = getWindowEntry(senderWindow);
+      if (entry) {
+        windows.get(entry.id).filePath = filePath;
+      }
+    }
+
     return { path: filePath, name: path.basename(filePath), content };
   } catch (error) {
     console.error(`[Main] Failed to read file: ${error.message}`);
     return null;
+  }
+});
+
+ipcMain.handle('dialog:openFileInNewWindow', async (event, filePath) => {
+  // Renderer requests opening a file in a new window
+  try {
+    if (filePath) {
+      const absolutePath = path.resolve(filePath);
+      // Validate file exists and is readable before creating a window
+      try {
+        await fs.promises.access(absolutePath, fs.constants.R_OK);
+      } catch {
+        console.error(`[Main] File not accessible: ${absolutePath}`);
+        return { success: false, error: `File not accessible: ${absolutePath}` };
+      }
+      const windowId = await createWindow({ filePath: absolutePath, focus: true });
+      return { success: !!windowId, windowId };
+    }
+    // No path provided — show file dialog then open in new window
+    const senderWindow = BrowserWindow.fromWebContents(event.sender);
+    const result = await dialog.showOpenDialog(senderWindow || undefined, {
+      filters: [
+        { name: 'Markdown', extensions: ['md', 'markdown', 'txt'] },
+        { name: 'All Files', extensions: ['*'] }
+      ],
+      properties: ['openFile']
+    });
+    if (result.canceled) return { success: false };
+    const windowId = await createWindow({ filePath: result.filePaths[0], focus: true });
+    return { success: !!windowId, windowId };
+  } catch (error) {
+    console.error(`[Main] openFileInNewWindow failed: ${error.message}`);
+    return { success: false, error: error.message };
   }
 });
 
@@ -405,6 +447,49 @@ ipcMain.on('window:setTitle', (event, title) => {
   const senderWindow = BrowserWindow.fromWebContents(event.sender);
   if (senderWindow) {
     senderWindow.setTitle(title);
+  }
+});
+
+ipcMain.handle('file:dropOpen', async (event, filePath) => {
+  // File dropped onto a window — open it in that same window
+  try {
+    const senderWindow = BrowserWindow.fromWebContents(event.sender);
+    if (!senderWindow || !filePath) {
+      return { success: false, error: 'No target window or file path' };
+    }
+    const absolutePath = path.resolve(filePath);
+    try {
+      await fs.promises.access(absolutePath, fs.constants.R_OK);
+    } catch {
+      console.error(`[Main] Dropped file not accessible: ${absolutePath}`);
+      return { success: false, error: `File not accessible: ${absolutePath}` };
+    }
+    await openFileInWindow(senderWindow, absolutePath);
+    return { success: true };
+  } catch (error) {
+    console.error(`[Main] dropOpen failed: ${error.message}`);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('file:dropOpenNewWindow', async (event, filePath) => {
+  // File dropped with modifier key — open in a new window
+  try {
+    if (!filePath) {
+      return { success: false, error: 'No file path provided' };
+    }
+    const absolutePath = path.resolve(filePath);
+    try {
+      await fs.promises.access(absolutePath, fs.constants.R_OK);
+    } catch {
+      console.error(`[Main] Dropped file not accessible: ${absolutePath}`);
+      return { success: false, error: `File not accessible: ${absolutePath}` };
+    }
+    const windowId = await createWindow({ filePath: absolutePath, focus: true });
+    return { success: !!windowId, windowId };
+  } catch (error) {
+    console.error(`[Main] dropOpenNewWindow failed: ${error.message}`);
+    return { success: false, error: error.message };
   }
 });
 

@@ -4,7 +4,12 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('electronAPI', {
   // File dialogs
   openFile: (options) => ipcRenderer.invoke('dialog:openFile', options),
+  openFileInNewWindow: (filePath) => ipcRenderer.invoke('dialog:openFileInNewWindow', filePath || null),
   saveFile: (data) => ipcRenderer.invoke('dialog:saveFile', data),
+
+  // Drag-and-drop file handling
+  dropOpen: (filePath) => ipcRenderer.invoke('file:dropOpen', filePath),
+  dropOpenNewWindow: (filePath) => ipcRenderer.invoke('file:dropOpenNewWindow', filePath),
 
   // Settings
   getSettings: () => ipcRenderer.invoke('settings:get'),
