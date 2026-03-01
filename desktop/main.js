@@ -549,6 +549,17 @@ ipcMain.handle('dialog:saveFile', async (event, { content, defaultName }) => {
   if (result.canceled) return null;
   try {
     await fs.promises.writeFile(result.filePath, content, 'utf-8');
+
+    // Update registry so main process tracks the saved file path
+    if (senderWindow) {
+      const entry = getWindowEntry(senderWindow);
+      if (entry) {
+        windows.get(entry.id).filePath = result.filePath;
+        windows.get(entry.id).isDirty = false;
+      }
+      senderWindow.setTitle(`${path.basename(result.filePath)} — Markdown Viewer`);
+    }
+
     return { path: result.filePath, name: path.basename(result.filePath) };
   } catch (error) {
     console.error(`[Main] Failed to write file: ${error.message}`);
