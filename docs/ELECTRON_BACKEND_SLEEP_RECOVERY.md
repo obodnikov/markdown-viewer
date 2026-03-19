@@ -64,8 +64,13 @@ every 30 seconds. After N consecutive failures (e.g., 3), automatically restart 
 // In your backend process manager class:
 
 startHealthMonitor(intervalMs = 30000, maxFailures = 3) {
+  if (this._healthInterval) return; // already running
+
   this._consecutiveFailures = 0;
   this._healthCheckInFlight = false;
+  this._monitorGeneration++;  // invalidate any stale in-flight checks from a previous monitor
+
+  const generation = this._monitorGeneration;
 
   this._healthInterval = setInterval(async () => {
     // Skip if a restart is in progress or a prior check hasn't finished
@@ -74,15 +79,19 @@ startHealthMonitor(intervalMs = 30000, maxFailures = 3) {
     this._healthCheckInFlight = true;
     try {
       await this._healthCheck();
+      if (this._monitorGeneration !== generation) return; // stale — monitor was restarted
       this._consecutiveFailures = 0;
     } catch {
+      if (this._monitorGeneration !== generation) return; // stale — monitor was stopped
       this._consecutiveFailures++;
       if (this._consecutiveFailures >= maxFailures) {
         this._consecutiveFailures = 0;
         this._autoRestart().catch(() => {}); // fire-and-forget from monitor
       }
     } finally {
-      this._healthCheckInFlight = false;
+      if (this._monitorGeneration === generation) {
+        this._healthCheckInFlight = false;
+      }
     }
   }, intervalMs);
 }
@@ -92,8 +101,20 @@ stopHealthMonitor() {
     clearInterval(this._healthInterval);
     this._healthInterval = null;
   }
+  // Always reset — even if interval was already null, flag may be stale
+  this._healthCheckInFlight = false;
+  // Invalidate any in-flight checks from this monitor generation
+  this._monitorGeneration++;
 }
 ```
+
+Key design points for the generation token:
+- `_monitorGeneration` is incremented on both `startHealthMonitor()` and `stopHealthMonitor()`
+- Each interval tick captures the generation at the start of its execution
+- On completion (success, failure, or finally), the tick checks if the generation still matches
+- If the monitor was stopped or restarted while a check was in-flight, the stale check's
+  completion becomes a no-op — it won't mutate `_consecutiveFailures`, trigger `_autoRestart()`,
+  or clear `_healthCheckInFlight` for the new monitor
 
 ### Layer 2: Proactive Recovery on System Resume
 
@@ -103,15 +124,38 @@ verify the backend is healthy:
 ```javascript
 const { powerMonitor } = require('electron');
 
-powerMonitor.on('resume', async () => {
-  console.log('System resumed from sleep — checking backend...');
-  try {
-    await backendManager.ensureRunning();
-  } catch (error) {
-    // Show error dialog to user
+// IMPORTANT: Declare _resumeHandler at module scope, not inside app.whenReady().
+// The before-quit handler needs access to this variable for cleanup.
+let _resumeHandler = null;
+
+app.whenReady().then(async () => {
+  // ... start backend, create windows, etc.
+
+  _resumeHandler = async () => {
+    console.log('System resumed from sleep — checking backend...');
+    try {
+      await backendManager.ensureRunning();
+    } catch (error) {
+      // Show error dialog to user
+    }
+  };
+  powerMonitor.on('resume', _resumeHandler);
+});
+
+app.on('before-quit', () => {
+  backendManager.stopHealthMonitor();
+  backendManager.stop();
+  if (_resumeHandler) {
+    powerMonitor.removeListener('resume', _resumeHandler);
+    _resumeHandler = null;
   }
 });
 ```
+
+**Scoping note:** The `_resumeHandler` variable must be declared at module scope so that
+`before-quit` (also at module scope) can see it for cleanup. Declaring it inside
+`app.whenReady().then(...)` would make it invisible to `before-quit`, causing the listener
+to leak.
 
 The `ensureRunning()` method does a single health check and triggers a restart if it fails.
 If a restart is already in progress, it awaits the same shared promise:
@@ -178,17 +222,19 @@ backendManager.on('restarted', () => {
 
 1. Add health monitoring to your backend process manager:
    - `startHealthMonitor()` — periodic polling with configurable interval and failure threshold
-   - `stopHealthMonitor()` — cleanup on app quit
+   - `stopHealthMonitor()` — cleanup on app quit (also invalidates in-flight checks)
    - `ensureRunning()` — on-demand check with auto-restart (rejects on failure)
    - `_autoRestart()` — returns a shared `_restartPromise` so concurrent callers await the same outcome
+   - `_monitorGeneration` counter — incremented on start and stop to invalidate stale async completions
    - Event emitter for `restarted` / `restartFailed` events (for external listeners like the main process)
 
 2. Wire up in your Electron main process:
    - Call `startHealthMonitor()` after backend starts
-   - Store the `powerMonitor` resume handler and listen for `resume` → call `ensureRunning()`
+   - Declare `_resumeHandler` at **module scope** (not inside `whenReady`) for proper lifecycle cleanup
+   - Assign the handler inside `whenReady` and listen for `resume` → call `ensureRunning()`
    - Listen to `restarted` event → notify renderer windows
    - Call `stopHealthMonitor()` in `before-quit` handler
-   - Remove the `powerMonitor` resume listener in `before-quit` for clean lifecycle
+   - Remove the `powerMonitor` resume listener in `before-quit` (requires module-scoped reference)
 
 3. Handle concurrent restart attempts via shared promise:
    - `_autoRestart()` stores a `_restartPromise` — second call returns the existing promise
@@ -203,11 +249,17 @@ backendManager.on('restarted', () => {
   `_restartPromise`, only one restart executes
 - Health monitor firing during a restart — skip the tick (check `_restartPromise`)
 - Slow health checks overlapping the next interval tick — skip via `_healthCheckInFlight` guard
+- Stale check completion after stop/start — a health check that was in-flight when the monitor
+  was stopped or restarted will complete asynchronously. The generation token ensures its
+  completion is a no-op: it won't mutate `_consecutiveFailures`, trigger `_autoRestart()`, or
+  clear `_healthCheckInFlight` for the new monitor. This applies to both success and failure paths.
 - Restart failure — `_autoRestart()` rejects the shared promise AND emits `restartFailed`,
   so both direct callers and event listeners are notified
 - App quit during restart — `stopHealthMonitor()` and `powerMonitor` listener removal in `before-quit`
-- `startHealthMonitor()` called while restart is in-flight — resets failure counter but does NOT
-  clear `_restartPromise` (avoids allowing duplicate restarts)
+- `startHealthMonitor()` called while restart is in-flight — resets failure counter and
+  `_healthCheckInFlight` but does NOT clear `_restartPromise` (avoids allowing duplicate restarts)
+- `_resumeHandler` scoping — must be declared at module scope so `before-quit` can remove it;
+  declaring inside `whenReady` makes it invisible to the quit handler, leaking the listener
 
 ---
 
@@ -270,10 +322,10 @@ describe('health monitoring', () => {
     manager._healthCheck = vi.fn().mockRejectedValue(new Error('dead'));
     manager.restart = vi.fn().mockResolvedValue(5050);
 
-    const p1 = manager.ensureRunning();
-    const p2 = manager.ensureRunning();
-
-    await Promise.all([p1, p2]);
+    const [r1, r2] = await Promise.all([
+      manager.ensureRunning(),
+      manager.ensureRunning(),
+    ]);
     expect(manager.restart).toHaveBeenCalledTimes(1); // only one restart
   });
 
@@ -291,6 +343,49 @@ describe('health monitoring', () => {
     resolveCheck(); // finish first check
     await vi.advanceTimersByTimeAsync(1000); // third tick runs
     expect(manager._healthCheck).toHaveBeenCalledTimes(2);
+  });
+
+  it('stale failing check after stop does not increment failures or trigger restart', async () => {
+    let rejectOldCheck;
+    manager._healthCheck = vi.fn().mockImplementation(() => {
+      return new Promise((_, reject) => { rejectOldCheck = reject; });
+    });
+    manager.restart = vi.fn().mockResolvedValue(5050);
+    manager.startHealthMonitor(1000, 1); // maxFailures=1
+
+    await vi.advanceTimersByTimeAsync(1000); // tick starts slow check
+    manager.stopHealthMonitor();
+
+    rejectOldCheck(new Error('dead')); // old check completes after stop
+    await vi.advanceTimersByTimeAsync(0); // flush microtasks
+
+    expect(manager._consecutiveFailures).toBe(0); // not incremented
+    expect(manager.restart).not.toHaveBeenCalled(); // no restart
+  });
+
+  it('stale check after stop/start does not corrupt new monitor state', async () => {
+    let resolveOldCheck;
+    manager._healthCheck = vi.fn().mockImplementation(() => {
+      return new Promise((resolve) => { resolveOldCheck = resolve; });
+    });
+    manager.startHealthMonitor(1000, 3);
+
+    await vi.advanceTimersByTimeAsync(1000); // tick starts slow check
+
+    manager.stopHealthMonitor();
+    manager._healthCheck = vi.fn().mockResolvedValue(undefined);
+    manager.startHealthMonitor(1000, 3);
+
+    await vi.advanceTimersByTimeAsync(1000); // new monitor tick runs
+
+    // Simulate new check in-flight, then old check resolves
+    manager._consecutiveFailures = 2;
+    manager._healthCheckInFlight = true;
+    resolveOldCheck();
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(manager._healthCheckInFlight).toBe(true);  // not cleared by old check
+    expect(manager._consecutiveFailures).toBe(2);     // not reset by old check
   });
 });
 ```
