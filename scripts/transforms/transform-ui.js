@@ -23,6 +23,11 @@ export class TransformUI {
     }
 
     setupEventListeners() {
+        // Restore Markdown format
+        document.getElementById('action-restore-markdown').addEventListener('click', () => {
+            this.handleRestoreMarkdown();
+        });
+
         // Newline removal
         document.getElementById('action-remove-newlines').addEventListener('click', () => {
             this.handleRemoveNewlines();
@@ -60,6 +65,40 @@ export class TransformUI {
         document.getElementById('action-custom-prompt').addEventListener('click', () => {
             this.handleCustomPrompt();
         });
+    }
+
+    async handleRestoreMarkdown() {
+        const content = this.getContent();
+
+        if (!content.trim()) {
+            this.showError('No content to restore');
+            return;
+        }
+
+        const prompt = 'The following text was originally in Markdown format but lost its formatting during copy/paste. ' +
+            'Analyze the content structure and context to restore proper Markdown formatting: ' +
+            'headings, lists, code blocks, bold/italic, links, tables, blockquotes, etc. ' +
+            'Do not change, add, or remove any content — only restore the formatting.';
+
+        this.showLoading('Restoring Markdown formatting...');
+
+        try {
+            const result = await this.llmClient.customPrompt(content, prompt);
+            this.setContent(result);
+            this.hideLoading();
+        } catch (error) {
+            this.hideLoading();
+
+            if (error.message && error.message.includes('fetch')) {
+                this.showError('Network error: could not reach the LLM service. Check your connection.');
+            } else if (error.message && error.message.includes('timeout')) {
+                this.showError('Request timed out. The content may be too long — try a shorter selection.');
+            } else if (error.message && (error.message.includes('rate') || error.message.includes('429'))) {
+                this.showError('Rate limited by the LLM provider. Please wait a moment and try again.');
+            } else {
+                this.showError(`Markdown restore failed: ${error.message}`);
+            }
+        }
     }
 
     async handleRemoveNewlines() {
