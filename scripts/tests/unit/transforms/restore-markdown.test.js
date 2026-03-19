@@ -1,244 +1,347 @@
 /**
- * Unit tests for Restore Markdown feature
+ * Unit tests for Restore Markdown, Undo Transformation, and error handling
+ * Tests the real TransformUI class with mocked DOM and LLM client
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
+// Mock all TransformUI dependencies before import
+vi.mock('../../../transforms/llm-client.js', () => ({
+    LLMClient: vi.fn().mockImplementation(() => ({
+        customPrompt: vi.fn().mockResolvedValue('mocked result'),
+        transform: vi.fn().mockResolvedValue('mocked result'),
+        listModels: vi.fn().mockResolvedValue([]),
+        listLanguages: vi.fn().mockResolvedValue([]),
+    })),
+}));
+
+vi.mock('../../../transforms/newline-remover.js', () => ({
+    NewlineRemover: vi.fn().mockImplementation(() => ({
+        remove: vi.fn((content) => content.replace(/\n/g, ' ')),
+    })),
+}));
+
+vi.mock('../../../transforms/find-replace.js', () => ({
+    FindReplace: vi.fn().mockImplementation(() => ({
+        getPresetList: vi.fn().mockReturnValue([]),
+        getPreset: vi.fn(),
+        generatePattern: vi.fn(),
+        findMatches: vi.fn(),
+        getMatchStats: vi.fn(),
+        replace: vi.fn(),
+        getCaseFlags: vi.fn(),
+    })),
+}));
+
+vi.mock('../../../transforms/ai-regex.js', () => ({
+    AIRegex: vi.fn().mockImplementation(() => ({
+        generatePattern: vi.fn(),
+    })),
+}));
+
 /**
- * Mock TransformUI dependencies to test handleRestoreMarkdown in isolation
+ * Create all DOM elements required by TransformUI constructor
  */
-function createMockTransformUI(content = '', llmResult = null, llmError = null) {
-    const ui = {
-        getContent: vi.fn(() => content),
-        setContent: vi.fn(),
-        showLoading: vi.fn(),
-        hideLoading: vi.fn(),
-        showError: vi.fn(),
-        llmClient: {
-            customPrompt: llmError
-                ? vi.fn().mockRejectedValue(llmError)
-                : vi.fn().mockResolvedValue(llmResult),
-        },
+function setupDOM() {
+    document.body.innerHTML = '';
+
+    const buttonIds = [
+        'action-undo-transform', 'action-restore-markdown', 'action-remove-newlines',
+        'action-find-replace', 'action-translate', 'action-tone-formal',
+        'action-tone-casual', 'action-summarize', 'action-expand', 'action-custom-prompt',
+    ];
+
+    buttonIds.forEach(id => {
+        const btn = document.createElement('button');
+        btn.id = id;
+        document.body.appendChild(btn);
+    });
+
+    // Undo button starts disabled
+    document.getElementById('action-undo-transform').disabled = true;
+
+    // Select elements
+    const selects = {
+        'translate-lang': ['Spanish'],
+        'llm-model': ['anthropic/claude-3.5-sonnet'],
+        'fr-preset': [],
     };
-    return ui;
-}
+    Object.entries(selects).forEach(([id, options]) => {
+        const select = document.createElement('select');
+        select.id = id;
+        options.forEach(val => {
+            const opt = document.createElement('option');
+            opt.value = val;
+            opt.textContent = val;
+            select.appendChild(opt);
+        });
+        document.body.appendChild(select);
+    });
 
-/**
- * Extracted handler logic matching transform-ui.js handleRestoreMarkdown
- */
-async function handleRestoreMarkdown(ui) {
-    const content = ui.getContent();
+    // Textarea / input elements
+    const textarea = document.createElement('textarea');
+    textarea.id = 'custom-prompt';
+    document.body.appendChild(textarea);
 
-    if (!content.trim()) {
-        ui.showError('No content to restore');
-        return;
-    }
+    // Loading overlay
+    const overlay = document.createElement('div');
+    overlay.id = 'loading-overlay';
+    overlay.style.display = 'none';
+    const loadingText = document.createElement('span');
+    loadingText.id = 'loading-text';
+    overlay.appendChild(loadingText);
+    document.body.appendChild(overlay);
 
-    const prompt = 'The following text was originally in Markdown format but lost its formatting during copy/paste. ' +
-        'Analyze the content structure and context to restore proper Markdown formatting: ' +
-        'headings, lists, code blocks, bold/italic, links, tables, blockquotes, etc. ' +
-        'Do not change, add, or remove any content — only restore the formatting.';
-
-    ui.showLoading('Restoring Markdown formatting...');
-
-    try {
-        const result = await ui.llmClient.customPrompt(content, prompt);
-        ui.setContent(result);
-        ui.hideLoading();
-    } catch (error) {
-        ui.hideLoading();
-
-        if (error.message && error.message.includes('fetch')) {
-            ui.showError('Network error: could not reach the LLM service. Check your connection.');
-        } else if (error.message && error.message.includes('timeout')) {
-            ui.showError('Request timed out. The content may be too long — try a shorter selection.');
-        } else if (error.message && (error.message.includes('rate') || error.message.includes('429'))) {
-            ui.showError('Rate limited by the LLM provider. Please wait a moment and try again.');
+    // Find & Replace dialog elements
+    const dialogIds = [
+        'find-replace-dialog', 'close-find-replace-dialog',
+        'fr-tab-basic', 'fr-tab-ai', 'fr-find', 'fr-replace',
+        'fr-case-sensitive', 'fr-preview-btn', 'fr-replace-all-btn',
+        'fr-ai-description', 'fr-ai-generate-btn', 'fr-ai-preview-btn',
+        'fr-ai-apply-btn', 'fr-example', 'fr-basic-content', 'fr-ai-content',
+        'fr-preview-stats', 'fr-preview-samples', 'fr-ai-pattern',
+        'fr-ai-flags', 'fr-ai-explanation', 'fr-ai-pattern-group',
+        'fr-ai-flags-group', 'fr-ai-examples', 'fr-ai-preview',
+        'fr-ai-preview-stats', 'fr-ai-preview-samples', 'fr-ai-replacement',
+    ];
+    dialogIds.forEach(id => {
+        let el;
+        if (id === 'find-replace-dialog') {
+            el = document.createElement('dialog');
+            el.showModal = vi.fn();
+            el.close = vi.fn();
+        } else if (id === 'fr-case-sensitive') {
+            el = document.createElement('input');
+            el.type = 'checkbox';
+        } else if (id.includes('content') || id.includes('samples') || id.includes('stats') ||
+                   id.includes('explanation') || id.includes('examples') || id.includes('preview')) {
+            el = document.createElement('div');
         } else {
-            ui.showError(`Markdown restore failed: ${error.message}`);
+            el = document.createElement('input');
         }
-    }
+        el.id = id;
+        document.body.appendChild(el);
+    });
+
+    // Newline mode radio
+    const radio = document.createElement('input');
+    radio.type = 'radio';
+    radio.name = 'newline-mode';
+    radio.value = 'smart';
+    radio.checked = true;
+    document.body.appendChild(radio);
 }
 
-describe('Restore Markdown', () => {
-    describe('empty content guard', () => {
-        it('should show error when content is empty', async () => {
-            const ui = createMockTransformUI('');
-            await handleRestoreMarkdown(ui);
+let ui;
+let content;
 
-            expect(ui.showError).toHaveBeenCalledWith('No content to restore');
-            expect(ui.llmClient.customPrompt).not.toHaveBeenCalled();
-            expect(ui.showLoading).not.toHaveBeenCalled();
-        });
+beforeEach(async () => {
+    setupDOM();
+    content = '# Hello\n\nSome markdown content';
 
-        it('should show error when content is only whitespace', async () => {
-            const ui = createMockTransformUI('   \n\t  ');
-            await handleRestoreMarkdown(ui);
+    const { TransformUI } = await import('../../../transforms/transform-ui.js');
 
-            expect(ui.showError).toHaveBeenCalledWith('No content to restore');
-            expect(ui.llmClient.customPrompt).not.toHaveBeenCalled();
-        });
+    ui = new TransformUI(
+        () => content,
+        (val) => { content = val; }
+    );
+
+    // Reset mocks on the llmClient instance
+    ui.llmClient.customPrompt.mockReset().mockResolvedValue('restored markdown');
+    ui.llmClient.transform.mockReset().mockResolvedValue('transformed result');
+});
+
+describe('TransformUI.handleRestoreMarkdown', () => {
+    it('should call LLM with correct prompt and update content', async () => {
+        await ui.handleRestoreMarkdown();
+
+        expect(ui.llmClient.customPrompt).toHaveBeenCalledOnce();
+        const prompt = ui.llmClient.customPrompt.mock.calls[0][1];
+        expect(prompt).toContain('Markdown');
+        expect(prompt).toContain('Do not change, add, or remove any content');
+        expect(content).toBe('restored markdown');
     });
 
-    describe('successful restore', () => {
-        it('should call LLM with correct prompt and set result', async () => {
-            const input = 'Introduction This is a heading Some body text';
-            const restored = '# Introduction\n\nThis is a heading\n\nSome body text';
-            const ui = createMockTransformUI(input, restored);
+    it('should show error for empty content without calling LLM', async () => {
+        content = '   ';
+        const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
 
-            await handleRestoreMarkdown(ui);
+        await ui.handleRestoreMarkdown();
 
-            expect(ui.showLoading).toHaveBeenCalledWith('Restoring Markdown formatting...');
-            expect(ui.llmClient.customPrompt).toHaveBeenCalledWith(input, expect.stringContaining('Markdown'));
-            expect(ui.setContent).toHaveBeenCalledWith(restored);
-            expect(ui.hideLoading).toHaveBeenCalled();
-            expect(ui.showError).not.toHaveBeenCalled();
-        });
-
-        it('should pass prompt that instructs no content changes', async () => {
-            const ui = createMockTransformUI('some text', 'some text');
-            await handleRestoreMarkdown(ui);
-
-            const prompt = ui.llmClient.customPrompt.mock.calls[0][1];
-            expect(prompt).toContain('Do not change, add, or remove any content');
-        });
+        expect(ui.llmClient.customPrompt).not.toHaveBeenCalled();
+        expect(alertSpy).toHaveBeenCalledWith('No content to restore');
+        alertSpy.mockRestore();
     });
 
-    describe('error handling', () => {
-        it('should show network error for fetch failures', async () => {
-            const ui = createMockTransformUI('content', null, new Error('fetch failed'));
-            await handleRestoreMarkdown(ui);
+    it('should save snapshot only on success (not on failure)', async () => {
+        ui.llmClient.customPrompt.mockRejectedValue(new Error('LLM down'));
+        vi.spyOn(window, 'alert').mockImplementation(() => {});
 
-            expect(ui.hideLoading).toHaveBeenCalled();
-            expect(ui.showError).toHaveBeenCalledWith(
-                expect.stringContaining('Network error')
-            );
-        });
+        await ui.handleRestoreMarkdown();
 
-        it('should show timeout error for timeout failures', async () => {
-            const ui = createMockTransformUI('content', null, new Error('Request timeout'));
-            await handleRestoreMarkdown(ui);
+        expect(ui.undoStack.length).toBe(0);
+        window.alert.mockRestore();
+    });
 
-            expect(ui.showError).toHaveBeenCalledWith(
-                expect.stringContaining('timed out')
-            );
-        });
+    it('should save snapshot before setting new content on success', async () => {
+        const originalContent = content;
+        await ui.handleRestoreMarkdown();
 
-        it('should show rate limit error for 429 responses', async () => {
-            const ui = createMockTransformUI('content', null, new Error('429 Too Many Requests'));
-            await handleRestoreMarkdown(ui);
-
-            expect(ui.showError).toHaveBeenCalledWith(
-                expect.stringContaining('Rate limited')
-            );
-        });
-
-        it('should show generic error for unknown failures', async () => {
-            const ui = createMockTransformUI('content', null, new Error('Something unexpected'));
-            await handleRestoreMarkdown(ui);
-
-            expect(ui.showError).toHaveBeenCalledWith(
-                'Markdown restore failed: Something unexpected'
-            );
-        });
-
-        it('should always hide loading on error', async () => {
-            const ui = createMockTransformUI('content', null, new Error('any error'));
-            await handleRestoreMarkdown(ui);
-
-            expect(ui.hideLoading).toHaveBeenCalled();
-        });
+        expect(ui.undoStack.length).toBe(1);
+        expect(ui.undoStack[0].content).toBe(originalContent);
+        expect(ui.undoStack[0].label).toBe('Restore Markdown');
     });
 });
 
+describe('TransformUI.handleLLMError', () => {
+    let alertSpy;
 
-describe('Undo Transformation', () => {
-    function createUndoStack() {
-        const stack = {
-            undoStack: [],
-            maxUndoHistory: 10,
-            content: 'current content',
-            getContent() { return this.content; },
-            setContent(val) { this.content = val; },
-        };
-
-        stack.saveSnapshot = function(label) {
-            const content = this.getContent();
-            if (!content) return;
-            this.undoStack.push({ content, label });
-            if (this.undoStack.length > this.maxUndoHistory) {
-                this.undoStack.shift();
-            }
-        };
-
-        stack.handleUndo = function() {
-            if (this.undoStack.length === 0) return;
-            const snapshot = this.undoStack.pop();
-            this.setContent(snapshot.content);
-        };
-
-        return stack;
-    }
-
-    it('should save a snapshot with label', () => {
-        const s = createUndoStack();
-        s.saveSnapshot('Summarize');
-
-        expect(s.undoStack.length).toBe(1);
-        expect(s.undoStack[0].content).toBe('current content');
-        expect(s.undoStack[0].label).toBe('Summarize');
+    beforeEach(() => {
+        alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
     });
 
-    it('should restore content on undo', () => {
-        const s = createUndoStack();
-        s.saveSnapshot('Translate');
-        s.content = 'translated content';
-
-        s.handleUndo();
-
-        expect(s.content).toBe('current content');
-        expect(s.undoStack.length).toBe(0);
+    afterEach(() => {
+        alertSpy.mockRestore();
     });
 
-    it('should support multiple undo levels', () => {
-        const s = createUndoStack();
-        s.saveSnapshot('Step 1');
-        s.content = 'after step 1';
-
-        s.saveSnapshot('Step 2');
-        s.content = 'after step 2';
-
-        s.handleUndo();
-        expect(s.content).toBe('after step 1');
-
-        s.handleUndo();
-        expect(s.content).toBe('current content');
+    it('should detect network errors (case-insensitive)', () => {
+        ui.handleLLMError(new Error('FetchError: connection refused'), 'Test');
+        expect(alertSpy).toHaveBeenCalledWith(expect.stringContaining('Network error'));
     });
 
-    it('should do nothing when undo stack is empty', () => {
-        const s = createUndoStack();
-        s.handleUndo();
-
-        expect(s.content).toBe('current content');
+    it('should detect ECONNREFUSED', () => {
+        ui.handleLLMError(new Error('ECONNREFUSED'), 'Test');
+        expect(alertSpy).toHaveBeenCalledWith(expect.stringContaining('Network error'));
     });
 
-    it('should cap stack at maxUndoHistory', () => {
-        const s = createUndoStack();
-        s.maxUndoHistory = 3;
+    it('should detect timeout errors (case-insensitive)', () => {
+        ui.handleLLMError(new Error('TimeoutError: request aborted'), 'Test');
+        expect(alertSpy).toHaveBeenCalledWith(expect.stringContaining('timed out'));
+    });
+
+    it('should detect "timed out" variant', () => {
+        ui.handleLLMError(new Error('Request timed out after 30s'), 'Test');
+        expect(alertSpy).toHaveBeenCalledWith(expect.stringContaining('timed out'));
+    });
+
+    it('should detect "aborted" variant', () => {
+        ui.handleLLMError(new Error('The operation was aborted'), 'Test');
+        expect(alertSpy).toHaveBeenCalledWith(expect.stringContaining('timed out'));
+    });
+
+    it('should detect rate limit errors (429)', () => {
+        ui.handleLLMError(new Error('429 Too Many Requests'), 'Test');
+        expect(alertSpy).toHaveBeenCalledWith(expect.stringContaining('Rate limited'));
+    });
+
+    it('should detect "too many" variant', () => {
+        ui.handleLLMError(new Error('Too many requests, slow down'), 'Test');
+        expect(alertSpy).toHaveBeenCalledWith(expect.stringContaining('Rate limited'));
+    });
+
+    it('should show generic error with action name for unknown errors', () => {
+        ui.handleLLMError(new Error('Something weird'), 'Markdown restore');
+        expect(alertSpy).toHaveBeenCalledWith('Markdown restore failed: Something weird');
+    });
+
+    it('should handle error with no message', () => {
+        ui.handleLLMError({}, 'Test');
+        expect(alertSpy).toHaveBeenCalledWith('Test failed: Unknown error');
+    });
+});
+
+describe('TransformUI undo integration', () => {
+    it('should enable undo button after successful transform', async () => {
+        const btn = document.getElementById('action-undo-transform');
+        expect(btn.disabled).toBe(true);
+
+        await ui.handleRestoreMarkdown();
+
+        expect(btn.disabled).toBe(false);
+        expect(btn.title).toBe('Undo: Restore Markdown');
+    });
+
+    it('should restore content and disable button after undo', async () => {
+        const original = content;
+        await ui.handleRestoreMarkdown();
+        expect(content).toBe('restored markdown');
+
+        ui.handleUndo();
+
+        expect(content).toBe(original);
+        const btn = document.getElementById('action-undo-transform');
+        expect(btn.disabled).toBe(true);
+        expect(btn.title).toBe('Nothing to undo');
+    });
+
+    it('should support multi-level undo across different transforms', async () => {
+        const original = content;
+
+        // First transform
+        await ui.handleRestoreMarkdown();
+        const afterRestore = content;
+
+        // Second transform
+        ui.llmClient.transform.mockResolvedValue('summarized');
+        await ui.handleSummarize();
+        expect(content).toBe('summarized');
+
+        // Undo second
+        ui.handleUndo();
+        expect(content).toBe(afterRestore);
+
+        // Undo first
+        ui.handleUndo();
+        expect(content).toBe(original);
+    });
+
+    it('should cap undo stack at maxUndoHistory', async () => {
+        ui.maxUndoHistory = 3;
 
         for (let i = 0; i < 5; i++) {
-            s.content = `version ${i}`;
-            s.saveSnapshot(`Step ${i}`);
+            ui.llmClient.customPrompt.mockResolvedValue(`result-${i}`);
+            await ui.handleRestoreMarkdown();
         }
 
-        expect(s.undoStack.length).toBe(3);
-        expect(s.undoStack[0].label).toBe('Step 2');
+        expect(ui.undoStack.length).toBe(3);
     });
 
-    it('should not save snapshot when content is empty', () => {
-        const s = createUndoStack();
-        s.content = '';
-        s.saveSnapshot('Empty');
+    it('should not add undo entry on failed transform', async () => {
+        ui.llmClient.customPrompt.mockRejectedValue(new Error('fail'));
+        vi.spyOn(window, 'alert').mockImplementation(() => {});
 
-        expect(s.undoStack.length).toBe(0);
+        await ui.handleRestoreMarkdown();
+
+        expect(ui.undoStack.length).toBe(0);
+        const btn = document.getElementById('action-undo-transform');
+        expect(btn.disabled).toBe(true);
+
+        window.alert.mockRestore();
+    });
+
+    it('handleUndo does nothing when stack is empty', () => {
+        const original = content;
+        ui.handleUndo();
+        expect(content).toBe(original);
+    });
+});
+
+describe('Event listener smoke tests', () => {
+    it('clicking restore-markdown button triggers handleRestoreMarkdown', async () => {
+        const spy = vi.spyOn(ui, 'handleRestoreMarkdown').mockResolvedValue();
+        document.getElementById('action-restore-markdown').click();
+        expect(spy).toHaveBeenCalledOnce();
+        spy.mockRestore();
+    });
+
+    it('clicking undo button triggers handleUndo', async () => {
+        // First do a transform so undo button becomes enabled
+        await ui.handleRestoreMarkdown();
+        const btn = document.getElementById('action-undo-transform');
+        expect(btn.disabled).toBe(false);
+
+        const spy = vi.spyOn(ui, 'handleUndo').mockImplementation(() => {});
+        btn.click();
+        expect(spy).toHaveBeenCalledOnce();
+        spy.mockRestore();
     });
 });
