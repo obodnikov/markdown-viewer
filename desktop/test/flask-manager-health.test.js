@@ -46,6 +46,7 @@ describe('FlaskManager — Health Monitoring', () => {
       expect(fm._consecutiveFailures).toBe(0);
       expect(fm._restartPromise).toBeNull();
       expect(fm._healthCheckInFlight).toBe(false);
+      expect(fm._monitorGeneration).toBe(0);
       expect(fm._eventHandlers).toEqual({});
     });
   });
@@ -74,6 +75,16 @@ describe('FlaskManager — Health Monitoring', () => {
       // Must NOT reset a genuine in-flight restart
       expect(fm._restartPromise).toBe(fakePromise);
     });
+
+    it('increments _monitorGeneration on each start', () => {
+      expect(fm._monitorGeneration).toBe(0);
+      fm.startHealthMonitor(1000);
+      expect(fm._monitorGeneration).toBe(1);
+      fm.stopHealthMonitor();
+      expect(fm._monitorGeneration).toBe(2);
+      fm.startHealthMonitor(1000);
+      expect(fm._monitorGeneration).toBe(3);
+    });
   });
 
   describe('stopHealthMonitor', () => {
@@ -86,6 +97,13 @@ describe('FlaskManager — Health Monitoring', () => {
 
     it('is safe to call when no monitor is running', () => {
       expect(() => fm.stopHealthMonitor()).not.toThrow();
+    });
+
+    it('resets _healthCheckInFlight even when interval is already null', () => {
+      fm._healthCheckInFlight = true;
+      fm._healthInterval = null;
+      fm.stopHealthMonitor();
+      expect(fm._healthCheckInFlight).toBe(false);
     });
   });
 
@@ -304,28 +322,133 @@ describe('FlaskManager — Health Monitoring', () => {
       await vi.advanceTimersByTimeAsync(1000);
       expect(fm._healthCheck).toHaveBeenCalledTimes(1);
     });
+
+    it('stale check completing after stop/start does not corrupt new monitor state', async () => {
+      // Start monitor with a slow health check that will outlive the monitor
+      let resolveOldCheck;
+      fm._healthCheck = vi.fn().mockImplementation(() => {
+        return new Promise((resolve) => { resolveOldCheck = resolve; });
+      });
+      fm.startHealthMonitor(1000, 3);
+
+      // First tick starts the slow check
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(fm._healthCheckInFlight).toBe(true);
+
+      // Stop and restart the monitor with a new fast check
+      fm.stopHealthMonitor();
+      let newCheckCount = 0;
+      fm._healthCheck = vi.fn().mockImplementation(() => {
+        newCheckCount++;
+        return Promise.resolve();
+      });
+      fm.startHealthMonitor(1000, 3);
+      expect(fm._healthCheckInFlight).toBe(false);
+
+      // New monitor tick runs a new check
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(newCheckCount).toBe(1);
+      expect(fm._healthCheckInFlight).toBe(false);
+      expect(fm._consecutiveFailures).toBe(0);
+
+      // Now the OLD check resolves — should NOT corrupt state
+      // Manually set a failure count to detect if old check resets it
+      fm._consecutiveFailures = 2;
+      fm._healthCheckInFlight = true; // simulate new check in-flight
+      resolveOldCheck();
+      await vi.advanceTimersByTimeAsync(0); // flush microtasks
+
+      // Old check's finally should NOT have cleared the new monitor's in-flight flag
+      expect(fm._healthCheckInFlight).toBe(true);
+      // Old check's success should NOT have reset the new monitor's failure count
+      expect(fm._consecutiveFailures).toBe(2);
+    });
+
+    it('stale failing check after stop does not increment failures or trigger restart', async () => {
+      // Start monitor with a deferred health check that will fail after stop
+      let rejectOldCheck;
+      fm._healthCheck = vi.fn().mockImplementation(() => {
+        return new Promise((_, reject) => { rejectOldCheck = reject; });
+      });
+      fm.restart = vi.fn().mockResolvedValue(5050);
+      fm.startHealthMonitor(1000, 1); // maxFailures=1 so a single failure would trigger restart
+
+      // First tick starts the slow check
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(fm._healthCheckInFlight).toBe(true);
+      expect(fm._consecutiveFailures).toBe(0);
+
+      // Stop the monitor — no restart
+      fm.stopHealthMonitor();
+      expect(fm._consecutiveFailures).toBe(0);
+
+      // Now the OLD check rejects — should be a no-op on a stopped monitor
+      rejectOldCheck(new Error('dead'));
+      await vi.advanceTimersByTimeAsync(0); // flush microtasks
+
+      // Failures should NOT have been incremented
+      expect(fm._consecutiveFailures).toBe(0);
+      // Restart should NOT have been triggered
+      expect(fm.restart).not.toHaveBeenCalled();
+      // In-flight flag should remain as stop left it (false)
+      expect(fm._healthCheckInFlight).toBe(false);
+    });
   });
 
   // --- ensureRunning concurrent race ---
 
   describe('ensureRunning concurrent race', () => {
-    it('resolves if health check passes even while a concurrent restart is triggered', async () => {
-      // Caller A: health check succeeds immediately
-      // Caller B: health check fails, triggers restart
-      let callCount = 0;
+    it('both callers resolve via shared restart when health checks fail concurrently', async () => {
+      // Both calls get a failing health check, but only one restart should fire
+      let healthCallCount = 0;
       fm._healthCheck = vi.fn().mockImplementation(() => {
-        callCount++;
-        if (callCount === 1) return Promise.resolve(); // caller A succeeds
-        return Promise.reject(new Error('dead'));       // caller B fails
+        healthCallCount++;
+        return Promise.reject(new Error('dead'));
       });
       fm.restart = vi.fn().mockResolvedValue(5050);
 
-      // Caller A resolves immediately (healthy)
-      await expect(fm.ensureRunning()).resolves.toBeUndefined();
+      // Launch both in parallel — true concurrency
+      const [r1, r2] = await Promise.all([
+        fm.ensureRunning(),
+        fm.ensureRunning(),
+      ]);
 
-      // Caller B triggers restart
-      await expect(fm.ensureRunning()).resolves.toBeUndefined();
+      expect(r1).toBeUndefined();
+      expect(r2).toBeUndefined();
+      // Only one restart despite two failing callers
       expect(fm.restart).toHaveBeenCalledTimes(1);
+    });
+
+    it('concurrent callers with deferred health checks share restart when possible', async () => {
+      // When both health checks are independently deferred, each caller enters
+      // ensureRunning before _restartPromise is set. The first to fail creates
+      // the restart promise; the second may also fail independently. This test
+      // verifies both resolve without error and restart completes.
+      let rejectHealth1, rejectHealth2;
+      let callCount = 0;
+      fm._healthCheck = vi.fn().mockImplementation(() => {
+        callCount++;
+        if (callCount === 1) {
+          return new Promise((_, reject) => { rejectHealth1 = reject; });
+        }
+        return new Promise((_, reject) => { rejectHealth2 = reject; });
+      });
+      fm.restart = vi.fn().mockResolvedValue(5050);
+
+      // Start both calls — they each await their own deferred health check
+      const p1 = fm.ensureRunning();
+      const p2 = fm.ensureRunning();
+
+      // Fail both health checks
+      rejectHealth1(new Error('dead'));
+      await vi.advanceTimersByTimeAsync(0);
+      rejectHealth2(new Error('dead'));
+      await vi.advanceTimersByTimeAsync(0);
+
+      await expect(p1).resolves.toBeUndefined();
+      await expect(p2).resolves.toBeUndefined();
+      // Both callers resolve successfully — restart was called at least once
+      expect(fm.restart).toHaveBeenCalled();
     });
   });
 
