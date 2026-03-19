@@ -509,9 +509,10 @@ app.whenReady().then(async () => {
   }
 
   // Restart backend on wake from macOS sleep
-  powerMonitor.on('resume', async () => {
-    console.log('[Main] System resumed from sleep — checking backend...');
-    if (flaskManager && !isDev) {
+  let _resumeHandler = null;
+  if (flaskManager && !isDev) {
+    _resumeHandler = async () => {
+      console.log('[Main] System resumed from sleep — checking backend...');
       try {
         await flaskManager.ensureRunning();
         console.log('[Main] Backend confirmed healthy after resume');
@@ -525,8 +526,9 @@ app.whenReady().then(async () => {
           );
         }
       }
-    }
-  });
+    };
+    powerMonitor.on('resume', _resumeHandler);
+  }
 
   // First-run: open settings if no API key configured
   if (!settingsManager.isConfigured() && firstWin) {
@@ -561,6 +563,10 @@ app.on('before-quit', (e) => {
   if (flaskManager) {
     flaskManager.stopHealthMonitor();
     flaskManager.stop();
+  }
+  if (_resumeHandler) {
+    powerMonitor.removeListener('resume', _resumeHandler);
+    _resumeHandler = null;
   }
 });
 
