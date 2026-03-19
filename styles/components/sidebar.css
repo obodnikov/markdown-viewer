@@ -21,12 +21,45 @@
 .sidebar__header {
     padding: var(--space-2);
     border-bottom: 1px solid var(--color-outline-variant);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
 }
 
 .sidebar__title {
     font-size: var(--font-size-lg);
     font-weight: var(--font-weight-semibold);
     color: var(--color-on-surface);
+}
+
+.sidebar__undo {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--color-on-surface-variant);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    border: 1px solid var(--color-outline-variant);
+}
+
+.sidebar__undo:hover:not(:disabled) {
+    background-color: var(--color-error-container, #fce4ec);
+    color: var(--color-on-error-container, #b71c1c);
+    border-color: var(--color-error, #d32f2f);
+}
+
+.sidebar__undo:disabled {
+    opacity: 0.35;
+    cursor: default;
+}
+
+.undo__icon {
+    font-size: var(--font-size-base);
 }
 
 .sidebar__content {

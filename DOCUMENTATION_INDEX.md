@@ -414,8 +414,8 @@ See [README.md](README.md) for license information.
 
 ---
 
-**Last Updated:** 2025-12-25
+**Last Updated:** 2026-03-19
 
-**Version:** 2.6.0
+**Version:** 2.7.0
 
 **Documentation Status:** ✅ Complete and current

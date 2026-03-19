@@ -90,9 +90,23 @@
             <aside class="sidebar" id="transform-sidebar">
                 <div class="sidebar__header">
                     <h2 class="sidebar__title">Transformations</h2>
+                    <button class="sidebar__undo" id="action-undo-transform" disabled title="Nothing to undo">
+                        <span class="undo__icon">&#8617;</span>
+                        <span class="undo__label">Undo</span>
+                    </button>
                 </div>
 
                 <div class="sidebar__content">
+
+                    <!-- Restore Markdown -->
+                    <section class="sidebar__section">
+                        <h3 class="sidebar__section-title">Markdown Recovery</h3>
+
+                        <button class="sidebar__action" id="action-restore-markdown">
+                            <span class="action__icon">&#128221;</span>
+                            <span class="action__label">Restore Markdown Format</span>
+                        </button>
+                    </section>
 
                     <!-- Newline Operations -->
                     <section class="sidebar__section">

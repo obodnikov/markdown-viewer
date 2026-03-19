@@ -15,6 +15,8 @@ export class TransformUI {
         this.newlineRemover = new NewlineRemover();
         this.findReplace = new FindReplace();
         this.aiRegex = new AIRegex();
+        this.undoStack = [];
+        this.maxUndoHistory = 10;
 
         this.setupEventListeners();
         this.loadModels();
@@ -23,6 +25,16 @@ export class TransformUI {
     }
 
     setupEventListeners() {
+        // Undo transformation
+        document.getElementById('action-undo-transform').addEventListener('click', () => {
+            this.handleUndo();
+        });
+
+        // Restore Markdown format
+        document.getElementById('action-restore-markdown').addEventListener('click', () => {
+            this.handleRestoreMarkdown();
+        });
+
         // Newline removal
         document.getElementById('action-remove-newlines').addEventListener('click', () => {
             this.handleRemoveNewlines();
@@ -62,6 +74,74 @@ export class TransformUI {
         });
     }
 
+    saveSnapshot(label) {
+        const content = this.getContent();
+        if (!content) return;
+
+        this.undoStack.push({ content, label });
+        if (this.undoStack.length > this.maxUndoHistory) {
+            this.undoStack.shift();
+        }
+        this.updateUndoButton();
+    }
+
+    handleUndo() {
+        if (this.undoStack.length === 0) return;
+
+        const snapshot = this.undoStack.pop();
+        this.setContent(snapshot.content);
+        this.updateUndoButton();
+    }
+
+    updateUndoButton() {
+        const btn = document.getElementById('action-undo-transform');
+        if (!btn) return;
+
+        if (this.undoStack.length === 0) {
+            btn.disabled = true;
+            btn.title = 'Nothing to undo';
+        } else {
+            btn.disabled = false;
+            const last = this.undoStack[this.undoStack.length - 1];
+            btn.title = `Undo: ${last.label}`;
+        }
+    }
+
+    async handleRestoreMarkdown() {
+        const content = this.getContent();
+
+        if (!content.trim()) {
+            this.showError('No content to restore');
+            return;
+        }
+
+        const prompt = 'The following text was originally in Markdown format but lost its formatting during copy/paste. ' +
+            'Analyze the content structure and context to restore proper Markdown formatting: ' +
+            'headings, lists, code blocks, bold/italic, links, tables, blockquotes, etc. ' +
+            'Do not change, add, or remove any content — only restore the formatting.';
+
+        this.showLoading('Restoring Markdown formatting...');
+        this.saveSnapshot('Restore Markdown');
+
+        try {
+            const result = await this.llmClient.customPrompt(content, prompt);
+            this.setContent(result);
+            this.hideLoading();
+        } catch (error) {
+            this.hideLoading();
+
+            if (error.message && error.message.includes('fetch')) {
+                this.showError('Network error: could not reach the LLM service. Check your connection.');
+            } else if (error.message && error.message.includes('timeout')) {
+                this.showError('Request timed out. The content may be too long — try a shorter selection.');
+            } else if (error.message && (error.message.includes('rate') || error.message.includes('429'))) {
+                this.showError('Rate limited by the LLM provider. Please wait a moment and try again.');
+            } else {
+                this.showError(`Markdown restore failed: ${error.message}`);
+            }
+        }
+    }
+
     async handleRemoveNewlines() {
         console.log('🔄 Remove newlines clicked');
 
@@ -79,6 +159,7 @@ export class TransformUI {
         console.log('⚙️ Mode:', mode);
 
         this.showLoading('Removing newlines...');
+        this.saveSnapshot('Remove Newlines');
 
         try {
             const result = this.newlineRemover.remove(content, mode);
@@ -103,6 +184,7 @@ export class TransformUI {
         const targetLanguage = document.getElementById('translate-lang').value;
 
         this.showLoading(`Translating to ${targetLanguage}...`);
+        this.saveSnapshot('Translate');
 
         try {
             const result = await this.llmClient.transform(content, 'translate', {
@@ -124,6 +206,7 @@ export class TransformUI {
         }
 
         this.showLoading(`Changing tone to ${tone}...`);
+        this.saveSnapshot(`Tone: ${tone}`);
 
         try {
             const result = await this.llmClient.transform(content, 'change_tone', { tone });
@@ -143,6 +226,7 @@ export class TransformUI {
         }
 
         this.showLoading('Summarizing...');
+        this.saveSnapshot('Summarize');
 
         try {
             const result = await this.llmClient.transform(content, 'summarize', {
@@ -164,6 +248,7 @@ export class TransformUI {
         }
 
         this.showLoading('Expanding content...');
+        this.saveSnapshot('Expand');
 
         try {
             const result = await this.llmClient.transform(content, 'expand', {});
@@ -191,6 +276,7 @@ export class TransformUI {
         }
 
         this.showLoading('Applying custom transformation...');
+        this.saveSnapshot('Custom Prompt');
 
         try {
             const result = await this.llmClient.customPrompt(content, prompt, model);

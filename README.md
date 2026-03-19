@@ -1,43 +1,25 @@
 # Markdown Viewer & Editor
 
-**Version 2.6.0**
+**Version 2.7.0**
 
-A modern, feature-rich markdown editor with GitHub Flavored Markdown support, LLM-powered transformations, GitHub integration, and BookStack wiki integration.
+A modern, feature-rich markdown editor with GitHub Flavored Markdown support, LLM-powered transformations, GitHub integration, BookStack wiki integration, and an Electron desktop app.
 
-## What's New in v1.4.1
+## What's New in v2.7.0
 
-📚 **BookStack Export from Any Source**
-- Export locally-opened markdown files directly to BookStack
-- Export button now includes BookStack as an export format option
-- Works with any document source: local files, GitHub files, or new documents
-- Smart shelf/book/chapter selection with accurate book counts
-- Fixed bugs in shelf and chapter loading
+📝 **Restore Markdown Format**
+- New top-level sidebar action that uses LLM to recover Markdown formatting lost during copy/paste
+- Restores headings, lists, code blocks, bold/italic, links, tables, and blockquotes
+- Content-preserving: only formatting is restored, no text is added or removed
 
-🐛 **BookStack Bug Fixes**
-- Fixed books not appearing when shelf is selected in save dialog
-- Fixed chapters not loading from BookStack API
-- Fixed browse dialog showing incorrect "0 books" for shelves
-- Improved error handling with race condition prevention
-- Better user feedback for partial API failures
+↩️ **Undo Transformation**
+- One-click undo for any sidebar transformation (Restore MD, Remove Newlines, Translate, Tone, Summarize, Expand, Custom Prompt)
+- Multi-level undo stack (up to 10 snapshots)
+- Button in sidebar header with dynamic tooltip showing which action will be reverted
+- Disabled state when nothing to undo
 
-## What's New in v1.4.0
-
-🎉 **BookStack Wiki Integration**
-- Browse and edit pages from your BookStack wiki
-- Hierarchical navigation through shelves, books, chapters, and pages
-- Automatic HTML to Markdown conversion
-- Smart save with conflict detection
-- Session-based authentication
-
-💾 **Smart Save**
-- Save button now contextually saves to the document source (BookStack, GitHub, or local file)
-- No more confusion about where files are saved
-- Consistent Ctrl/Cmd+S behavior across all sources
-
-🔐 **Enhanced Security**
-- Session-based credential management for BookStack
-- 24-hour session expiry for automatic logout
-- Secure backend proxy for all API calls
+🛡️ **Improved Error Handling**
+- LLM transformation errors now distinguish between network failures, timeouts, and rate limits
+- Clearer user-facing messages for each error type
 
 ## Features
 
@@ -49,12 +31,14 @@ A modern, feature-rich markdown editor with GitHub Flavored Markdown support, LL
 - **Auto-save** - Automatic local storage backup every 30 seconds
 
 ### LLM Transformations (via OpenRouter)
+- **Restore Markdown Format** - Recover lost Markdown formatting from plain-text copy/paste using LLM
 - **Translation** - Translate to 15+ configurable languages while preserving markdown structure
 - **Tone Adjustment** - Convert between formal and casual tones
 - **Summarization** - Create concise summaries
 - **Content Expansion** - Elaborate on existing content
 - **Custom Prompts** - Apply any LLM transformation with custom instructions
 - **Model Selection** - Choose from Claude, GPT-4, and other configurable models
+- **Undo Transformation** - Revert any sidebar action with multi-level undo (up to 10 steps)
 
 ### Text Operations
 - **Smart Newline Removal** - Three modes:
@@ -476,20 +460,22 @@ MIT License - see LICENSE file for details
 
 ## Roadmap
 
-### Phase 1 (Completed) - v2.6.0 ✅
+### Phase 1 (Completed) - v2.7.0 ✅
 - ✅ Core editor with GFM support
 - ✅ LLM transformations (translation, tone adjustment, summarization, expansion)
+- ✅ Restore Markdown Format (LLM-powered formatting recovery)
+- ✅ Undo Transformation (multi-level undo for all sidebar actions)
 - ✅ GitHub integration with OAuth
 - ✅ Multiple export formats (MD, HTML, PDF, DOCX, BookStack)
 - ✅ Synchronized scrolling in split view
 - ✅ BookStack integration with smart save, conflict detection, and export from any source
+- ✅ Electron desktop app (macOS, Windows, Linux)
 
-### Phase 2 (Future) - v2.7.0+
+### Phase 2 (Future)
 - [ ] Real-time collaboration
 - [ ] More cloud storage providers (Dropbox, Google Drive)
 - [ ] Custom markdown extensions
 - [ ] Plugin system
-- [ ] Advanced search and replace
 - [ ] Vim keybindings
 - [ ] Templates library
 - [ ] BookStack diff viewer for conflicts
