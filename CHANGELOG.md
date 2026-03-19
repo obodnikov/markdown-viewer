@@ -5,6 +5,18 @@ All notable changes to the Markdown Viewer & Editor project will be documented i
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.7.0] - 2026-03-19
+
+### Added
+- **Restore Markdown Format** — new sidebar action that uses LLM to recover Markdown formatting lost during copy/paste (headings, lists, code blocks, bold/italic, tables, etc.)
+- **Undo Transformation** — sidebar header button to revert any transformation; supports multi-level undo (up to 10 snapshots) with tooltip showing which action will be reverted
+- **Specific error handling** for LLM transformations — distinguishes network errors, timeouts, and rate limits from generic failures
+- **Unit tests** for Restore Markdown (9 tests) and Undo Transformation (6 tests)
+
+### Changed
+- Version bumped to 2.7.0 across all project files
+- README.md overhauled: removed stale v1.4.x "What's New" sections, updated features list, refreshed roadmap
+
 ## [2.6.0] - 2026-03-01
 
 ### Added
