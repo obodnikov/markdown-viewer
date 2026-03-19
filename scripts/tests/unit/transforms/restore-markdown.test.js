@@ -149,3 +149,96 @@ describe('Restore Markdown', () => {
         });
     });
 });
+
+
+describe('Undo Transformation', () => {
+    function createUndoStack() {
+        const stack = {
+            undoStack: [],
+            maxUndoHistory: 10,
+            content: 'current content',
+            getContent() { return this.content; },
+            setContent(val) { this.content = val; },
+        };
+
+        stack.saveSnapshot = function(label) {
+            const content = this.getContent();
+            if (!content) return;
+            this.undoStack.push({ content, label });
+            if (this.undoStack.length > this.maxUndoHistory) {
+                this.undoStack.shift();
+            }
+        };
+
+        stack.handleUndo = function() {
+            if (this.undoStack.length === 0) return;
+            const snapshot = this.undoStack.pop();
+            this.setContent(snapshot.content);
+        };
+
+        return stack;
+    }
+
+    it('should save a snapshot with label', () => {
+        const s = createUndoStack();
+        s.saveSnapshot('Summarize');
+
+        expect(s.undoStack.length).toBe(1);
+        expect(s.undoStack[0].content).toBe('current content');
+        expect(s.undoStack[0].label).toBe('Summarize');
+    });
+
+    it('should restore content on undo', () => {
+        const s = createUndoStack();
+        s.saveSnapshot('Translate');
+        s.content = 'translated content';
+
+        s.handleUndo();
+
+        expect(s.content).toBe('current content');
+        expect(s.undoStack.length).toBe(0);
+    });
+
+    it('should support multiple undo levels', () => {
+        const s = createUndoStack();
+        s.saveSnapshot('Step 1');
+        s.content = 'after step 1';
+
+        s.saveSnapshot('Step 2');
+        s.content = 'after step 2';
+
+        s.handleUndo();
+        expect(s.content).toBe('after step 1');
+
+        s.handleUndo();
+        expect(s.content).toBe('current content');
+    });
+
+    it('should do nothing when undo stack is empty', () => {
+        const s = createUndoStack();
+        s.handleUndo();
+
+        expect(s.content).toBe('current content');
+    });
+
+    it('should cap stack at maxUndoHistory', () => {
+        const s = createUndoStack();
+        s.maxUndoHistory = 3;
+
+        for (let i = 0; i < 5; i++) {
+            s.content = `version ${i}`;
+            s.saveSnapshot(`Step ${i}`);
+        }
+
+        expect(s.undoStack.length).toBe(3);
+        expect(s.undoStack[0].label).toBe('Step 2');
+    });
+
+    it('should not save snapshot when content is empty', () => {
+        const s = createUndoStack();
+        s.content = '';
+        s.saveSnapshot('Empty');
+
+        expect(s.undoStack.length).toBe(0);
+    });
+});
