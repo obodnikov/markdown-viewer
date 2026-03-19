@@ -258,6 +258,77 @@ describe('FlaskManager — Health Monitoring', () => {
     });
   });
 
+  // --- start/stop/start recovery with hung check ---
+
+  describe('monitor restart recovery', () => {
+    it('recovers from a hung health check after stop/start cycle', async () => {
+      // Start a health check that never resolves (simulates a hung check)
+      let resolveHung;
+      fm._healthCheck = vi.fn().mockImplementation(() => {
+        return new Promise((resolve) => { resolveHung = resolve; });
+      });
+      fm.startHealthMonitor(1000, 3);
+
+      // First tick starts the hung check
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(fm._healthCheckInFlight).toBe(true);
+
+      // Stop the monitor — should reset _healthCheckInFlight
+      fm.stopHealthMonitor();
+      expect(fm._healthCheckInFlight).toBe(false);
+
+      // Restart monitor with a healthy check
+      fm._healthCheck = vi.fn().mockResolvedValue(undefined);
+      fm.startHealthMonitor(1000, 3);
+      expect(fm._healthCheckInFlight).toBe(false);
+
+      // Next tick should run normally
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(fm._healthCheck).toHaveBeenCalledTimes(1);
+      expect(fm._consecutiveFailures).toBe(0);
+
+      // Clean up the dangling promise
+      if (resolveHung) resolveHung();
+    });
+
+    it('resets _healthCheckInFlight on startHealthMonitor even without stop', async () => {
+      // Manually simulate a stuck state
+      fm._healthCheckInFlight = true;
+      fm._healthInterval = null; // no interval running, so start will proceed
+
+      fm._healthCheck = vi.fn().mockResolvedValue(undefined);
+      fm.startHealthMonitor(1000, 3);
+
+      expect(fm._healthCheckInFlight).toBe(false);
+
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(fm._healthCheck).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  // --- ensureRunning concurrent race ---
+
+  describe('ensureRunning concurrent race', () => {
+    it('resolves if health check passes even while a concurrent restart is triggered', async () => {
+      // Caller A: health check succeeds immediately
+      // Caller B: health check fails, triggers restart
+      let callCount = 0;
+      fm._healthCheck = vi.fn().mockImplementation(() => {
+        callCount++;
+        if (callCount === 1) return Promise.resolve(); // caller A succeeds
+        return Promise.reject(new Error('dead'));       // caller B fails
+      });
+      fm.restart = vi.fn().mockResolvedValue(5050);
+
+      // Caller A resolves immediately (healthy)
+      await expect(fm.ensureRunning()).resolves.toBeUndefined();
+
+      // Caller B triggers restart
+      await expect(fm.ensureRunning()).resolves.toBeUndefined();
+      expect(fm.restart).toHaveBeenCalledTimes(1);
+    });
+  });
+
   // --- _autoRestart ---
 
   describe('_autoRestart', () => {

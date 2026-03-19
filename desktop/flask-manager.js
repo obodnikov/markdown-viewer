@@ -372,6 +372,7 @@ class FlaskManager {
     if (this._healthInterval) return; // already running
 
     this._consecutiveFailures = 0;
+    this._healthCheckInFlight = false; // reset in case a prior check was hung when monitor was stopped
     // Note: do NOT reset _restartPromise here — a restart may be genuinely in-flight
 
     console.log(`[FlaskManager] Health monitor started (every ${intervalMs / 1000}s, restart after ${maxFailures} failures)`);
@@ -407,6 +408,7 @@ class FlaskManager {
     if (this._healthInterval) {
       clearInterval(this._healthInterval);
       this._healthInterval = null;
+      this._healthCheckInFlight = false; // allow fresh checks when monitor is restarted
       console.log('[FlaskManager] Health monitor stopped');
     }
   }
@@ -415,6 +417,12 @@ class FlaskManager {
    * On-demand check — call before critical operations or after system resume.
    * Restarts the backend if it is not healthy.
    * Rejects if restart fails so callers can handle the error.
+   *
+   * Note on concurrency: if a concurrent caller triggers a restart while this
+   * call's _healthCheck() is in-flight and succeeds, this call resolves
+   * immediately (healthy snapshot). This is intentional — a passing health
+   * check means the backend is usable right now, regardless of a parallel
+   * restart triggered by a different failure path.
    */
   async ensureRunning() {
     // If a restart is already in progress, await its outcome

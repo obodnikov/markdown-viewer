@@ -20,6 +20,7 @@ let nextWindowId = 1;
 
 let flaskManager = null;
 let flaskPort = null;
+let _resumeHandler = null;
 const settingsManager = new SettingsManager();
 
 // --- Single instance lock ---
@@ -509,7 +510,6 @@ app.whenReady().then(async () => {
   }
 
   // Restart backend on wake from macOS sleep
-  let _resumeHandler = null;
   if (flaskManager && !isDev) {
     _resumeHandler = async () => {
       console.log('[Main] System resumed from sleep — checking backend...');
