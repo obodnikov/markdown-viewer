@@ -34,6 +34,7 @@ class FlaskManager {
     this._consecutiveFailures = 0;
     this._restartPromise = null;       // shared promise for in-flight restart
     this._healthCheckInFlight = false; // guard against overlapping checks
+    this._monitorGeneration = 0;       // incremented on each startHealthMonitor to ignore stale completions
     this._eventHandlers = {};
   }
 
@@ -373,7 +374,10 @@ class FlaskManager {
 
     this._consecutiveFailures = 0;
     this._healthCheckInFlight = false; // reset in case a prior check was hung when monitor was stopped
+    this._monitorGeneration++;         // invalidate any stale in-flight checks from a previous monitor
     // Note: do NOT reset _restartPromise here — a restart may be genuinely in-flight
+
+    const generation = this._monitorGeneration;
 
     console.log(`[FlaskManager] Health monitor started (every ${intervalMs / 1000}s, restart after ${maxFailures} failures)`);
 
@@ -384,11 +388,14 @@ class FlaskManager {
       this._healthCheckInFlight = true;
       try {
         await this._healthCheck();
+        // Ignore completion if monitor was restarted while check was in-flight
+        if (this._monitorGeneration !== generation) return;
         if (this._consecutiveFailures > 0) {
           console.log('[FlaskManager] Backend recovered — health check OK');
         }
         this._consecutiveFailures = 0;
       } catch {
+        if (this._monitorGeneration !== generation) return;
         this._consecutiveFailures++;
         console.warn(`[FlaskManager] Health check failed (${this._consecutiveFailures}/${maxFailures})`);
 
@@ -399,7 +406,10 @@ class FlaskManager {
           this._autoRestart().catch(() => {});
         }
       } finally {
-        this._healthCheckInFlight = false;
+        // Only clear the in-flight flag if this check belongs to the current generation
+        if (this._monitorGeneration === generation) {
+          this._healthCheckInFlight = false;
+        }
       }
     }, intervalMs);
   }
@@ -408,9 +418,12 @@ class FlaskManager {
     if (this._healthInterval) {
       clearInterval(this._healthInterval);
       this._healthInterval = null;
-      this._healthCheckInFlight = false; // allow fresh checks when monitor is restarted
       console.log('[FlaskManager] Health monitor stopped');
     }
+    // Always reset — even if interval was already null, flag may be stale
+    this._healthCheckInFlight = false;
+    // Invalidate any in-flight checks from this monitor generation
+    this._monitorGeneration++;
   }
 
   /**
