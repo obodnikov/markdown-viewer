@@ -289,6 +289,9 @@ markdown-viewer/
 - macOS `open-file` event: double-click `.md` or drag to dock opens in app
 - Settings changes trigger Flask restart with new environment variables
 - First-run onboarding prompts for OpenRouter API key configuration
+- Health monitoring: periodic health checks (30s) with auto-restart after 3 consecutive failures
+- Sleep recovery: `powerMonitor.on('resume')` triggers immediate backend health check
+- Renderer notification: `backend:restarted` IPC event sent to all windows after recovery
 
 ---
 
@@ -506,7 +509,7 @@ Components mapped by production-readiness and change risk:
 ### 🔄 Desktop (Semi-Stable, all phases complete)
 
 - `desktop/main.js` - Electron main process, IPC handlers
-- `desktop/flask-manager.js` - Flask lifecycle, Python auto-detection
+- `desktop/flask-manager.js` - Flask lifecycle, Python auto-detection, health monitoring & auto-restart
 - `desktop/protocol.js` - Custom `app://` protocol + API proxy
 - `desktop/settings-manager.js` - Encrypted settings storage
 - `desktop/menu.js` - Native menu bar
@@ -514,7 +517,7 @@ Components mapped by production-readiness and change risk:
 - `desktop/forge.config.js` - Electron Forge packaging config
 - `desktop/settings/` - Settings window UI
 - `desktop/build/` - PyInstaller spec & build scripts
-- `desktop/test/` - 61 unit tests (flask-manager, settings-manager, protocol, menu)
+- `desktop/test/` - 85 unit tests (flask-manager, flask-manager-health, settings-manager, protocol, menu)
 
 ### 🔮 Planned (Not yet implemented)
 
