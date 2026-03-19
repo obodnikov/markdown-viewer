@@ -32,7 +32,8 @@ class FlaskManager {
     // Health monitoring
     this._healthInterval = null;
     this._consecutiveFailures = 0;
-    this._isRestarting = false;
+    this._restartPromise = null;       // shared promise for in-flight restart
+    this._healthCheckInFlight = false; // guard against overlapping checks
     this._eventHandlers = {};
   }
 
@@ -371,13 +372,15 @@ class FlaskManager {
     if (this._healthInterval) return; // already running
 
     this._consecutiveFailures = 0;
-    this._isRestarting = false;
+    // Note: do NOT reset _restartPromise here — a restart may be genuinely in-flight
 
     console.log(`[FlaskManager] Health monitor started (every ${intervalMs / 1000}s, restart after ${maxFailures} failures)`);
 
     this._healthInterval = setInterval(async () => {
-      if (this._isRestarting) return;
+      // Skip if a restart is in progress or a prior check hasn't finished
+      if (this._restartPromise || this._healthCheckInFlight) return;
 
+      this._healthCheckInFlight = true;
       try {
         await this._healthCheck();
         if (this._consecutiveFailures > 0) {
@@ -391,8 +394,11 @@ class FlaskManager {
         if (this._consecutiveFailures >= maxFailures) {
           console.error('[FlaskManager] Backend unresponsive — auto-restarting...');
           this._consecutiveFailures = 0;
-          await this._autoRestart();
+          // Fire-and-forget from the monitor's perspective — errors are emitted as events
+          this._autoRestart().catch(() => {});
         }
+      } finally {
+        this._healthCheckInFlight = false;
       }
     }, intervalMs);
   }
@@ -407,30 +413,13 @@ class FlaskManager {
 
   /**
    * On-demand check — call before critical operations or after system resume.
-   * Restarts the backend if it is not healthy and resolves once it is ready.
+   * Restarts the backend if it is not healthy.
+   * Rejects if restart fails so callers can handle the error.
    */
   async ensureRunning() {
-    if (this._isRestarting) {
-      // Another restart is already in progress — wait for its outcome
-      return new Promise((resolve, reject) => {
-        let settled = false;
-        const cleanup = () => {
-          if (settled) return;
-          settled = true;
-          this.off('restarted', onRestarted);
-          this.off('restartFailed', onFailed);
-          clearTimeout(timer);
-        };
-        const onRestarted = () => { cleanup(); resolve(); };
-        const onFailed = (err) => { cleanup(); reject(err); };
-        const timer = setTimeout(() => {
-          cleanup();
-          reject(new Error('Timed out waiting for in-progress restart'));
-        }, 20000);
-
-        this.on('restarted', onRestarted);
-        this.on('restartFailed', onFailed);
-      });
+    // If a restart is already in progress, await its outcome
+    if (this._restartPromise) {
+      return this._restartPromise;
     }
 
     try {
@@ -438,24 +427,36 @@ class FlaskManager {
       // Backend is fine
     } catch {
       console.warn('[FlaskManager] ensureRunning — backend not healthy, restarting...');
-      await this._autoRestart();
+      // _autoRestart returns a shared promise that rejects on failure
+      return this._autoRestart();
     }
   }
 
-  async _autoRestart() {
-    if (this._isRestarting) return;
-    this._isRestarting = true;
-
-    try {
-      await this.restart();
-      console.log('[FlaskManager] Auto-restart succeeded');
-      this._emit('restarted');
-    } catch (error) {
-      console.error(`[FlaskManager] Auto-restart failed: ${error.message}`);
-      this._emit('restartFailed', error);
-    } finally {
-      this._isRestarting = false;
+  /**
+   * Restart the backend. Returns a shared promise so all concurrent callers
+   * await the same outcome. Rejects if restart fails.
+   */
+  _autoRestart() {
+    // If already restarting, return the existing promise
+    if (this._restartPromise) {
+      return this._restartPromise;
     }
+
+    this._restartPromise = this.restart()
+      .then(() => {
+        console.log('[FlaskManager] Auto-restart succeeded');
+        this._emit('restarted');
+      })
+      .catch((error) => {
+        console.error(`[FlaskManager] Auto-restart failed: ${error.message}`);
+        this._emit('restartFailed', error);
+        throw error; // re-throw so callers' awaits reject
+      })
+      .finally(() => {
+        this._restartPromise = null;
+      });
+
+    return this._restartPromise;
   }
 
   // --- Minimal event emitter ---

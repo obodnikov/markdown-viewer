@@ -517,7 +517,7 @@ Components mapped by production-readiness and change risk:
 - `desktop/forge.config.js` - Electron Forge packaging config
 - `desktop/settings/` - Settings window UI
 - `desktop/build/` - PyInstaller spec & build scripts
-- `desktop/test/` - 85 unit tests (flask-manager, flask-manager-health, settings-manager, protocol, menu)
+- `desktop/test/` - 95 unit tests (flask-manager, flask-manager-health, settings-manager, protocol, menu)
 
 ### 🔮 Planned (Not yet implemented)
 

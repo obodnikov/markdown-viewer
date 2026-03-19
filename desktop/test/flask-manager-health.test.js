@@ -34,6 +34,7 @@ describe('FlaskManager — Health Monitoring', () => {
 
   afterEach(() => {
     fm.stopHealthMonitor();
+    fm._restartPromise = null;
     vi.useRealTimers();
   });
 
@@ -43,7 +44,8 @@ describe('FlaskManager — Health Monitoring', () => {
     it('initializes health monitoring state', () => {
       expect(fm._healthInterval).toBeNull();
       expect(fm._consecutiveFailures).toBe(0);
-      expect(fm._isRestarting).toBe(false);
+      expect(fm._restartPromise).toBeNull();
+      expect(fm._healthCheckInFlight).toBe(false);
       expect(fm._eventHandlers).toEqual({});
     });
   });
@@ -63,12 +65,14 @@ describe('FlaskManager — Health Monitoring', () => {
       expect(fm._healthInterval).toBe(first);
     });
 
-    it('resets _consecutiveFailures and _isRestarting on start', () => {
+    it('resets _consecutiveFailures but not _restartPromise on start', () => {
       fm._consecutiveFailures = 5;
-      fm._isRestarting = true;
+      const fakePromise = Promise.resolve();
+      fm._restartPromise = fakePromise;
       fm.startHealthMonitor(1000);
       expect(fm._consecutiveFailures).toBe(0);
-      expect(fm._isRestarting).toBe(false);
+      // Must NOT reset a genuine in-flight restart
+      expect(fm._restartPromise).toBe(fakePromise);
     });
   });
 
@@ -110,30 +114,55 @@ describe('FlaskManager — Health Monitoring', () => {
 
     it('triggers auto-restart after maxFailures consecutive failures', async () => {
       fm._healthCheck = vi.fn().mockRejectedValue(new Error('dead'));
-      fm._autoRestart = vi.fn().mockResolvedValue(undefined);
+      fm.restart = vi.fn().mockResolvedValue(5050);
       fm.startHealthMonitor(1000, 3);
 
       await vi.advanceTimersByTimeAsync(3000);
-      expect(fm._autoRestart).toHaveBeenCalledTimes(1);
+      expect(fm.restart).toHaveBeenCalledTimes(1);
     });
 
     it('does not trigger restart before reaching maxFailures', async () => {
       fm._healthCheck = vi.fn().mockRejectedValue(new Error('dead'));
-      fm._autoRestart = vi.fn().mockResolvedValue(undefined);
+      fm.restart = vi.fn().mockResolvedValue(5050);
       fm.startHealthMonitor(1000, 3);
 
       await vi.advanceTimersByTimeAsync(2000);
-      expect(fm._autoRestart).not.toHaveBeenCalled();
+      expect(fm.restart).not.toHaveBeenCalled();
     });
 
-    it('skips health check while restarting', async () => {
+    it('skips health check while restart is in progress', async () => {
       fm._healthCheck = vi.fn().mockRejectedValue(new Error('dead'));
       fm.startHealthMonitor(1000, 1);
-      // Set _isRestarting AFTER startHealthMonitor (which resets it)
-      fm._isRestarting = true;
+      // Simulate in-flight restart
+      fm._restartPromise = new Promise(() => {}); // never resolves
 
       await vi.advanceTimersByTimeAsync(1000);
       expect(fm._healthCheck).not.toHaveBeenCalled();
+    });
+
+    it('skips tick if prior health check is still running', async () => {
+      let resolveCheck;
+      fm._healthCheck = vi.fn().mockImplementation(() => {
+        return new Promise((resolve) => { resolveCheck = resolve; });
+      });
+      fm.startHealthMonitor(1000, 3);
+
+      // First tick starts a slow check
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(fm._healthCheck).toHaveBeenCalledTimes(1);
+      expect(fm._healthCheckInFlight).toBe(true);
+
+      // Second tick should be skipped because first is still in-flight
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(fm._healthCheck).toHaveBeenCalledTimes(1); // still 1
+
+      // Resolve the first check
+      resolveCheck();
+      await vi.advanceTimersByTimeAsync(0); // flush microtasks
+
+      // Third tick should now run
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(fm._healthCheck).toHaveBeenCalledTimes(2);
     });
   });
 
@@ -146,41 +175,86 @@ describe('FlaskManager — Health Monitoring', () => {
       expect(fm._healthCheck).toHaveBeenCalledTimes(1);
     });
 
-    it('triggers auto-restart if health check fails', async () => {
+    it('triggers restart and resolves if restart succeeds', async () => {
       fm._healthCheck = vi.fn().mockRejectedValue(new Error('dead'));
-      fm._autoRestart = vi.fn().mockResolvedValue(undefined);
+      fm.restart = vi.fn().mockResolvedValue(5050);
       await fm.ensureRunning();
-      expect(fm._autoRestart).toHaveBeenCalledTimes(1);
+      expect(fm.restart).toHaveBeenCalledTimes(1);
     });
 
-    it('waits for in-progress restart and resolves on restarted event', async () => {
-      fm._isRestarting = true;
-      const promise = fm.ensureRunning();
+    it('rejects when restart fails', async () => {
+      fm._healthCheck = vi.fn().mockRejectedValue(new Error('dead'));
+      fm.restart = vi.fn().mockRejectedValue(new Error('spawn fail'));
 
-      // Simulate restart completing
-      fm._emit('restarted');
-      await expect(promise).resolves.toBeUndefined();
-    });
-
-    it('waits for in-progress restart and rejects on restartFailed event', async () => {
-      fm._isRestarting = true;
-      const promise = fm.ensureRunning();
-
-      fm._emit('restartFailed', new Error('restart boom'));
-      await expect(promise).rejects.toThrow('restart boom');
-    });
-
-    it('rejects with timeout if restart never completes', async () => {
-      fm._isRestarting = true;
       let caughtError = null;
-      const promise = fm.ensureRunning().catch((err) => { caughtError = err; });
-
-      await vi.advanceTimersByTimeAsync(20000);
-      await promise;
+      try {
+        await fm.ensureRunning();
+      } catch (err) {
+        caughtError = err;
+      }
       expect(caughtError).not.toBeNull();
-      expect(caughtError.message).toContain('Timed out');
-      // Reset so afterEach cleanup doesn't trigger real restart
-      fm._isRestarting = false;
+      expect(caughtError.message).toBe('spawn fail');
+    });
+
+    it('awaits in-progress restart and resolves on success', async () => {
+      let resolveRestart;
+      fm.restart = vi.fn().mockImplementation(() => {
+        return new Promise((resolve) => { resolveRestart = resolve; });
+      });
+
+      // Start a restart via _autoRestart
+      const firstPromise = fm._autoRestart();
+
+      // ensureRunning should return the same promise
+      const secondPromise = fm.ensureRunning();
+
+      resolveRestart(5050);
+      await expect(firstPromise).resolves.toBeUndefined();
+      await expect(secondPromise).resolves.toBeUndefined();
+    });
+
+    it('awaits in-progress restart and rejects on failure', async () => {
+      let rejectRestart;
+      fm.restart = vi.fn().mockImplementation(() => {
+        return new Promise((_, reject) => { rejectRestart = reject; });
+      });
+
+      const firstPromise = fm._autoRestart().catch((e) => e);
+      const secondPromise = fm.ensureRunning().catch((e) => e);
+
+      rejectRestart(new Error('restart boom'));
+      const err1 = await firstPromise;
+      const err2 = await secondPromise;
+      expect(err1.message).toBe('restart boom');
+      expect(err2.message).toBe('restart boom');
+    });
+
+    it('two concurrent ensureRunning calls settle with same outcome', async () => {
+      fm._healthCheck = vi.fn().mockRejectedValue(new Error('dead'));
+      fm.restart = vi.fn().mockResolvedValue(5050);
+
+      const p1 = fm.ensureRunning();
+      const p2 = fm.ensureRunning();
+
+      // Both should resolve (not reject)
+      await expect(p1).resolves.toBeUndefined();
+      await expect(p2).resolves.toBeUndefined();
+      // Only one restart should have been triggered
+      expect(fm.restart).toHaveBeenCalledTimes(1);
+    });
+
+    it('two concurrent ensureRunning calls both reject on failure', async () => {
+      fm._healthCheck = vi.fn().mockRejectedValue(new Error('dead'));
+      fm.restart = vi.fn().mockRejectedValue(new Error('fail'));
+
+      const p1 = fm.ensureRunning().catch((e) => e);
+      const p2 = fm.ensureRunning().catch((e) => e);
+
+      const err1 = await p1;
+      const err2 = await p2;
+      expect(err1.message).toBe('fail');
+      expect(err2.message).toBe('fail');
+      expect(fm.restart).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -195,25 +269,53 @@ describe('FlaskManager — Health Monitoring', () => {
       await fm._autoRestart();
       expect(fm.restart).toHaveBeenCalledTimes(1);
       expect(handler).toHaveBeenCalledTimes(1);
-      expect(fm._isRestarting).toBe(false);
+      expect(fm._restartPromise).toBeNull(); // cleaned up
     });
 
-    it('emits restartFailed on error', async () => {
+    it('rejects and emits restartFailed on error', async () => {
       fm.restart = vi.fn().mockRejectedValue(new Error('spawn fail'));
       const handler = vi.fn();
       fm.on('restartFailed', handler);
 
-      await fm._autoRestart();
+      let caughtError = null;
+      try {
+        await fm._autoRestart();
+      } catch (err) {
+        caughtError = err;
+      }
+      expect(caughtError.message).toBe('spawn fail');
       expect(handler).toHaveBeenCalledTimes(1);
       expect(handler.mock.calls[0][0].message).toBe('spawn fail');
-      expect(fm._isRestarting).toBe(false);
+      expect(fm._restartPromise).toBeNull(); // cleaned up
     });
 
-    it('is a no-op if already restarting', async () => {
-      fm._isRestarting = true;
-      fm.restart = vi.fn();
+    it('returns existing promise if restart already in progress', async () => {
+      let resolveRestart;
+      fm.restart = vi.fn().mockImplementation(() => {
+        return new Promise((resolve) => { resolveRestart = resolve; });
+      });
+
+      const p1 = fm._autoRestart();
+      const p2 = fm._autoRestart();
+
+      // Same promise instance
+      expect(fm.restart).toHaveBeenCalledTimes(1);
+
+      resolveRestart(5050);
+      await expect(p1).resolves.toBeUndefined();
+      await expect(p2).resolves.toBeUndefined();
+    });
+
+    it('clears _restartPromise after completion', async () => {
+      fm.restart = vi.fn().mockResolvedValue(5050);
       await fm._autoRestart();
-      expect(fm.restart).not.toHaveBeenCalled();
+      expect(fm._restartPromise).toBeNull();
+    });
+
+    it('clears _restartPromise after failure', async () => {
+      fm.restart = vi.fn().mockRejectedValue(new Error('fail'));
+      await fm._autoRestart().catch(() => {});
+      expect(fm._restartPromise).toBeNull();
     });
   });
 
