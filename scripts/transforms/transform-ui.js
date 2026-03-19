@@ -107,6 +107,20 @@ export class TransformUI {
         }
     }
 
+    handleLLMError(error, actionName) {
+        const msg = (error?.message || '').toLowerCase();
+
+        if (msg.includes('fetch') || msg.includes('network') || msg.includes('econnrefused')) {
+            this.showError('Network error: could not reach the LLM service. Check your connection.');
+        } else if (msg.includes('timeout') || msg.includes('timed out') || msg.includes('aborted')) {
+            this.showError('Request timed out. The content may be too long — try a shorter selection.');
+        } else if (msg.includes('rate') || msg.includes('429') || msg.includes('too many')) {
+            this.showError('Rate limited by the LLM provider. Please wait a moment and try again.');
+        } else {
+            this.showError(`${actionName} failed: ${error.message || 'Unknown error'}`);
+        }
+    }
+
     async handleRestoreMarkdown() {
         const content = this.getContent();
 
@@ -121,24 +135,15 @@ export class TransformUI {
             'Do not change, add, or remove any content — only restore the formatting.';
 
         this.showLoading('Restoring Markdown formatting...');
-        this.saveSnapshot('Restore Markdown');
 
         try {
             const result = await this.llmClient.customPrompt(content, prompt);
+            this.saveSnapshot('Restore Markdown');
             this.setContent(result);
             this.hideLoading();
         } catch (error) {
             this.hideLoading();
-
-            if (error.message && error.message.includes('fetch')) {
-                this.showError('Network error: could not reach the LLM service. Check your connection.');
-            } else if (error.message && error.message.includes('timeout')) {
-                this.showError('Request timed out. The content may be too long — try a shorter selection.');
-            } else if (error.message && (error.message.includes('rate') || error.message.includes('429'))) {
-                this.showError('Rate limited by the LLM provider. Please wait a moment and try again.');
-            } else {
-                this.showError(`Markdown restore failed: ${error.message}`);
-            }
+            this.handleLLMError(error, 'Markdown restore');
         }
     }
 
@@ -159,11 +164,11 @@ export class TransformUI {
         console.log('⚙️ Mode:', mode);
 
         this.showLoading('Removing newlines...');
-        this.saveSnapshot('Remove Newlines');
 
         try {
             const result = this.newlineRemover.remove(content, mode);
             console.log('✅ Result length:', result.length);
+            this.saveSnapshot('Remove Newlines');
             this.setContent(result);
             this.hideLoading();
             console.log('✅ Newlines removed successfully');
@@ -184,17 +189,17 @@ export class TransformUI {
         const targetLanguage = document.getElementById('translate-lang').value;
 
         this.showLoading(`Translating to ${targetLanguage}...`);
-        this.saveSnapshot('Translate');
 
         try {
             const result = await this.llmClient.transform(content, 'translate', {
                 target_language: targetLanguage
             });
+            this.saveSnapshot('Translate');
             this.setContent(result);
             this.hideLoading();
         } catch (error) {
             this.hideLoading();
-            this.showError(`Translation failed: ${error.message}`);
+            this.handleLLMError(error, 'Translation');
         }
     }
 
@@ -206,15 +211,15 @@ export class TransformUI {
         }
 
         this.showLoading(`Changing tone to ${tone}...`);
-        this.saveSnapshot(`Tone: ${tone}`);
 
         try {
             const result = await this.llmClient.transform(content, 'change_tone', { tone });
+            this.saveSnapshot(`Tone: ${tone}`);
             this.setContent(result);
             this.hideLoading();
         } catch (error) {
             this.hideLoading();
-            this.showError(`Tone change failed: ${error.message}`);
+            this.handleLLMError(error, 'Tone change');
         }
     }
 
@@ -226,17 +231,17 @@ export class TransformUI {
         }
 
         this.showLoading('Summarizing...');
-        this.saveSnapshot('Summarize');
 
         try {
             const result = await this.llmClient.transform(content, 'summarize', {
                 length: 'medium'
             });
+            this.saveSnapshot('Summarize');
             this.setContent(result);
             this.hideLoading();
         } catch (error) {
             this.hideLoading();
-            this.showError(`Summarization failed: ${error.message}`);
+            this.handleLLMError(error, 'Summarization');
         }
     }
 
@@ -248,15 +253,15 @@ export class TransformUI {
         }
 
         this.showLoading('Expanding content...');
-        this.saveSnapshot('Expand');
 
         try {
             const result = await this.llmClient.transform(content, 'expand', {});
+            this.saveSnapshot('Expand');
             this.setContent(result);
             this.hideLoading();
         } catch (error) {
             this.hideLoading();
-            this.showError(`Expansion failed: ${error.message}`);
+            this.handleLLMError(error, 'Expansion');
         }
     }
 
@@ -276,15 +281,15 @@ export class TransformUI {
         }
 
         this.showLoading('Applying custom transformation...');
-        this.saveSnapshot('Custom Prompt');
 
         try {
             const result = await this.llmClient.customPrompt(content, prompt, model);
+            this.saveSnapshot('Custom Prompt');
             this.setContent(result);
             this.hideLoading();
         } catch (error) {
             this.hideLoading();
-            this.showError(`Transformation failed: ${error.message}`);
+            this.handleLLMError(error, 'Transformation');
         }
     }
 
