@@ -1,5 +1,5 @@
 // desktop/main.js — Electron main process (multi-window support)
-const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, powerMonitor } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const FlaskManager = require('./flask-manager');
@@ -483,6 +483,51 @@ app.whenReady().then(async () => {
     });
   }
 
+  // --- Backend health monitoring ---
+  if (flaskManager && !isDev) {
+    flaskManager.startHealthMonitor();
+
+    flaskManager.on('restarted', () => {
+      console.log('[Main] Backend restarted — notifying all windows');
+      for (const [, entry] of windows) {
+        if (entry.browserWindow && !entry.browserWindow.isDestroyed()) {
+          entry.browserWindow.webContents.send('backend:restarted');
+        }
+      }
+    });
+
+    flaskManager.on('restartFailed', (error) => {
+      console.error(`[Main] Backend restart failed: ${error.message}`);
+      const focusedWin = BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0];
+      if (focusedWin && !focusedWin.isDestroyed()) {
+        dialog.showErrorBox(
+          'Backend Error',
+          `The backend process stopped and could not be restarted.\n\n${error.message}\n\nTry restarting the application.`
+        );
+      }
+    });
+  }
+
+  // Restart backend on wake from macOS sleep
+  powerMonitor.on('resume', async () => {
+    console.log('[Main] System resumed from sleep — checking backend...');
+    if (flaskManager && !isDev) {
+      try {
+        await flaskManager.ensureRunning();
+        console.log('[Main] Backend confirmed healthy after resume');
+      } catch (error) {
+        console.error(`[Main] Backend recovery after sleep failed: ${error.message}`);
+        const win = BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0];
+        if (win && !win.isDestroyed()) {
+          dialog.showErrorBox(
+            'Backend Error',
+            `The backend could not recover after sleep.\n\n${error.message}\n\nTry restarting the application.`
+          );
+        }
+      }
+    }
+  });
+
   // First-run: open settings if no API key configured
   if (!settingsManager.isConfigured() && firstWin) {
     const response = await dialog.showMessageBox(firstWin, {
@@ -514,6 +559,7 @@ app.on('window-all-closed', () => {
 app.on('before-quit', (e) => {
   handleAppQuit(e);
   if (flaskManager) {
+    flaskManager.stopHealthMonitor();
     flaskManager.stop();
   }
 });

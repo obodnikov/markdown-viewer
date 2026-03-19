@@ -29,6 +29,11 @@ class FlaskManager {
     this.process = null;
     this.port = null;
     this._resolvedPythonPath = null;
+    // Health monitoring
+    this._healthInterval = null;
+    this._consecutiveFailures = 0;
+    this._isRestarting = false;
+    this._eventHandlers = {};
   }
 
   async start() {
@@ -351,6 +356,129 @@ class FlaskManager {
         reject(new Error('Health check timeout'));
       });
     });
+  }
+
+  // --- Health monitoring (post-startup) ---
+
+  /**
+   * Start periodic health checks. If the backend fails several consecutive
+   * checks it is automatically restarted.
+   *
+   * @param {number} intervalMs — polling interval (default 30 s)
+   * @param {number} maxFailures — consecutive failures before restart (default 3)
+   */
+  startHealthMonitor(intervalMs = 30000, maxFailures = 3) {
+    if (this._healthInterval) return; // already running
+
+    this._consecutiveFailures = 0;
+    this._isRestarting = false;
+
+    console.log(`[FlaskManager] Health monitor started (every ${intervalMs / 1000}s, restart after ${maxFailures} failures)`);
+
+    this._healthInterval = setInterval(async () => {
+      if (this._isRestarting) return;
+
+      try {
+        await this._healthCheck();
+        if (this._consecutiveFailures > 0) {
+          console.log('[FlaskManager] Backend recovered — health check OK');
+        }
+        this._consecutiveFailures = 0;
+      } catch {
+        this._consecutiveFailures++;
+        console.warn(`[FlaskManager] Health check failed (${this._consecutiveFailures}/${maxFailures})`);
+
+        if (this._consecutiveFailures >= maxFailures) {
+          console.error('[FlaskManager] Backend unresponsive — auto-restarting...');
+          this._consecutiveFailures = 0;
+          await this._autoRestart();
+        }
+      }
+    }, intervalMs);
+  }
+
+  stopHealthMonitor() {
+    if (this._healthInterval) {
+      clearInterval(this._healthInterval);
+      this._healthInterval = null;
+      console.log('[FlaskManager] Health monitor stopped');
+    }
+  }
+
+  /**
+   * On-demand check — call before critical operations or after system resume.
+   * Restarts the backend if it is not healthy and resolves once it is ready.
+   */
+  async ensureRunning() {
+    if (this._isRestarting) {
+      // Another restart is already in progress — wait for its outcome
+      return new Promise((resolve, reject) => {
+        let settled = false;
+        const cleanup = () => {
+          if (settled) return;
+          settled = true;
+          this.off('restarted', onRestarted);
+          this.off('restartFailed', onFailed);
+          clearTimeout(timer);
+        };
+        const onRestarted = () => { cleanup(); resolve(); };
+        const onFailed = (err) => { cleanup(); reject(err); };
+        const timer = setTimeout(() => {
+          cleanup();
+          reject(new Error('Timed out waiting for in-progress restart'));
+        }, 20000);
+
+        this.on('restarted', onRestarted);
+        this.on('restartFailed', onFailed);
+      });
+    }
+
+    try {
+      await this._healthCheck();
+      // Backend is fine
+    } catch {
+      console.warn('[FlaskManager] ensureRunning — backend not healthy, restarting...');
+      await this._autoRestart();
+    }
+  }
+
+  async _autoRestart() {
+    if (this._isRestarting) return;
+    this._isRestarting = true;
+
+    try {
+      await this.restart();
+      console.log('[FlaskManager] Auto-restart succeeded');
+      this._emit('restarted');
+    } catch (error) {
+      console.error(`[FlaskManager] Auto-restart failed: ${error.message}`);
+      this._emit('restartFailed', error);
+    } finally {
+      this._isRestarting = false;
+    }
+  }
+
+  // --- Minimal event emitter ---
+
+  on(event, handler) {
+    if (!this._eventHandlers[event]) this._eventHandlers[event] = [];
+    this._eventHandlers[event].push(handler);
+  }
+
+  off(event, handler) {
+    const handlers = this._eventHandlers[event];
+    if (!handlers) return;
+    this._eventHandlers[event] = handlers.filter(h => h !== handler);
+  }
+
+  _emit(event, ...args) {
+    const handlers = this._eventHandlers[event];
+    if (!handlers) return;
+    for (const handler of handlers) {
+      try { handler(...args); } catch (e) {
+        console.error(`[FlaskManager] Event handler error (${event}): ${e.message}`);
+      }
+    }
   }
 }
 

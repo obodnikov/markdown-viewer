@@ -55,3 +55,18 @@ Derived from real bugs encountered during implementation.
   `/usr/local/bin`, `/opt/homebrew/bin`, `~/.local/Homebrew/bin`, `/usr/bin`.
 - Pass resolved binary paths as environment variables to child processes so they
   propagate through to Python services (e.g. `PANDOC_PATH`, `PYTHONPATH`).
+
+## Backend Process Resilience (Sleep/Idle Recovery)
+
+- macOS App Nap and system sleep can kill or corrupt child processes (especially
+  PyInstaller binaries whose `_MEIPASS` temp directory gets cleaned up).
+- Never assume a spawned backend process will survive indefinitely. Always monitor it.
+- Implement periodic health checks (e.g. 30s interval) with auto-restart after N
+  consecutive failures.
+- Use Electron's `powerMonitor.on('resume')` to proactively check backend health
+  on wake from sleep — don't wait for a user action to discover the backend is dead.
+- Guard against concurrent restart attempts with an `_isRestarting` flag.
+- Notify renderer windows via IPC (`backend:restarted`) after recovery so the UI
+  can retry failed requests.
+- Stop health monitoring in the `before-quit` handler to avoid restarts during shutdown.
+- See `docs/ELECTRON_BACKEND_SLEEP_RECOVERY.md` for the full pattern (reusable across projects).
