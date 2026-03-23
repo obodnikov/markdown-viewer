@@ -76,3 +76,6 @@ package-lock.json
 
 # macOS thumbnails and Apple metadata (recursive)
 **/._*
+
+#Kiro
+.kiro/skills/
