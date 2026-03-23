@@ -27,6 +27,7 @@ class MarkdownViewerApp {
         this.storage = null;
         this.editableTitle = null;
         this.scrollSync = null;
+        this._anchorHandlerAttached = false;
 
         this.currentDocument = {
             title: 'Untitled Document',
