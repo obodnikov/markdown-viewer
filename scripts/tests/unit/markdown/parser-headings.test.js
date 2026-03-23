@@ -48,7 +48,16 @@ describe('MarkdownParser — Heading IDs', () => {
             }).join('');
         }
 
-        // Mock Marked constructor — each instance gets its own renderer state
+        // Helper: extract plain text from tokens (no HTML, no entities)
+        function extractPlainText(tokens) {
+            return tokens.map(t => {
+                if (t.tokens) return extractPlainText(t.tokens);
+                return t.text || t.raw || '';
+            }).join('');
+        }
+
+        // Mock Marked constructor — mimics v11 behavior where parser
+        // pre-renders inline tokens before calling renderer.heading(text, level, raw)
         class MockMarked {
             constructor() {
                 this._renderers = {};
@@ -64,12 +73,10 @@ describe('MarkdownParser — Heading IDs', () => {
                     if (match) {
                         const depth = match[1].length;
                         const tokens = buildTokens(match[2]);
-                        const parseInline = (t) => renderTokens(t);
+                        const renderedHtml = renderTokens(tokens);
+                        const raw = extractPlainText(tokens);
                         if (this._renderers.heading) {
-                            html += this._renderers.heading.call(
-                                { parser: { parseInline } },
-                                { tokens, depth }
-                            );
+                            html += this._renderers.heading(renderedHtml, depth, raw);
                         }
                     } else if (line.trim()) {
                         html += `<p>${line}</p>\n`;
