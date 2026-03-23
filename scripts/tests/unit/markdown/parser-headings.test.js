@@ -300,3 +300,37 @@ describe('Anchor link click handling', () => {
         expect(target.scrollIntoView).not.toHaveBeenCalled();
     });
 });
+
+describe('MarkdownParser — Initialization failure paths', () => {
+    it('should degrade gracefully when marked exists but marked.Marked is missing', async () => {
+        const prev = globalThis.marked;
+        try {
+            globalThis.marked = { parse: () => '' };
+
+            const mod = await import('../../../markdown/parser.js');
+            const parser = new mod.MarkdownParser();
+            const result = parser.parse('# Hello');
+
+            expect(result).toContain('Error');
+            expect(result).toContain('Markdown parser not loaded');
+        } finally {
+            globalThis.marked = prev;
+        }
+    });
+
+    it('should return error HTML when marked is entirely undefined', async () => {
+        const prev = globalThis.marked;
+        try {
+            delete globalThis.marked;
+
+            const mod = await import('../../../markdown/parser.js');
+            const parser = new mod.MarkdownParser();
+            const result = parser.parse('# Hello');
+
+            expect(result).toContain('Error');
+            expect(result).toContain('Markdown parser not loaded');
+        } finally {
+            globalThis.marked = prev;
+        }
+    });
+});

@@ -15,6 +15,7 @@ export class MarkdownParser {
      * Avoids rendered HTML and entity escaping issues.
      */
     _extractText(tokens) {
+        if (!Array.isArray(tokens)) return '';
         return tokens.map(t => {
             if (t.tokens) return this._extractText(t.tokens);
             return t.text || t.raw || '';
@@ -22,7 +23,8 @@ export class MarkdownParser {
     }
 
     /**
-     * Generate a GitHub-style slug from plain text.
+     * Generate a slug from plain text (simplified ASCII-centric approach).
+     * Not fully GitHub-compatible — Unicode and some punctuation edge cases differ.
      * Tracks duplicates per parse call and appends -1, -2, etc.
      */
     _generateSlug(text) {
@@ -50,8 +52,12 @@ export class MarkdownParser {
         const self = this;
 
         // Create a local instance — no global state coupling
-        const Marked = marked.Marked || marked.constructor;
-        this._marked = new Marked({
+        // marked.Marked is available since v4; this project pins v11 via CDN.
+        if (!marked.Marked) {
+            console.error('marked.Marked constructor not available — check marked.js version');
+            return;
+        }
+        this._marked = new marked.Marked({
             gfm: true,
             breaks: true
         });
