@@ -195,7 +195,34 @@ class MarkdownViewerApp {
 
     updatePreview() {
         const html = this.parser.parse(this.currentDocument.content);
-        document.getElementById('preview').innerHTML = html;
+        const previewEl = document.getElementById('preview');
+        previewEl.innerHTML = html;
+
+        // Attach anchor click handler to stable parent container (survives innerHTML replacement)
+        const previewPane = document.getElementById('preview-pane');
+        if (previewPane && !this._anchorHandlerAttached) {
+            previewPane.addEventListener('click', (e) => {
+                if (!(e.target instanceof Element)) return;
+                const link = e.target.closest('a[href^="#"]');
+                if (!link) return;
+
+                e.preventDefault();
+                let targetId;
+                try {
+                    targetId = decodeURIComponent(link.getAttribute('href').slice(1));
+                } catch {
+                    return; // malformed percent-encoding — ignore
+                }
+                if (!targetId) return;
+                const preview = document.getElementById('preview');
+                if (!preview) return;
+                const target = preview.querySelector(`[id="${CSS.escape(targetId)}"]`);
+                if (target) {
+                    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            });
+            this._anchorHandlerAttached = true;
+        }
     }
 
     async updateStatus() {

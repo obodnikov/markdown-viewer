@@ -111,6 +111,7 @@
 .action__label {
     font-size: var(--font-size-sm);
     font-weight: var(--font-weight-medium);
+    text-align: left;
 }
 
 .sidebar__options {

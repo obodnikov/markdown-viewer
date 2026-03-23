@@ -1,36 +1,83 @@
 /**
  * Markdown parser using marked.js
+ * Uses a local Marked instance to avoid global state contamination.
  */
 
 export class MarkdownParser {
     constructor() {
-        this.setupMarked();
+        this._slugCounts = new Map();
+        this._marked = null;
+        this._setupMarked();
     }
 
-    setupMarked() {
-        // Configure marked for GitHub Flavored Markdown
-        if (typeof marked !== 'undefined') {
-            marked.setOptions({
-                gfm: true,
-                breaks: true,
-                headerIds: true,
-                mangle: false,
-                sanitize: false,
-                smartLists: true,
-                smartypants: false,
-                xhtml: false
-            });
+    /**
+     * Recursively extract plain text from a marked token tree.
+     * Avoids rendered HTML and entity escaping issues.
+     */
+    _extractText(tokens) {
+        return tokens.map(t => {
+            if (t.tokens) return this._extractText(t.tokens);
+            return t.text || t.raw || '';
+        }).join('');
+    }
+
+    /**
+     * Generate a GitHub-style slug from plain text.
+     * Tracks duplicates per parse call and appends -1, -2, etc.
+     */
+    _generateSlug(text) {
+        let slug = text
+            .toLowerCase()
+            .trim()
+            .replace(/[^\w\s-]/g, '')
+            .replace(/\s/g, '-');
+
+        if (!slug) slug = 'heading';
+
+        const count = this._slugCounts.get(slug);
+        if (count === undefined) {
+            this._slugCounts.set(slug, 0);
+            return slug;
         }
+        const next = count + 1;
+        this._slugCounts.set(slug, next);
+        return `${slug}-${next}`;
+    }
+
+    _setupMarked() {
+        if (typeof marked === 'undefined') return;
+
+        const self = this;
+
+        // Create a local instance — no global state coupling
+        const Marked = marked.Marked || marked.constructor;
+        this._marked = new Marked({
+            gfm: true,
+            breaks: true
+        });
+
+        this._marked.use({
+            renderer: {
+                // marked v11 token signature: { tokens, depth }
+                heading({ tokens, depth }) {
+                    const text = this.parser.parseInline(tokens);
+                    const plain = self._extractText(tokens);
+                    const slug = self._generateSlug(plain);
+                    return `<h${depth} id="${slug}">${text}</h${depth}>\n`;
+                }
+            }
+        });
     }
 
     parse(markdown) {
-        if (typeof marked === 'undefined') {
+        if (!this._marked) {
             console.error('marked.js not loaded');
             return '<p>Error: Markdown parser not loaded</p>';
         }
 
         try {
-            return marked.parse(markdown);
+            this._slugCounts = new Map();
+            return this._marked.parse(markdown);
         } catch (error) {
             console.error('Markdown parsing error:', error);
             return `<p>Error parsing markdown: ${error.message}</p>`;
@@ -38,12 +85,12 @@ export class MarkdownParser {
     }
 
     parseInline(markdown) {
-        if (typeof marked === 'undefined') {
+        if (!this._marked) {
             return markdown;
         }
 
         try {
-            return marked.parseInline(markdown);
+            return this._marked.parseInline(markdown);
         } catch (error) {
             console.error('Inline markdown parsing error:', error);
             return markdown;
