@@ -64,12 +64,11 @@ export class MarkdownParser {
 
         this._marked.use({
             renderer: {
-                // marked v11 token signature: { tokens, depth }
-                heading({ tokens, depth }) {
-                    const text = self._marked.parseInline(tokens);
-                    const plain = self._extractText(tokens);
-                    const slug = self._generateSlug(plain);
-                    return `<h${depth} id="${slug}">${text}</h${depth}>\n`;
+                // marked v11 signature: heading(text, level, raw)
+                // Parser pre-renders inline tokens to HTML before calling renderer.
+                heading(text, level, raw) {
+                    const slug = self._generateSlug(raw);
+                    return `<h${level} id="${slug}">${text}</h${level}>\n`;
                 }
             }
         });
