@@ -66,7 +66,7 @@ export class MarkdownParser {
             renderer: {
                 // marked v11 token signature: { tokens, depth }
                 heading({ tokens, depth }) {
-                    const text = this.parser.parseInline(tokens);
+                    const text = self._marked.parseInline(tokens);
                     const plain = self._extractText(tokens);
                     const slug = self._generateSlug(plain);
                     return `<h${depth} id="${slug}">${text}</h${depth}>\n`;
