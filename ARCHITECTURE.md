@@ -1,6 +1,6 @@
 # ARCHITECTURE.md
 
-**Version:** 2.7.0
+**Version:** 2.7.1
 **Last Updated:** 2026-03-19
 **Status:** ✅ Current
 
