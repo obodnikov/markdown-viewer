@@ -1,25 +1,26 @@
 # Markdown Viewer & Editor
 
-**Version 2.7.0**
+**Version 2.7.1**
 
 A modern, feature-rich markdown editor with GitHub Flavored Markdown support, LLM-powered transformations, GitHub integration, BookStack wiki integration, and an Electron desktop app.
 
-## What's New in v2.7.0
+## What's New in v2.7.1
 
-📝 **Restore Markdown Format**
-- New top-level sidebar action that uses LLM to recover Markdown formatting lost during copy/paste
-- Restores headings, lists, code blocks, bold/italic, links, tables, and blockquotes
-- Content-preserving: only formatting is restored, no text is added or removed
+🔗 **Heading Anchor IDs & In-Preview Navigation**
+- Headings now get auto-generated `id` attributes for anchor linking
+- Click `#heading` links in the preview pane to scroll to the target section
+- Duplicate headings get deduplicated slugs (`setup`, `setup-1`, `setup-2`)
+- Handles malformed hash values and encoded characters gracefully
 
-↩️ **Undo Transformation**
-- One-click undo for any sidebar transformation (Restore MD, Remove Newlines, Translate, Tone, Summarize, Expand, Custom Prompt)
-- Multi-level undo stack (up to 10 snapshots)
-- Button in sidebar header with dynamic tooltip showing which action will be reverted
-- Disabled state when nothing to undo
+🧩 **Per-Instance Markdown Parser**
+- Each `MarkdownParser` uses its own local `marked.Marked` instance
+- No global state contamination between parser instances
+- Slug counters reset between parse calls for consistent output
 
-🛡️ **Improved Error Handling**
-- LLM transformation errors now distinguish between network failures, timeouts, and rate limits
-- Clearer user-facing messages for each error type
+🛡️ **Hardened Parser Initialization**
+- Explicit `marked.Marked` check with graceful degradation when unavailable
+- Defensive guards for edge cases (empty tokens, missing dependencies)
+- Correct marked v11 renderer API usage throughout
 
 ## Features
 
@@ -28,6 +29,7 @@ A modern, feature-rich markdown editor with GitHub Flavored Markdown support, LL
 - **Split-pane Editor** - CodeMirror 6 with syntax highlighting
 - **Multiple View Modes** - Split, edit-only, or preview-only
 - **Synchronized Scrolling** - Proportional bidirectional scroll sync in split view mode
+- **Heading Anchor IDs** - Auto-generated heading IDs with in-preview anchor navigation
 - **Auto-save** - Automatic local storage backup every 30 seconds
 
 ### LLM Transformations (via OpenRouter)
@@ -460,7 +462,7 @@ MIT License - see LICENSE file for details
 
 ## Roadmap
 
-### Phase 1 (Completed) - v2.7.0 ✅
+### Phase 1 (Completed) - v2.7.1 ✅
 - ✅ Core editor with GFM support
 - ✅ LLM transformations (translation, tone adjustment, summarization, expansion)
 - ✅ Restore Markdown Format (LLM-powered formatting recovery)

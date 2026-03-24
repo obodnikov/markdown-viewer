@@ -5,6 +5,25 @@ All notable changes to the Markdown Viewer & Editor project will be documented i
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.7.1] - 2026-03-24
+
+### Added
+- Heading anchor IDs with auto-generated slugs and duplicate deduplication
+- In-preview anchor navigation: click `#heading` links to scroll within preview pane
+- Per-instance Marked parser using local `marked.Marked` to avoid global state contamination
+- Defensive guards for `_extractText` (array check) and parser initialization
+- Tests for parser initialization failure paths (missing `marked.Marked`, undefined `marked`)
+- Explicit `_anchorHandlerAttached` initialization in `MarkdownViewerApp` constructor
+
+### Fixed
+- Heading renderer now uses correct marked v11 signature `(text, level, raw)` instead of v12+ token-based API
+- Removed unsafe `marked.constructor` fallback that could resolve to `Function`
+- Graceful degradation when `marked.Marked` is unavailable (consistent with `marked` undefined path)
+
+### Changed
+- Version bumped to 2.7.1 across all project files
+- Slug algorithm doc comment clarifies it is not fully GitHub-compatible
+
 ## [2.7.0] - 2026-03-19
 
 ### Added

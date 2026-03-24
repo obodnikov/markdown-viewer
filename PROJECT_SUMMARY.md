@@ -1,6 +1,6 @@
 # Project Summary: Markdown Viewer & Editor
 
-## Version: 2.7.0
+## Version: 2.7.1
 
 ## Project Status: ✅ Complete - Ready for Development/Testing
 
