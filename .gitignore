@@ -82,3 +82,4 @@ package-lock.json
 
 # Semantic Index
 .index/
+docs/.sync_journal.*
