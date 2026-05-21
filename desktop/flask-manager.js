@@ -46,6 +46,9 @@ class FlaskManager {
       return this.port;
     }
 
+    // Kill any orphaned backend processes from a previous crash/force-quit
+    this._killOrphanedBackends();
+
     // Use configured port or find a free one
     const configuredPort = this.settingsManager.get('flaskPort', 0);
     const getPort = await import('get-port');
@@ -314,6 +317,56 @@ class FlaskManager {
     }
     console.warn('[FlaskManager] Pandoc not found — PDF/DOCX export will be unavailable');
     return { available: false, version: null, path: null };
+  }
+
+  /**
+   * Kill orphaned backend processes left over from a previous crash or force-quit.
+   * Only kills processes matching our backend binary name that are NOT children of
+   * the current Electron process.
+   */
+  _killOrphanedBackends() {
+    try {
+      const binaryName = process.platform === 'win32'
+        ? 'markdown-viewer-backend.exe'
+        : 'markdown-viewer-backend';
+
+      if (process.platform === 'win32') {
+        // Windows: use tasklist/taskkill
+        const output = execFileSync('tasklist', ['/FI', `IMAGENAME eq ${binaryName}`, '/FO', 'CSV', '/NH'], {
+          timeout: 5000, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe']
+        });
+        const lines = output.trim().split('\n').filter(l => l.includes(binaryName));
+        for (const line of lines) {
+          const match = line.match(/"[^"]*","(\d+)"/);
+          if (match) {
+            const pid = parseInt(match[1], 10);
+            console.log(`[FlaskManager] Killing orphaned backend (PID ${pid})`);
+            try { process.kill(pid, 'SIGTERM'); } catch { /* already gone */ }
+          }
+        }
+      } else {
+        // macOS/Linux: use pkill or manual pgrep+kill
+        const output = execFileSync('pgrep', ['-f', binaryName], {
+          timeout: 5000, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe']
+        }).trim();
+
+        if (output) {
+          const pids = output.split('\n').map(p => parseInt(p, 10)).filter(p => !isNaN(p));
+          for (const pid of pids) {
+            console.log(`[FlaskManager] Killing orphaned backend (PID ${pid})`);
+            try { process.kill(pid, 'SIGTERM'); } catch { /* already gone */ }
+          }
+
+          // Brief pause to let the OS release the port
+          if (pids.length > 0) {
+            const { execSync } = require('child_process');
+            execSync('sleep 0.5', { stdio: 'ignore' });
+          }
+        }
+      }
+    } catch {
+      // pgrep returns exit code 1 when no processes match — that's fine
+    }
   }
 
 
