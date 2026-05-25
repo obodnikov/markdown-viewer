@@ -79,6 +79,7 @@ package-lock.json
 
 #Kiro
 .kiro/skills/
+.kiro/hooks/
 
 # Semantic Index
 .index/
