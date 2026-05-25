@@ -121,6 +121,34 @@ export class TransformUI {
         }
     }
 
+    /**
+     * Estimate if content needs chunked processing.
+     * Threshold: ~4500 words (roughly 80% of 8000 tokens at 1.3 tokens/word).
+     */
+    _needsChunking(content) {
+        const words = content.split(/\s+/).length;
+        return words > 4500;
+    }
+
+    /**
+     * Transform content, automatically using chunked processing for large documents.
+     * Shows per-chunk progress in the loading overlay.
+     */
+    async _transformWithChunking(content, operation, params, loadingLabel) {
+        if (this._needsChunking(content)) {
+            return await this.llmClient.transformChunked(
+                content, operation, params,
+                (chunkIndex, totalChunks) => {
+                    this.showLoading(
+                        `${loadingLabel} (section ${chunkIndex + 1} of ${totalChunks})...`
+                    );
+                }
+            );
+        } else {
+            return await this.llmClient.transform(content, operation, params);
+        }
+    }
+
     async handleRestoreMarkdown() {
         const content = this.getContent();
 
@@ -191,9 +219,11 @@ export class TransformUI {
         this.showLoading(`Translating to ${targetLanguage}...`);
 
         try {
-            const result = await this.llmClient.transform(content, 'translate', {
-                target_language: targetLanguage
-            });
+            const result = await this._transformWithChunking(
+                content, 'translate',
+                { target_language: targetLanguage },
+                `Translating to ${targetLanguage}`
+            );
             this.saveSnapshot('Translate');
             this.setContent(result);
             this.hideLoading();
@@ -213,7 +243,10 @@ export class TransformUI {
         this.showLoading(`Changing tone to ${tone}...`);
 
         try {
-            const result = await this.llmClient.transform(content, 'change_tone', { tone });
+            const result = await this._transformWithChunking(
+                content, 'change_tone', { tone },
+                `Changing tone to ${tone}`
+            );
             this.saveSnapshot(`Tone: ${tone}`);
             this.setContent(result);
             this.hideLoading();
@@ -233,9 +266,10 @@ export class TransformUI {
         this.showLoading('Summarizing...');
 
         try {
-            const result = await this.llmClient.transform(content, 'summarize', {
-                length: 'medium'
-            });
+            const result = await this._transformWithChunking(
+                content, 'summarize', { length: 'medium' },
+                'Summarizing'
+            );
             this.saveSnapshot('Summarize');
             this.setContent(result);
             this.hideLoading();
@@ -255,7 +289,10 @@ export class TransformUI {
         this.showLoading('Expanding content...');
 
         try {
-            const result = await this.llmClient.transform(content, 'expand', {});
+            const result = await this._transformWithChunking(
+                content, 'expand', {},
+                'Expanding content'
+            );
             this.saveSnapshot('Expand');
             this.setContent(result);
             this.hideLoading();

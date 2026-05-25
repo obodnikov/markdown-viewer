@@ -160,6 +160,133 @@ def transform():
         return jsonify({'error': f'Unexpected error: {str(e)}'}), 500
 
 
+@llm_bp.route('/transform-chunked', methods=['POST'])
+def transform_chunked():
+    """Transform large markdown content by splitting into chunks.
+
+    Automatically splits content at heading/paragraph boundaries,
+    processes each chunk via LLM, and reassembles the result.
+    Returns progress information for each chunk.
+
+    Request JSON:
+        {
+            "operation": "translate",
+            "content": "large markdown text...",
+            "params": {"target_language": "Spanish"},
+            "model": "anthropic/claude-3.5-sonnet"  // optional
+        }
+
+    Returns (streaming JSON lines):
+        {"type": "start", "total_chunks": 5, "total_words": 12000}
+        {"type": "progress", "chunk_index": 0, "total_chunks": 5}
+        {"type": "progress", "chunk_index": 1, "total_chunks": 5}
+        ...
+        {"type": "complete", "success": true, "content": "full transformed markdown", "chunks_processed": 5}
+
+    Or on error:
+        {"type": "error", "error": "...", "chunk_index": -1}
+    """
+    import json
+
+    try:
+        from backend.services.markdown_chunker import chunk_markdown
+    except ImportError:
+        from services.markdown_chunker import chunk_markdown
+
+    # Validate request before starting the stream.
+    # Use silent=True to avoid werkzeug BadRequest on malformed JSON.
+    data = request.get_json(silent=True)
+
+    if not data:
+        return jsonify({'error': 'No JSON data provided or malformed JSON'}), 400
+
+    operation = data.get('operation')
+    content = data.get('content')
+    params = data.get('params', {})
+    model = data.get('model')
+
+    if not operation:
+        return jsonify({'error': 'operation is required'}), 400
+
+    if not content:
+        return jsonify({'error': 'content is required'}), 400
+
+    if not isinstance(content, str):
+        return jsonify({'error': 'content must be a string'}), 400
+
+    if not isinstance(params, dict):
+        return jsonify({'error': 'params must be an object'}), 400
+
+    if model is not None and not isinstance(model, str):
+        return jsonify({'error': 'model must be a string'}), 400
+
+    # Chunk the content before starting the stream
+    try:
+        chunk_result = chunk_markdown(content, target_words=2000)
+    except Exception as e:
+        return jsonify({'error': f'Failed to chunk content: {str(e)}'}), 500
+
+    def generate():
+        """Stream progress as JSON lines.
+
+        The entire generator body is wrapped in try/except to guarantee
+        a terminal event (either 'complete' or 'error') is always emitted.
+        """
+        try:
+            # Start event
+            yield json.dumps({
+                'type': 'start',
+                'total_chunks': len(chunk_result.chunks),
+                'total_words': chunk_result.total_words,
+                'was_chunked': chunk_result.was_chunked,
+            }) + '\n'
+
+            service = get_openrouter_service()
+            transformed_chunks = []
+
+            for chunk in chunk_result.chunks:
+                # Progress event
+                yield json.dumps({
+                    'type': 'progress',
+                    'chunk_index': chunk.index,
+                    'total_chunks': len(chunk_result.chunks),
+                }) + '\n'
+
+                result = service.transform_text_chunk(
+                    chunk_content=chunk.content,
+                    operation=operation,
+                    params=params,
+                    model=model,
+                    overlap_context=chunk.overlap_context,
+                )
+                transformed_chunks.append(result)
+
+            # Complete event with full reassembled content
+            full_content = '\n\n'.join(transformed_chunks)
+            yield json.dumps({
+                'type': 'complete',
+                'success': True,
+                'content': full_content,
+                'chunks_processed': len(transformed_chunks),
+                'operation': operation,
+            }) + '\n'
+
+        except Exception as e:
+            # Guarantee a terminal error event on any failure
+            yield json.dumps({
+                'type': 'error',
+                'error': str(e),
+                'chunk_index': chunk.index if 'chunk' in dir() else -1,
+            }) + '\n'
+
+    from flask import Response
+    return Response(
+        generate(),
+        mimetype='application/x-ndjson',
+        headers={'X-Content-Type-Options': 'nosniff'},
+    )
+
+
 @llm_bp.route('/custom-prompt', methods=['POST'])
 def custom_prompt():
     """Apply custom user prompt to markdown content.
