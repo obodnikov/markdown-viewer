@@ -263,3 +263,109 @@ class TestChunkedTransform:
             last_event = events[-1]
             assert last_event['type'] == 'error'
             assert 'timeout' in last_event['error'].lower() or 'LLM' in last_event['error']
+
+
+class TestChunkedCustomPrompt:
+    """Test the custom_prompt operation via the chunked endpoint."""
+
+    def _parse_ndjson(self, response):
+        """Parse NDJSON response into list of events."""
+        data = response.get_data(as_text=True)
+        events = []
+        for line in data.strip().split('\n'):
+            if line.strip():
+                events.append(json.loads(line))
+        return events
+
+    def test_custom_prompt_small_content(self, client):
+        """Custom prompt operation should work for small content."""
+        mock_service = MagicMock()
+        mock_service.transform_text_chunk.return_value = 'Fixed markdown'
+
+        with patch('backend.routes.llm.get_openrouter_service', return_value=mock_service):
+            response = client.post('/api/llm/transform-chunked', json={
+                'operation': 'custom_prompt',
+                'content': '# Hello\n\nBroken formatting here.',
+                'params': {'prompt': 'Fix the markdown formatting'}
+            })
+
+            assert response.status_code == 200
+            events = self._parse_ndjson(response)
+            complete = [e for e in events if e['type'] == 'complete']
+            assert len(complete) == 1
+            assert complete[0]['content'] == 'Fixed markdown'
+
+    def test_custom_prompt_large_content_chunked(self, client):
+        """Custom prompt should chunk large content and process each chunk."""
+        sections = []
+        for i in range(4):
+            sections.append(f"## Section {i}\n\n" + " ".join(["word"] * 600))
+        content = "\n\n".join(sections)
+
+        mock_service = MagicMock()
+        mock_service.transform_text_chunk.return_value = 'Processed chunk'
+
+        with patch('backend.routes.llm.get_openrouter_service', return_value=mock_service):
+            response = client.post('/api/llm/transform-chunked', json={
+                'operation': 'custom_prompt',
+                'content': content,
+                'params': {'prompt': 'Rewrite in formal tone'}
+            })
+
+            events = self._parse_ndjson(response)
+            complete = [e for e in events if e['type'] == 'complete']
+            assert len(complete) == 1
+            assert complete[0]['chunks_processed'] >= 2
+            # Verify the prompt was passed through to the service
+            call_kwargs = mock_service.transform_text_chunk.call_args_list[0][1]
+            assert call_kwargs['operation'] == 'custom_prompt'
+            assert call_kwargs['params']['prompt'] == 'Rewrite in formal tone'
+
+    def test_custom_prompt_with_model_selection(self, client):
+        """Model should be passed through to the service for custom prompts."""
+        mock_service = MagicMock()
+        mock_service.transform_text_chunk.return_value = 'Result'
+
+        with patch('backend.routes.llm.get_openrouter_service', return_value=mock_service):
+            response = client.post('/api/llm/transform-chunked', json={
+                'operation': 'custom_prompt',
+                'content': '# Test\n\nSome content.',
+                'params': {'prompt': 'Summarize'},
+                'model': 'openai/gpt-4-turbo'
+            })
+
+            events = self._parse_ndjson(response)
+            complete = [e for e in events if e['type'] == 'complete']
+            assert len(complete) == 1
+
+            # Verify model was passed to the service
+            call_kwargs = mock_service.transform_text_chunk.call_args_list[0][1]
+            assert call_kwargs['model'] == 'openai/gpt-4-turbo'
+
+    def test_custom_prompt_missing_prompt_in_params(self, client):
+        """Custom prompt operation with empty prompt param should still work."""
+        mock_service = MagicMock()
+        mock_service.transform_text_chunk.return_value = 'Result'
+
+        with patch('backend.routes.llm.get_openrouter_service', return_value=mock_service):
+            response = client.post('/api/llm/transform-chunked', json={
+                'operation': 'custom_prompt',
+                'content': '# Test\n\nContent.',
+                'params': {}  # No prompt key
+            })
+
+            # Should still work — _build_prompt defaults to empty string
+            events = self._parse_ndjson(response)
+            complete = [e for e in events if e['type'] == 'complete']
+            assert len(complete) == 1
+
+    def test_invalid_params_type_returns_400(self, client):
+        """Non-object params should return 400."""
+        response = client.post('/api/llm/transform-chunked', json={
+            'operation': 'custom_prompt',
+            'content': 'Some content.',
+            'params': 'not an object'
+        })
+        assert response.status_code == 400
+        data = response.get_json()
+        assert 'params' in data['error'].lower()

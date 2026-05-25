@@ -39,11 +39,19 @@ export class LLMClient {
     async transformChunked(content, operation, params = {}, onProgress = null) {
         const url = `${APIClient.getBackendURL()}/llm/transform-chunked`;
 
+        // Normalize and extract model from params if present
+        const safeParams = (params && typeof params === 'object') ? params : {};
+        const { model, ...operationParams } = safeParams;
+        const body = { content, operation, params: operationParams };
+        if (model) {
+            body.model = model;
+        }
+
         const response = await fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
-            body: JSON.stringify({ content, operation, params }),
+            body: JSON.stringify(body),
         });
 
         if (!response.ok) {

@@ -131,6 +131,7 @@ class OpenRouterService:
         Returns:
             Formatted prompt string
         """
+        params = params or {}
         if operation == 'translate':
             target_lang = params.get('target_language', 'English')
             return (
@@ -166,6 +167,10 @@ class OpenRouterService:
 
         elif operation == 'expand':
             return f"Expand and elaborate on the following markdown content:\n\n{content}"
+
+        elif operation == 'custom_prompt':
+            user_prompt = params.get('prompt', '')
+            return f"{user_prompt}\n\n---\n\n{content}"
 
         else:
             raise ValueError(f"Unknown operation: {operation}")

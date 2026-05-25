@@ -122,30 +122,43 @@ export class TransformUI {
     }
 
     /**
-     * Estimate if content needs chunked processing.
-     * Threshold: ~4500 words (roughly 80% of 8000 tokens at 1.3 tokens/word).
+     * Estimate if content needs chunked processing (~4500 words threshold).
      */
     _needsChunking(content) {
-        const words = content.split(/\s+/).length;
-        return words > 4500;
+        return content.split(/\s+/).length > 4500;
     }
 
     /**
-     * Transform content, automatically using chunked processing for large documents.
-     * Shows per-chunk progress in the loading overlay.
+     * Transform content, using chunked processing for large documents.
      */
     async _transformWithChunking(content, operation, params, loadingLabel) {
         if (this._needsChunking(content)) {
-            return await this.llmClient.transformChunked(
-                content, operation, params,
+            return await this.llmClient.transformChunked(content, operation, params,
                 (chunkIndex, totalChunks) => {
-                    this.showLoading(
-                        `${loadingLabel} (section ${chunkIndex + 1} of ${totalChunks})...`
-                    );
+                    this.showLoading(`${loadingLabel} (section ${chunkIndex + 1} of ${totalChunks})...`);
                 }
             );
         } else {
             return await this.llmClient.transform(content, operation, params);
+        }
+    }
+
+    /**
+     * Apply custom prompt with chunked processing for large documents.
+     */
+    async _customPromptWithChunking(content, prompt, model, loadingLabel) {
+        if (this._needsChunking(content)) {
+            const params = { prompt };
+            if (model) {
+                params.model = model;
+            }
+            return await this.llmClient.transformChunked(content, 'custom_prompt', params,
+                (chunkIndex, totalChunks) => {
+                    this.showLoading(`${loadingLabel} (section ${chunkIndex + 1} of ${totalChunks})...`);
+                }
+            );
+        } else {
+            return await this.llmClient.customPrompt(content, prompt, model || undefined);
         }
     }
 
@@ -165,7 +178,9 @@ export class TransformUI {
         this.showLoading('Restoring Markdown formatting...');
 
         try {
-            const result = await this.llmClient.customPrompt(content, prompt);
+            const result = await this._customPromptWithChunking(
+                content, prompt, null, 'Restoring Markdown formatting'
+            );
             this.saveSnapshot('Restore Markdown');
             this.setContent(result);
             this.hideLoading();
@@ -320,7 +335,9 @@ export class TransformUI {
         this.showLoading('Applying custom transformation...');
 
         try {
-            const result = await this.llmClient.customPrompt(content, prompt, model);
+            const result = await this._customPromptWithChunking(
+                content, prompt, model, 'Applying custom transformation'
+            );
             this.saveSnapshot('Custom Prompt');
             this.setContent(result);
             this.hideLoading();
