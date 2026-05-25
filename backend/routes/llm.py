@@ -1,4 +1,5 @@
 """LLM transformation routes."""
+import math
 from flask import Blueprint, request, jsonify
 
 try:
@@ -9,6 +10,83 @@ except ImportError:
     from config import Config
 
 llm_bp = Blueprint('llm', __name__, url_prefix='/api/llm')
+
+
+def _estimate_tokens(text: str) -> int:
+    """Estimate token count from text using word-based and character-based heuristics.
+
+    Uses the higher of two estimates to handle both whitespace-separated
+    languages and CJK/symbol-heavy text that has fewer word boundaries.
+    Uses ceiling math to keep the guard conservative near boundaries.
+
+    Args:
+        text: Input text to estimate tokens for. Must be a string.
+
+    Returns:
+        Estimated token count (conservative/ceiling).
+    """
+    if not isinstance(text, str):
+        return 0
+    word_estimate = math.ceil(len(text.split()) * 1.3)
+    # Character-based estimate: ~4 chars per token for English,
+    # ~1.5 chars per token for CJK. Use ~3 as a conservative middle ground.
+    char_estimate = math.ceil(len(text) / 3)
+    return max(word_estimate, char_estimate)
+
+
+# Conservative max output token limits per model family.
+# If a model is not listed, falls back to Config.OPENROUTER_MAX_TOKENS.
+_MODEL_MAX_TOKENS = {
+    'anthropic/claude-3.5-sonnet': 8192,
+    'anthropic/claude-3-opus': 4096,
+    'anthropic/claude-3-haiku': 4096,
+    'openai/gpt-4-turbo': 4096,
+    'openai/gpt-4': 8192,
+    'openai/gpt-3.5-turbo': 4096,
+    'google/gemini-pro': 8192,
+    'meta-llama/llama-3-70b-instruct': 4096,
+}
+
+
+def _get_max_tokens_for_model(model=None) -> int:
+    """Get the effective max_tokens limit for a given model.
+
+    Args:
+        model: Model identifier (e.g., 'anthropic/claude-3.5-sonnet').
+               If None or non-string, uses Config.OPENROUTER_MAX_TOKENS.
+
+    Returns:
+        The effective max token limit to use for size validation.
+    """
+    if isinstance(model, str) and model in _MODEL_MAX_TOKENS:
+        # Use the lower of model limit and configured limit
+        return min(_MODEL_MAX_TOKENS[model], Config.OPENROUTER_MAX_TOKENS)
+    return Config.OPENROUTER_MAX_TOKENS
+
+
+def _check_content_size(*texts: str, model: str = None):
+    """Return error response if combined text exceeds 80% of max_tokens, else None.
+
+    This prevents sending oversized content to the LLM which would likely
+    result in truncated output or wasted API credits.
+
+    Args:
+        *texts: One or more text strings whose combined size is checked.
+        model: Optional model identifier for model-aware threshold.
+    """
+    estimated_tokens = sum(_estimate_tokens(t) for t in texts)
+    max_tokens = _get_max_tokens_for_model(model)
+    threshold = int(max_tokens * 0.8)
+    if estimated_tokens > threshold:
+        return jsonify({
+            'error': (
+                f'Content too large for LLM processing. '
+                f'Estimated ~{estimated_tokens} tokens exceeds 80% of the '
+                f'{max_tokens} token limit. '
+                f'Please split the document into smaller sections.'
+            )
+        }), 413
+    return None
 
 
 def get_openrouter_service() -> OpenRouterService:
@@ -54,6 +132,16 @@ def transform():
 
         if not content:
             return jsonify({'error': 'content is required'}), 400
+
+        if not isinstance(content, str):
+            return jsonify({'error': 'content must be a string'}), 400
+
+        if model is not None and not isinstance(model, str):
+            return jsonify({'error': 'model must be a string'}), 400
+
+        size_error = _check_content_size(content, model=model)
+        if size_error:
+            return size_error
 
         service = get_openrouter_service()
         result = service.transform_text(content, operation, params, model)
@@ -106,6 +194,19 @@ def custom_prompt():
 
         if not content:
             return jsonify({'error': 'content is required'}), 400
+
+        if not isinstance(content, str):
+            return jsonify({'error': 'content must be a string'}), 400
+
+        if not isinstance(prompt, str):
+            return jsonify({'error': 'prompt must be a string'}), 400
+
+        if model is not None and not isinstance(model, str):
+            return jsonify({'error': 'model must be a string'}), 400
+
+        size_error = _check_content_size(content, prompt, model=model)
+        if size_error:
+            return size_error
 
         service = get_openrouter_service()
         result = service.custom_prompt(content, prompt, model, preserve_markdown)
