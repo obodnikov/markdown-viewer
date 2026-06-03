@@ -183,8 +183,13 @@ class MarkdownViewerApp {
             if (healthBtn) {
                 healthBtn.style.display = '';
                 const healthDot = healthBtn.querySelector('.health-dot');
+                let previousHealthState = null;
+                let refreshInFlight = false;
 
-                const updateHealthUI = (state) => {
+                const updateHealthUI = async (state) => {
+                    const wasUnhealthy = previousHealthState && previousHealthState !== 'healthy';
+                    previousHealthState = state;
+
                     healthDot.className = 'health-dot';
                     switch (state) {
                         case 'healthy':
@@ -202,6 +207,23 @@ class MarkdownViewerApp {
                         default:
                             healthDot.classList.add('health-dot--checking');
                             healthBtn.title = 'Backend: checking...';
+                    }
+
+                    // Refresh config when backend recovers from degraded/down state
+                    if (state === 'healthy' && wasUnhealthy && !refreshInFlight) {
+                        refreshInFlight = true;
+                        console.log('[App] Backend recovered — refreshing models and languages...');
+                        try {
+                            await Promise.all([
+                                this.transform.loadModels(),
+                                this.transform.loadLanguages()
+                            ]);
+                            console.log('[App] Config refreshed after recovery');
+                        } catch (error) {
+                            console.warn('[App] Failed to refresh config after recovery:', error.message);
+                        } finally {
+                            refreshInFlight = false;
+                        }
                     }
                 };
 
