@@ -115,3 +115,44 @@
         font-size: var(--font-size-base);
     }
 }
+
+/* Backend Health Indicator (desktop only) */
+.toolbar__health {
+    padding: var(--space-1);
+    cursor: default;
+}
+
+.health-dot {
+    display: block;
+    width: 10px;
+    height: 10px;
+    border-radius: var(--radius-full);
+    transition: background-color var(--transition-base);
+}
+
+.health-dot--healthy {
+    background-color: #4caf50;
+    box-shadow: 0 0 4px rgba(76, 175, 80, 0.4);
+}
+
+.health-dot--degraded {
+    background-color: #ff9800;
+    box-shadow: 0 0 4px rgba(255, 152, 0, 0.4);
+    animation: pulse-health 1.5s ease-in-out infinite;
+}
+
+.health-dot--checking {
+    background-color: #ff9800;
+    box-shadow: 0 0 4px rgba(255, 152, 0, 0.4);
+    animation: pulse-health 1.5s ease-in-out infinite;
+}
+
+.health-dot--down {
+    background-color: #f44336;
+    box-shadow: 0 0 4px rgba(244, 67, 54, 0.4);
+}
+
+@keyframes pulse-health {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+}

@@ -488,8 +488,21 @@ app.whenReady().then(async () => {
   if (flaskManager && !isDev) {
     flaskManager.startHealthMonitor();
 
+    // Track current health state so new windows can get it immediately
+    let currentHealthState = 'healthy';
+
+    const sendHealthState = (state) => {
+      currentHealthState = state;
+      for (const [, entry] of windows) {
+        if (entry.browserWindow && !entry.browserWindow.isDestroyed()) {
+          entry.browserWindow.webContents.send('backend:healthState', state);
+        }
+      }
+    };
+
     flaskManager.on('restarted', () => {
       console.log('[Main] Backend restarted — notifying all windows');
+      sendHealthState('healthy');
       for (const [, entry] of windows) {
         if (entry.browserWindow && !entry.browserWindow.isDestroyed()) {
           entry.browserWindow.webContents.send('backend:restarted');
@@ -499,6 +512,7 @@ app.whenReady().then(async () => {
 
     flaskManager.on('restartFailed', (error) => {
       console.error(`[Main] Backend restart failed: ${error.message}`);
+      sendHealthState('down');
       const focusedWin = BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0];
       if (focusedWin && !focusedWin.isDestroyed()) {
         dialog.showErrorBox(
@@ -507,6 +521,23 @@ app.whenReady().then(async () => {
         );
       }
     });
+
+    // Health degradation (consecutive failures before restart threshold)
+    flaskManager.on('healthCheckFailed', () => {
+      sendHealthState('degraded');
+    });
+
+    flaskManager.on('restarting', () => {
+      sendHealthState('degraded');
+    });
+
+    // Recovery from transient failures (health check passes after failures)
+    flaskManager.on('healthRecovered', () => {
+      sendHealthState('healthy');
+    });
+
+    // Send current health state to newly created windows once they finish loading
+    ipcMain.handle('backend:getHealthState', () => currentHealthState);
   }
 
   // Restart backend on wake from macOS sleep

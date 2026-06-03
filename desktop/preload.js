@@ -57,5 +57,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Backend recovery notification (desktop only — after auto-restart succeeds)
   onBackendRestarted: (callback) => {
     ipcRenderer.on('backend:restarted', () => callback());
-  }
+  },
+
+  // Backend health state changes (desktop only)
+  onBackendHealthState: (callback) => {
+    ipcRenderer.on('backend:healthState', (event, state) => callback(state));
+  },
+
+  // Request current backend health state (desktop only — for initialization)
+  getBackendHealthState: () => ipcRenderer.invoke('backend:getHealthState')
 });

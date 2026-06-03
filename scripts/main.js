@@ -177,6 +177,42 @@ class MarkdownViewerApp {
                     console.warn('[App] Failed to refresh config after restart:', error.message);
                 }
             });
+
+            // Backend health indicator (desktop only)
+            const healthBtn = document.getElementById('btn-backend-health');
+            if (healthBtn) {
+                healthBtn.style.display = '';
+                const healthDot = healthBtn.querySelector('.health-dot');
+
+                const updateHealthUI = (state) => {
+                    healthDot.className = 'health-dot';
+                    switch (state) {
+                        case 'healthy':
+                            healthDot.classList.add('health-dot--healthy');
+                            healthBtn.title = 'Backend: healthy';
+                            break;
+                        case 'degraded':
+                            healthDot.classList.add('health-dot--degraded');
+                            healthBtn.title = 'Backend: reconnecting...';
+                            break;
+                        case 'down':
+                            healthDot.classList.add('health-dot--down');
+                            healthBtn.title = 'Backend: offline';
+                            break;
+                        default:
+                            healthDot.classList.add('health-dot--checking');
+                            healthBtn.title = 'Backend: checking...';
+                    }
+                };
+
+                // Listen for state changes
+                window.electronAPI.onBackendHealthState(updateHealthUI);
+
+                // Request current state immediately (handles late initialization)
+                window.electronAPI.getBackendHealthState().then((state) => {
+                    if (state) updateHealthUI(state);
+                }).catch(() => {});
+            }
         }
     }
 

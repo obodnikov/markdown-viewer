@@ -473,16 +473,19 @@ class FlaskManager {
         if (this._monitorGeneration !== generation) return;
         if (this._consecutiveFailures > 0) {
           console.log('[FlaskManager] Backend recovered — health check OK');
+          this._emit('healthRecovered');
         }
         this._consecutiveFailures = 0;
       } catch {
         if (this._monitorGeneration !== generation) return;
         this._consecutiveFailures++;
         console.warn(`[FlaskManager] Health check failed (${this._consecutiveFailures}/${maxFailures})`);
+        this._emit('healthCheckFailed', this._consecutiveFailures);
 
         if (this._consecutiveFailures >= maxFailures) {
           console.error('[FlaskManager] Backend unresponsive — auto-restarting...');
           this._consecutiveFailures = 0;
+          this._emit('restarting');
           // Fire-and-forget from the monitor's perspective — errors are emitted as events
           this._autoRestart().catch(() => {});
         }
