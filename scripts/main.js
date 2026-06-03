@@ -178,6 +178,28 @@ class MarkdownViewerApp {
                 }
             });
 
+            // Manual refresh config button (desktop only)
+            const refreshBtn = document.getElementById('btn-refresh-config');
+            if (refreshBtn) {
+                refreshBtn.style.display = '';
+                refreshBtn.addEventListener('click', async () => {
+                    refreshBtn.disabled = true;
+                    refreshBtn.title = 'Refreshing...';
+                    try {
+                        await Promise.all([
+                            this.transform.loadModels(),
+                            this.transform.loadLanguages()
+                        ]);
+                        refreshBtn.title = 'Refresh models & languages';
+                    } catch (error) {
+                        console.warn('[App] Manual config refresh failed:', error.message);
+                        refreshBtn.title = 'Refresh failed — click to retry';
+                    } finally {
+                        refreshBtn.disabled = false;
+                    }
+                });
+            }
+
             // Backend health indicator (desktop only)
             const healthBtn = document.getElementById('btn-backend-health');
             if (healthBtn) {

@@ -122,6 +122,24 @@
     cursor: default;
 }
 
+.toolbar__refresh-config {
+    padding: var(--space-1);
+    font-size: var(--font-size-base);
+}
+
+.toolbar__refresh-config .icon {
+    font-size: var(--font-size-base);
+    transition: transform var(--transition-base);
+}
+
+.toolbar__refresh-config:hover .icon {
+    transform: rotate(180deg);
+}
+
+.toolbar__refresh-config:disabled .icon {
+    animation: spin 1s linear infinite;
+}
+
 .health-dot {
     display: block;
     width: 10px;
