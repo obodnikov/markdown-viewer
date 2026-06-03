@@ -131,6 +131,7 @@ class OpenRouterService:
         Returns:
             Formatted prompt string
         """
+        params = params or {}
         if operation == 'translate':
             target_lang = params.get('target_language', 'English')
             return (
@@ -167,6 +168,10 @@ class OpenRouterService:
         elif operation == 'expand':
             return f"Expand and elaborate on the following markdown content:\n\n{content}"
 
+        elif operation == 'custom_prompt':
+            user_prompt = params.get('prompt', '')
+            return f"{user_prompt}\n\n---\n\n{content}"
+
         else:
             raise ValueError(f"Unknown operation: {operation}")
 
@@ -178,6 +183,73 @@ class OpenRouterService:
         """
         from backend.config import Config
         return Config.OPENROUTER_MODELS
+
+    def transform_text_chunk(
+        self,
+        chunk_content: str,
+        operation: str,
+        params: Optional[Dict[str, Any]] = None,
+        model: Optional[str] = None,
+        overlap_context: str = "",
+    ) -> str:
+        """Transform a single chunk of markdown content using LLM.
+
+        Similar to transform_text but includes overlap context for coherence
+        when processing chunked documents.
+
+        Args:
+            chunk_content: Markdown chunk to transform.
+            operation: Type of transformation (translate, reformat, etc.)
+            params: Additional parameters for the operation.
+            model: Override default model.
+            overlap_context: Read-only context from previous chunk for coherence.
+
+        Returns:
+            Transformed markdown content for this chunk.
+        """
+        params = params or {}
+        model = model or self.default_model
+
+        # Build system prompt with chunking awareness
+        system_prompt = (
+            "You are a markdown transformation assistant processing a SECTION of a larger document. "
+            "Preserve ALL markdown syntax (headers, lists, links, code blocks, tables, images). "
+            "Only modify the text content as requested. "
+            "Return ONLY the transformed markdown with ZERO explanations, comments, or meta-commentary. "
+            "NEVER add phrases like 'Would you like me to continue', 'Continue with...', '[Continue...]', etc. "
+            "IMPORTANT: Complete the ENTIRE transformation of this section from beginning to end. "
+            "Your response should START with the transformed content and END with the transformed content. Nothing else."
+        )
+
+        # Build user prompt with overlap context
+        user_prompt = self._build_prompt(operation, chunk_content, params)
+
+        if overlap_context:
+            user_prompt = (
+                f"[CONTEXT FROM PREVIOUS SECTION - DO NOT TRANSLATE/TRANSFORM THIS, "
+                f"it is provided only for continuity and tone reference:]\n"
+                f"{overlap_context}\n\n"
+                f"[END OF CONTEXT - TRANSFORM ONLY THE FOLLOWING SECTION:]\n\n"
+                f"{user_prompt}"
+            )
+
+        try:
+            from backend.config import Config
+
+            response = self.client.chat.send(
+                model=model,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt}
+                ],
+                max_tokens=Config.OPENROUTER_MAX_TOKENS,
+                temperature=0.3
+            )
+
+            return response.choices[0].message.content.strip()
+
+        except Exception as e:
+            raise RuntimeError(f"OpenRouter API error: {str(e)}")
 
     def generate_regex_pattern(
         self,

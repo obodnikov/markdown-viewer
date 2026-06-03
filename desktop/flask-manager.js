@@ -46,9 +46,15 @@ class FlaskManager {
       return this.port;
     }
 
+    // Kill any orphaned backend processes from a previous crash/force-quit
+    this._killOrphanedBackends();
+
     // Use configured port or find a free one
     const configuredPort = this.settingsManager.get('flaskPort', 0);
     const getPort = await import('get-port');
+
+    // Wide preferred range (5050–5099) so multiple instances can coexist
+    const preferredPorts = Array.from({ length: 50 }, (_, i) => 5050 + i);
 
     if (configuredPort > 0) {
       // Verify the configured port is actually available
@@ -58,12 +64,20 @@ class FlaskManager {
         console.log(`[FlaskManager] Using configured port ${this.port}`);
       } else {
         console.warn(`[FlaskManager] Configured port ${configuredPort} is in use, auto-detecting...`);
-        this.port = await getPort.default({ port: [5050, 5051, 5052, 5053, 5054] });
+        this.port = await getPort.default({ port: preferredPorts });
         console.log(`[FlaskManager] Fell back to port ${this.port}`);
       }
     } else {
-      this.port = await getPort.default({ port: [5050, 5051, 5052, 5053, 5054] });
+      this.port = await getPort.default({ port: preferredPorts });
       console.log(`[FlaskManager] Auto-detected free port ${this.port}`);
+    }
+
+    // Double-check the port is truly free right before spawning (race condition guard)
+    const verifyPort = await getPort.default({ port: [this.port] });
+    if (verifyPort !== this.port) {
+      console.warn(`[FlaskManager] Port ${this.port} became unavailable, retrying...`);
+      this.port = await getPort.default({ port: preferredPorts });
+      console.log(`[FlaskManager] Re-assigned to port ${this.port}`);
     }
 
     // Build environment variables from settings
@@ -305,6 +319,56 @@ class FlaskManager {
     return { available: false, version: null, path: null };
   }
 
+  /**
+   * Kill orphaned backend processes left over from a previous crash or force-quit.
+   * Only kills processes matching our backend binary name that are NOT children of
+   * the current Electron process.
+   */
+  _killOrphanedBackends() {
+    try {
+      const binaryName = process.platform === 'win32'
+        ? 'markdown-viewer-backend.exe'
+        : 'markdown-viewer-backend';
+
+      if (process.platform === 'win32') {
+        // Windows: use tasklist/taskkill
+        const output = execFileSync('tasklist', ['/FI', `IMAGENAME eq ${binaryName}`, '/FO', 'CSV', '/NH'], {
+          timeout: 5000, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe']
+        });
+        const lines = output.trim().split('\n').filter(l => l.includes(binaryName));
+        for (const line of lines) {
+          const match = line.match(/"[^"]*","(\d+)"/);
+          if (match) {
+            const pid = parseInt(match[1], 10);
+            console.log(`[FlaskManager] Killing orphaned backend (PID ${pid})`);
+            try { process.kill(pid, 'SIGTERM'); } catch { /* already gone */ }
+          }
+        }
+      } else {
+        // macOS/Linux: use pkill or manual pgrep+kill
+        const output = execFileSync('pgrep', ['-f', binaryName], {
+          timeout: 5000, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe']
+        }).trim();
+
+        if (output) {
+          const pids = output.split('\n').map(p => parseInt(p, 10)).filter(p => !isNaN(p));
+          for (const pid of pids) {
+            console.log(`[FlaskManager] Killing orphaned backend (PID ${pid})`);
+            try { process.kill(pid, 'SIGTERM'); } catch { /* already gone */ }
+          }
+
+          // Brief pause to let the OS release the port
+          if (pids.length > 0) {
+            const { execSync } = require('child_process');
+            execSync('sleep 0.5', { stdio: 'ignore' });
+          }
+        }
+      }
+    } catch {
+      // pgrep returns exit code 1 when no processes match — that's fine
+    }
+  }
+
 
   async _waitForReady(maxRetries = 30, interval = 500) {
     for (let i = 0; i < maxRetries; i++) {
@@ -332,15 +396,32 @@ class FlaskManager {
 
       if (result && result.exited) {
         const stderr = this._stderrBuffer.trim();
+        const portHint = stderr.includes('Address already in use') || stderr.includes('EADDRINUSE')
+          ? `\nPort ${this.port} may be occupied by another process.`
+          : '';
         throw new Error(
-          `Flask exited with code ${result.code} before becoming ready.\n${stderr || '(no error output)'}`
+          `Flask exited with code ${result.code} before becoming ready.${portHint}\n${stderr || '(no error output)'}`
         );
       }
 
       // result === 'retry' — wait and try again
       await new Promise(resolve => setTimeout(resolve, interval));
     }
-    throw new Error('Flask backend failed to start within 15 seconds');
+
+    // Timeout — provide diagnostic info about port usage
+    let portDiag = '';
+    try {
+      const { execFileSync } = require('child_process');
+      const lsofOutput = execFileSync('lsof', ['-i', `:${this.port}`, '-P', '-n'], {
+        timeout: 3000, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe']
+      }).trim();
+      if (lsofOutput) {
+        portDiag = `\nPort ${this.port} usage:\n${lsofOutput}`;
+      }
+    } catch {
+      // lsof not available or no results — skip
+    }
+    throw new Error(`Flask backend failed to start within 15 seconds${portDiag}`);
   }
 
   _healthCheck() {
