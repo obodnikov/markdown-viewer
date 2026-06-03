@@ -163,6 +163,20 @@ class MarkdownViewerApp {
             window.electronAPI.onFileOpened((fileData) => {
                 this.loadDocument(fileData.name, fileData.content, fileData.path);
             });
+
+            // Backend restart recovery — refresh config from new backend instance
+            window.electronAPI.onBackendRestarted(async () => {
+                console.log('[App] Backend restarted — refreshing models and languages...');
+                try {
+                    await Promise.all([
+                        this.transform.loadModels(),
+                        this.transform.loadLanguages()
+                    ]);
+                    console.log('[App] Config refreshed successfully after backend restart');
+                } catch (error) {
+                    console.warn('[App] Failed to refresh config after restart:', error.message);
+                }
+            });
         }
     }
 

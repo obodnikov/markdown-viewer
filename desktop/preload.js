@@ -52,5 +52,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Menu actions from native menu bar
   onMenuAction: (action, callback) => {
     ipcRenderer.on(`menu:${action}`, () => callback());
+  },
+
+  // Backend recovery notification (desktop only — after auto-restart succeeds)
+  onBackendRestarted: (callback) => {
+    ipcRenderer.on('backend:restarted', () => callback());
   }
 });
