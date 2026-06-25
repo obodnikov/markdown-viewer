@@ -52,5 +52,18 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Menu actions from native menu bar
   onMenuAction: (action, callback) => {
     ipcRenderer.on(`menu:${action}`, () => callback());
-  }
+  },
+
+  // Backend recovery notification (desktop only — after auto-restart succeeds)
+  onBackendRestarted: (callback) => {
+    ipcRenderer.on('backend:restarted', () => callback());
+  },
+
+  // Backend health state changes (desktop only)
+  onBackendHealthState: (callback) => {
+    ipcRenderer.on('backend:healthState', (event, state) => callback(state));
+  },
+
+  // Request current backend health state (desktop only — for initialization)
+  getBackendHealthState: () => ipcRenderer.invoke('backend:getHealthState')
 });

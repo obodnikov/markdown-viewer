@@ -37,7 +37,10 @@ const MIME_TYPES = {
   '.txt':  'text/plain'
 };
 
-let flaskPort = null;
+// Resolver for the current Flask port. Reads live from FlaskManager so the
+// proxy always targets the active backend — even after a restart (sleep/idle
+// recovery, settings change) picks a different port. Set via registerProtocol().
+let getFlaskPort = () => null;
 
 function getProjectRoot() {
   const { app } = require('electron');
@@ -47,8 +50,14 @@ function getProjectRoot() {
   return path.resolve(__dirname, '..');
 }
 
-function registerProtocol(port) {
-  flaskPort = port;
+function registerProtocol(portOrResolver) {
+  // Accept either a static port number (back-compat) or a function returning
+  // the current port. The function form keeps the proxy in sync with the live
+  // backend port across restarts — a captured static value goes stale and
+  // every /api/* request fails while the health lamp still reads green.
+  getFlaskPort = typeof portOrResolver === 'function'
+    ? portOrResolver
+    : () => portOrResolver;
 
   protocol.handle('app', async (request) => {
     const url = new URL(request.url);
@@ -65,6 +74,7 @@ function registerProtocol(port) {
 }
 
 async function proxyToFlask(originalRequest, apiPath) {
+  const flaskPort = getFlaskPort();
   if (!flaskPort) {
     return new Response(
       JSON.stringify({ error: 'Backend not available' }),

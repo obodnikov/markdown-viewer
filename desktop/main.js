@@ -23,6 +23,33 @@ let flaskPort = null;
 let _resumeHandler = null;
 const settingsManager = new SettingsManager();
 
+// Current backend health state — broadcast to renderers, queried by new windows
+let currentHealthState = 'healthy';
+
+// Broadcast a health-state change to all open windows (drives the toolbar lamp).
+function broadcastHealthState(state) {
+  currentHealthState = state;
+  for (const [, entry] of windows) {
+    if (entry.browserWindow && !entry.browserWindow.isDestroyed()) {
+      entry.browserWindow.webContents.send('backend:healthState', state);
+    }
+  }
+}
+
+// Tell all windows the backend is freshly available so they reload config
+// (models, languages) from it. Used after both an auto-restart and a
+// settings-change restart — the latter does not go through FlaskManager's
+// 'restarted' event, so without this the renderer keeps stale config.
+function notifyBackendRestarted() {
+  console.log('[Main] Backend restarted — notifying all windows');
+  broadcastHealthState('healthy');
+  for (const [, entry] of windows) {
+    if (entry.browserWindow && !entry.browserWindow.isDestroyed()) {
+      entry.browserWindow.webContents.send('backend:restarted');
+    }
+  }
+}
+
 // --- Single instance lock ---
 let pendingFilePaths = [];
 
@@ -434,14 +461,31 @@ app.whenReady().then(async () => {
     console.log(`[Main] Flask backend running on port ${flaskPort}`);
   } catch (error) {
     console.error(`[Main] Flask failed to start: ${error.message}`);
-    dialog.showErrorBox(
-      'Backend Error',
-      `Failed to start the Flask backend.\n\n${error.message}\n\nThe app will open but API features won't work.`
-    );
+    // Retry once — the first failure is often transient (leftover process from
+    // a crash, port contention). restart() re-runs orphan cleanup and port
+    // detection. Without this, a cold-start failure leaves the app unusable
+    // until the 30s health monitor happens to recover it.
+    try {
+      console.log('[Main] Retrying Flask startup...');
+      flaskPort = await flaskManager.restart();
+      console.log(`[Main] Flask backend running on port ${flaskPort} after retry`);
+    } catch (retryError) {
+      console.error(`[Main] Flask retry failed: ${retryError.message}`);
+      dialog.showErrorBox(
+        'Backend Error',
+        `Failed to start the Flask backend.\n\n${retryError.message}\n\n` +
+        `The app will open but API features won't work until the backend recovers.`
+      );
+    }
   }
 
-  // Register protocol once — must happen before first loadURL
-  registerProtocol(flaskPort);
+  // Register protocol once — must happen before first loadURL.
+  // Pass a live resolver (not the captured flaskPort) so the proxy always
+  // targets the current backend port. After an auto-restart or settings change
+  // the backend may bind a different port; a static value would go stale and
+  // every /api/* request would fail with "Backend not available" even while
+  // the health lamp (which reads the live port) shows green.
+  registerProtocol(() => (flaskManager ? flaskManager.port : null));
 
   // Open pending files from macOS open-file events or CLI args
   const filesToOpen = [...pendingFilePaths];
@@ -489,16 +533,12 @@ app.whenReady().then(async () => {
     flaskManager.startHealthMonitor();
 
     flaskManager.on('restarted', () => {
-      console.log('[Main] Backend restarted — notifying all windows');
-      for (const [, entry] of windows) {
-        if (entry.browserWindow && !entry.browserWindow.isDestroyed()) {
-          entry.browserWindow.webContents.send('backend:restarted');
-        }
-      }
+      notifyBackendRestarted();
     });
 
     flaskManager.on('restartFailed', (error) => {
       console.error(`[Main] Backend restart failed: ${error.message}`);
+      broadcastHealthState('down');
       const focusedWin = BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0];
       if (focusedWin && !focusedWin.isDestroyed()) {
         dialog.showErrorBox(
@@ -507,6 +547,23 @@ app.whenReady().then(async () => {
         );
       }
     });
+
+    // Health degradation (consecutive failures before restart threshold)
+    flaskManager.on('healthCheckFailed', () => {
+      broadcastHealthState('degraded');
+    });
+
+    flaskManager.on('restarting', () => {
+      broadcastHealthState('degraded');
+    });
+
+    // Recovery from transient failures (health check passes after failures)
+    flaskManager.on('healthRecovered', () => {
+      broadcastHealthState('healthy');
+    });
+
+    // Send current health state to newly created windows once they finish loading
+    ipcMain.handle('backend:getHealthState', () => currentHealthState);
   }
 
   // Restart backend on wake from macOS sleep
@@ -679,9 +736,14 @@ ipcMain.handle('settings:set', async (event, settings) => {
     try {
       await flaskManager.restart();
       console.log('[Main] Flask restarted with new settings');
+      // restart() bypasses FlaskManager's 'restarted' event, so notify windows
+      // directly — refreshes the toolbar lamp and reloads models/languages so
+      // the UI reflects the new settings (e.g. changed model/language lists).
+      notifyBackendRestarted();
       return { success: true };
     } catch (error) {
       console.error(`[Main] Flask restart failed: ${error.message}`);
+      broadcastHealthState('down');
       return { success: false, error: error.message };
     }
   }

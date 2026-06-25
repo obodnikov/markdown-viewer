@@ -163,6 +163,100 @@ class MarkdownViewerApp {
             window.electronAPI.onFileOpened((fileData) => {
                 this.loadDocument(fileData.name, fileData.content, fileData.path);
             });
+
+            // Backend restart recovery — refresh config from new backend instance
+            window.electronAPI.onBackendRestarted(async () => {
+                console.log('[App] Backend restarted — refreshing models and languages...');
+                try {
+                    await Promise.all([
+                        this.transform.loadModels(),
+                        this.transform.loadLanguages()
+                    ]);
+                    console.log('[App] Config refreshed successfully after backend restart');
+                } catch (error) {
+                    console.warn('[App] Failed to refresh config after restart:', error.message);
+                }
+            });
+
+            // Manual refresh config button (desktop only)
+            const refreshBtn = document.getElementById('btn-refresh-config');
+            if (refreshBtn) {
+                refreshBtn.style.display = '';
+                refreshBtn.addEventListener('click', async () => {
+                    refreshBtn.disabled = true;
+                    refreshBtn.title = 'Refreshing...';
+                    try {
+                        await Promise.all([
+                            this.transform.loadModels(),
+                            this.transform.loadLanguages()
+                        ]);
+                        refreshBtn.title = 'Refresh models & languages';
+                    } catch (error) {
+                        console.warn('[App] Manual config refresh failed:', error.message);
+                        refreshBtn.title = 'Refresh failed — click to retry';
+                    } finally {
+                        refreshBtn.disabled = false;
+                    }
+                });
+            }
+
+            // Backend health indicator (desktop only)
+            const healthBtn = document.getElementById('btn-backend-health');
+            if (healthBtn) {
+                healthBtn.style.display = '';
+                const healthDot = healthBtn.querySelector('.health-dot');
+                let previousHealthState = null;
+                let refreshInFlight = false;
+
+                const updateHealthUI = async (state) => {
+                    const wasUnhealthy = previousHealthState && previousHealthState !== 'healthy';
+                    previousHealthState = state;
+
+                    healthDot.className = 'health-dot';
+                    switch (state) {
+                        case 'healthy':
+                            healthDot.classList.add('health-dot--healthy');
+                            healthBtn.title = 'Backend: healthy';
+                            break;
+                        case 'degraded':
+                            healthDot.classList.add('health-dot--degraded');
+                            healthBtn.title = 'Backend: reconnecting...';
+                            break;
+                        case 'down':
+                            healthDot.classList.add('health-dot--down');
+                            healthBtn.title = 'Backend: offline';
+                            break;
+                        default:
+                            healthDot.classList.add('health-dot--checking');
+                            healthBtn.title = 'Backend: checking...';
+                    }
+
+                    // Refresh config when backend recovers from degraded/down state
+                    if (state === 'healthy' && wasUnhealthy && !refreshInFlight) {
+                        refreshInFlight = true;
+                        console.log('[App] Backend recovered — refreshing models and languages...');
+                        try {
+                            await Promise.all([
+                                this.transform.loadModels(),
+                                this.transform.loadLanguages()
+                            ]);
+                            console.log('[App] Config refreshed after recovery');
+                        } catch (error) {
+                            console.warn('[App] Failed to refresh config after recovery:', error.message);
+                        } finally {
+                            refreshInFlight = false;
+                        }
+                    }
+                };
+
+                // Listen for state changes
+                window.electronAPI.onBackendHealthState(updateHealthUI);
+
+                // Request current state immediately (handles late initialization)
+                window.electronAPI.getBackendHealthState().then((state) => {
+                    if (state) updateHealthUI(state);
+                }).catch(() => {});
+            }
         }
     }
 
