@@ -5,6 +5,22 @@ All notable changes to the Markdown Viewer & Editor project will be documented i
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.8.0] - 2026-06-25
+
+### Added
+- Backend health indicator in the desktop toolbar
+- Manual refresh button for models and languages in the toolbar
+- Chunked LLM processing for large documents with streaming progress
+- Chunked processing extended to Custom Prompt and Restore Markdown actions
+- Content size guard for LLM endpoints (80% token limit)
+
+### Fixed
+- Proxy live backend port so API calls survive backend restarts
+- Refresh models/languages on health recovery, not only on restart
+- Refresh models and languages after backend restart
+- Kill orphaned backend processes before port allocation
+- Improved Flask backend port allocation for multi-instance scenarios
+
 ## [2.7.1] - 2026-03-24
 
 ### Added
