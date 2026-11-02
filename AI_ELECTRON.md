@@ -21,6 +21,19 @@ Derived from real bugs encountered during implementation.
 - `electron-store` v8+ and `get-port` v7+ are ESM-only. Pin to v7/v6 respectively
   if the codebase uses CommonJS (`require()`).
 
+## Packaging Tool Failures
+
+- `extract-zip` with `yauzl` 2 stops silently on Node 24.16–24.17 and 26: `electron-forge make`
+  exits with code 0 at the "Extracting" step and creates no installer (electron/forge#4277).
+  `desktop/package.json` overrides `yauzl` to 3.3.1 for this; keep the override until Forge
+  no longer depends on `yauzl` 2.
+- Exit code 0 from `npm run make` does not prove it worked. Check that the file in `out/make/`
+  was updated.
+- `fs-xattr` and `macos-alias` are native modules built for one Node major version. On another
+  major version the DMG step fails with a module version error until they are rebuilt for it.
+- npm 12 blocks install scripts until they are approved (`npm install-scripts ls`), including
+  those of `electron`, `fs-xattr` and `macos-alias`. Check them after a fresh install.
+
 ## Protocol Registration
 
 - `protocol.handle()` can only be called once per scheme. Never call `registerProtocol()`

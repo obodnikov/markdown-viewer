@@ -28,5 +28,8 @@
     "@electron-forge/maker-rpm": "^7.0.0",
     "@electron-forge/maker-zip": "^7.0.0",
     "vitest": "^2.1.8"
+  },
+  "overrides": {
+    "yauzl": "3.3.1"
   }
 }
