@@ -1,5 +1,6 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import path from 'path';
+import os from 'os';
 
 // electron mock is handled by test/setup.js (Module._resolveFilename patch)
 
@@ -74,6 +75,115 @@ describe('FlaskManager', () => {
       expect(env.GITHUB_CLIENT_ID).toBe('gh-id');
       expect(env.BOOKSTACK_URL).toBe('https://books.example.com');
     });
+    it('passes found tools to the backend', () => {
+      fm.port = 5050;
+      vi.spyOn(fm, '_findTool').mockImplementation((settingKey, toolName) => `/found/${toolName}`);
+      const env = fm._buildEnv();
+      expect(fm._findTool).toHaveBeenCalledWith('pandocPath', 'pandoc');
+      expect(fm._findTool).toHaveBeenCalledWith('pdfEnginePath', 'xelatex');
+      expect(fm._findTool).toHaveBeenCalledWith('rsvgConvertPath', 'rsvg-convert');
+      expect(env.PANDOC_PATH).toBe('/found/pandoc');
+      expect(env.PDF_ENGINE).toBe('/found/xelatex');
+      expect(env.RSVG_CONVERT_PATH).toBe('/found/rsvg-convert');
+    });
+    it('passes configured PDF fonts', () => {
+      const customFm = new FlaskManager(createMockSettings({
+        pdfMainFont: ' Georgia ', pdfMonoFont: 'Courier New',
+      }), false);
+      customFm.port = 5050;
+      const env = customFm._buildEnv();
+      expect(env.PDF_MAIN_FONT).toBe('Georgia');
+      expect(env.PDF_MONO_FONT).toBe('Courier New');
+    });
+
+    describe('default PDF fonts', () => {
+      const originalPlatform = process.platform;
+      const envOn = (platform) => {
+        Object.defineProperty(process, 'platform', { value: platform });
+        fm.port = 5050;
+        return fm._buildEnv();
+      };
+
+      afterEach(() => {
+        Object.defineProperty(process, 'platform', { value: originalPlatform });
+      });
+
+      it('uses fonts with Cyrillic on macOS', () => {
+        const env = envOn('darwin');
+        expect(env.PDF_MAIN_FONT).toBe('Times New Roman');
+        expect(env.PDF_MONO_FONT).toBe('Menlo');
+      });
+      it('uses fonts with Cyrillic on Windows', () => {
+        const env = envOn('win32');
+        expect(env.PDF_MAIN_FONT).toBe('Times New Roman');
+        expect(env.PDF_MONO_FONT).toBe('Consolas');
+      });
+      it('sets no fonts on Linux', () => {
+        const env = envOn('linux');
+        expect(env.PDF_MAIN_FONT).toBe('');
+        expect(env.PDF_MONO_FONT).toBe('');
+      });
+    });
+  });
+
+  describe('_findTool', () => {
+    const withSetting = (value) => new FlaskManager(createMockSettings({ pdfEnginePath: value }), false);
+
+    it('uses the configured path when it works', () => {
+      const customFm = withSetting('/custom/xelatex');
+      vi.spyOn(customFm, '_getToolVersion').mockReturnValue('XeTeX 3');
+      expect(customFm._findTool('pdfEnginePath', 'xelatex')).toBe('/custom/xelatex');
+      expect(customFm._getToolVersion).toHaveBeenCalledTimes(1);
+    });
+    it('ignores spaces around the configured path', () => {
+      const customFm = withSetting('  /custom/xelatex ');
+      vi.spyOn(customFm, '_getToolVersion').mockReturnValue('XeTeX 3');
+      expect(customFm._findTool('pdfEnginePath', 'xelatex')).toBe('/custom/xelatex');
+    });
+    it('falls back to auto-detect when the configured path does not work', () => {
+      const customFm = withSetting('/broken/xelatex');
+      vi.spyOn(customFm, '_getToolVersion').mockImplementation(tool =>
+        tool === '/usr/bin/xelatex' ? 'XeTeX 3' : null
+      );
+      expect(customFm._findTool('pdfEnginePath', 'xelatex')).toBe('/usr/bin/xelatex');
+    });
+    it('searches known folders in order, the user Homebrew folder first', () => {
+      const tried = [];
+      vi.spyOn(fm, '_getToolVersion').mockImplementation((tool) => {
+        tried.push(tool);
+        return null;
+      });
+      fm._findTool('pdfEnginePath', 'xelatex');
+      expect(tried).toEqual([
+        path.join(os.homedir(), '.local', 'Homebrew', 'bin', 'xelatex'),
+        '/opt/homebrew/bin/xelatex',
+        '/usr/local/bin/xelatex',
+        '/Library/TeX/texbin/xelatex',
+        '/usr/bin/xelatex',
+        'xelatex',
+      ]);
+    });
+    it('finds a tool that is only on PATH by its name', () => {
+      vi.spyOn(fm, '_getToolVersion').mockImplementation(tool => (tool === 'xelatex' ? 'XeTeX 3' : null));
+      expect(fm._findTool('pdfEnginePath', 'xelatex')).toBe('xelatex');
+    });
+    it('returns an empty string when the tool is not found', () => {
+      vi.spyOn(fm, '_getToolVersion').mockReturnValue(null);
+      expect(fm._findTool('pdfEnginePath', 'xelatex')).toBe('');
+    });
+  });
+
+  describe('_getToolVersion', () => {
+    it('returns the first line of the version output', () => {
+      const version = fm._getToolVersion(process.execPath);
+      expect(version).toBe(process.version);
+    });
+    it('returns null for a missing program', () => {
+      expect(fm._getToolVersion('/no/such/tool')).toBeNull();
+    });
+    it('returns null for a folder', () => {
+      expect(fm._getToolVersion(__dirname)).toBeNull();
+    });
   });
 
   describe('_isPythonValid', () => {
@@ -113,6 +223,18 @@ describe('FlaskManager', () => {
       } else {
         expect(result.version).toBeNull();
       }
+    });
+    it('reports the tool found by auto-detect', () => {
+      vi.spyOn(fm, '_getToolVersion').mockImplementation(tool =>
+        tool === '/usr/local/bin/pandoc' ? 'pandoc 3.10' : null
+      );
+      expect(fm.checkPandoc()).toEqual({
+        available: true, version: 'pandoc 3.10', path: '/usr/local/bin/pandoc',
+      });
+    });
+    it('reports pandoc as unavailable when it is not found', () => {
+      vi.spyOn(fm, '_getToolVersion').mockReturnValue(null);
+      expect(fm.checkPandoc()).toEqual({ available: false, version: null, path: null });
     });
   });
 

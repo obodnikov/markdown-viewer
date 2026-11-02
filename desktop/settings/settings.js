@@ -6,6 +6,7 @@ const FIELDS = [
   'githubClientId', 'githubClientSecret',
   'bookstackUrl', 'bookstackApiTimeout',
   'pythonPath', 'pandocPath', 'flaskPort',
+  'pdfEnginePath', 'rsvgConvertPath', 'pdfMainFont', 'pdfMonoFont',
   'logLevel'
 ];
 

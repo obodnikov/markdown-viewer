@@ -11,6 +11,8 @@ RUN apt-get update && apt-get install -y \
     texlive-xetex \
     texlive-fonts-recommended \
     texlive-plain-generic \
+    fonts-liberation \
+    librsvg2-bin \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy backend requirements
@@ -54,6 +56,8 @@ EXPOSE 80 5050
 # Set environment
 ENV FLASK_APP=backend/app.py
 ENV PYTHONPATH=/app
+ENV PDF_MAIN_FONT="Liberation Serif"
+ENV PDF_MONO_FONT="Liberation Mono"
 
 # Run supervisor to manage both services
 CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]

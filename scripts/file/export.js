@@ -72,10 +72,27 @@ export class ExportManager {
             const blob = await response.blob();
             this.downloadBlob(blob, `${filename}.pdf`);
 
+            return this.getPdfWarning(response.headers);
+
         } catch (error) {
             console.error('PDF export error:', error);
             throw error;
         }
+    }
+
+    getPdfWarning(headers) {
+        const missing = parseInt(headers.get('X-Export-Missing-Characters'), 10) || 0;
+        const skipped = parseInt(headers.get('X-Export-Skipped-Images'), 10) || 0;
+
+        const problems = [];
+        if (missing) {
+            problems.push(`${missing} ${missing === 1 ? 'character is' : 'characters are'} missing from the font`);
+        }
+        if (skipped) {
+            problems.push(`${skipped} ${skipped === 1 ? 'image was' : 'images were'} not included`);
+        }
+
+        return problems.length > 0 ? `PDF exported, but ${problems.join(' and ')}` : null;
     }
 
     async exportDOCX(content, filename) {

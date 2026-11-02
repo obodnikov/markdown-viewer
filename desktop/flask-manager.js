@@ -3,6 +3,7 @@ const { spawn, execFileSync } = require('child_process');
 const path = require('path');
 const http = require('http');
 const fs = require('fs');
+const os = require('os');
 
 // Python candidates to try during auto-detection, in priority order
 const PYTHON_CANDIDATES = [
@@ -21,6 +22,21 @@ if (process.platform === 'win32') {
     'C:\\Python311\\python.exe'
   );
 }
+
+// Folders to search for external tools: a packaged app does not get the shell's PATH
+const TOOL_FOLDERS = process.platform === 'win32' ? [] : [
+  path.join(os.homedir(), '.local', 'Homebrew', 'bin'),
+  '/opt/homebrew/bin',
+  '/usr/local/bin',
+  '/Library/TeX/texbin',
+  '/usr/bin'
+];
+
+// PDF fonts with Cyrillic, bold and italic; pandoc's default font has no Cyrillic
+const PDF_DEFAULT_FONTS = {
+  darwin: { main: 'Times New Roman', mono: 'Menlo' },
+  win32: { main: 'Times New Roman', mono: 'Consolas' }
+};
 
 class FlaskManager {
   constructor(settingsManager, isDev = false) {
@@ -225,8 +241,47 @@ class FlaskManager {
     }
   }
 
+  /**
+   * Find an external tool.
+   * Priority: 1) user setting  2) known folders  3) PATH
+   * Returns its path, or an empty string when it is not found.
+   */
+  _findTool(settingKey, toolName) {
+    const userPath = this.settingsManager.get(settingKey, '').trim();
+    if (userPath) {
+      if (this._getToolVersion(userPath)) {
+        return userPath;
+      }
+      console.warn(`[FlaskManager] Configured ${settingKey} "${userPath}" is not valid, falling back to auto-detect`);
+    }
+
+    const candidates = [...TOOL_FOLDERS.map(folder => path.join(folder, toolName)), toolName];
+    const found = candidates.find(candidate => this._getToolVersion(candidate));
+    if (found) {
+      console.log(`[FlaskManager] Found ${toolName} at ${found}`);
+      return found;
+    }
+
+    console.warn(`[FlaskManager] ${toolName} not found`);
+    return '';
+  }
+
+  _getToolVersion(toolPath) {
+    try {
+      const output = execFileSync(toolPath, ['--version'], {
+        timeout: 5000,
+        encoding: 'utf-8',
+        stdio: ['pipe', 'pipe', 'pipe']
+      });
+      return output.split('\n')[0].trim() || toolPath;
+    } catch {
+      return null;
+    }
+  }
+
   _buildEnv() {
     const settings = this.settingsManager.getAll();
+    const defaultFonts = PDF_DEFAULT_FONTS[process.platform] || { main: '', mono: '' };
     return {
       BACKEND_PORT: String(this.port),
       BACKEND_HOST: '127.0.0.1',
@@ -245,7 +300,11 @@ class FlaskManager {
       LOG_LEVEL: settings.logLevel || 'INFO',
       SECRET_KEY: settings.secretKey || 'desktop-app-secret-key',
       PYTHONPATH: this._getProjectRoot(),
-      PANDOC_PATH: this.settingsManager.get('pandocPath', '').trim() || ''
+      PANDOC_PATH: this._findTool('pandocPath', 'pandoc'),
+      PDF_ENGINE: this._findTool('pdfEnginePath', 'xelatex'),
+      RSVG_CONVERT_PATH: this._findTool('rsvgConvertPath', 'rsvg-convert'),
+      PDF_MAIN_FONT: (settings.pdfMainFont || '').trim() || defaultFonts.main,
+      PDF_MONO_FONT: (settings.pdfMonoFont || '').trim() || defaultFonts.mono
     };
   }
 
@@ -299,21 +358,11 @@ class FlaskManager {
   }
 
   checkPandoc() {
-    const { execFileSync } = require('child_process');
-    const configuredPath = this.settingsManager.get('pandocPath', '').trim();
-    const candidates = configuredPath
-      ? [configuredPath]
-      : ['pandoc', '/usr/local/bin/pandoc', '/opt/homebrew/bin/pandoc', '/usr/bin/pandoc'];
-
-    for (const candidate of candidates) {
-      try {
-        const output = execFileSync(candidate, ['--version'], { timeout: 5000 });
-        const version = output.toString().split('\n')[0];
-        console.log(`[FlaskManager] Pandoc found: ${version} at ${candidate}`);
-        return { available: true, version, path: candidate };
-      } catch {
-        // try next
-      }
+    const pandocPath = this._findTool('pandocPath', 'pandoc');
+    if (pandocPath) {
+      const version = this._getToolVersion(pandocPath);
+      console.log(`[FlaskManager] Pandoc found: ${version} at ${pandocPath}`);
+      return { available: true, version, path: pandocPath };
     }
     console.warn('[FlaskManager] Pandoc not found — PDF/DOCX export will be unavailable');
     return { available: false, version: null, path: null };

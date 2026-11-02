@@ -114,6 +114,7 @@ def create_app(config_class=Config):
          origins=config_class.CORS_ORIGINS,
          supports_credentials=True,
          allow_headers=['Content-Type', 'Authorization'],
+         expose_headers=['X-Export-Missing-Characters', 'X-Export-Skipped-Images'],
          methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'])
 
     # Register blueprints

@@ -318,6 +318,7 @@ open Settings.
 - **Settings UI** — dark-themed form with validation, encrypted storage, backend restart
 - **First-run onboarding** — welcome dialog prompts for API key configuration
 - **Pandoc detection** — non-blocking dialog with install link if pandoc is missing
+- **PDF tools** — pandoc, PDF engine and SVG converter come from Settings or known install folders; default PDF fonts include Cyrillic (see `CONFIGURATION.md`)
 - **GitHub OAuth** — opens system browser, polls for completion, no redirect needed
 - **Secure IPC bridge** — contextIsolation enabled, no nodeIntegration, explicit API surface
 - **Electron Forge packaging** — DMG (macOS), Squirrel (Windows), DEB/RPM (Linux), ZIP

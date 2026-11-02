@@ -615,8 +615,12 @@ class MarkdownViewerApp {
         const content = this.currentDocument.content;
 
         try {
-            await this.exportManager.export(format, content, filename);
-            this.showToast(`Exported as ${format.toUpperCase()}`, 'success');
+            const warning = await this.exportManager.export(format, content, filename);
+            if (warning) {
+                this.showToast(warning, 'warning');
+            } else {
+                this.showToast(`Exported as ${format.toUpperCase()}`, 'success');
+            }
         } catch (error) {
             this.showToast(`Export failed: ${error.message}`, 'error');
         }

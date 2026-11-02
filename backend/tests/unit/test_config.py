@@ -2,8 +2,44 @@
 Unit tests for configuration module.
 """
 import os
+import runpy
 import pytest
+import config as config_module
 from config import Config
+
+
+def load_config_with_env(monkeypatch, **env):
+    """Load the configuration from scratch with the given environment."""
+    for name, value in env.items():
+        monkeypatch.setenv(name, value)
+    return runpy.run_path(config_module.__file__)['Config']
+
+
+def test_export_tools_keep_defaults_when_values_are_empty(monkeypatch):
+    """The desktop app passes empty values for tools it did not find."""
+    config = load_config_with_env(monkeypatch, PANDOC_PATH='', PDF_ENGINE='', RSVG_CONVERT_PATH='')
+
+    assert config.PANDOC_PATH == 'pandoc'
+    assert config.PDF_ENGINE == 'xelatex'
+    assert config.RSVG_CONVERT_PATH == 'rsvg-convert'
+
+
+def test_export_settings_come_from_environment(monkeypatch):
+    """Test tool paths and fonts are read from the environment."""
+    config = load_config_with_env(
+        monkeypatch,
+        PANDOC_PATH='/opt/pandoc',
+        PDF_ENGINE='/opt/xelatex',
+        RSVG_CONVERT_PATH='/opt/rsvg-convert',
+        PDF_MAIN_FONT='Liberation Serif',
+        PDF_MONO_FONT='Liberation Mono'
+    )
+
+    assert config.PANDOC_PATH == '/opt/pandoc'
+    assert config.PDF_ENGINE == '/opt/xelatex'
+    assert config.RSVG_CONVERT_PATH == '/opt/rsvg-convert'
+    assert config.PDF_MAIN_FONT == 'Liberation Serif'
+    assert config.PDF_MONO_FONT == 'Liberation Mono'
 
 
 def test_config_defaults():

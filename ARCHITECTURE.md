@@ -1,7 +1,7 @@
 # ARCHITECTURE.md
 
 **Version:** 2.7.1
-**Last Updated:** 2026-03-19
+**Last Updated:** 2026-11-02
 **Status:** ✅ Current
 
 ---
@@ -87,7 +87,8 @@ markdown-viewer/
 │   │   ├── openrouter.py     # OpenRouter API client
 │   │   ├── github_service.py # GitHub API wrapper (PyGithub)
 │   │   ├── bookstack_service.py # BookStack API client
-│   │   └── export_service.py # Pandoc wrapper
+│   │   ├── export_service.py # Pandoc wrapper
+│   │   └── pandoc_filters/   # Lua filter run by pandoc (prepares images for LaTeX)
 │   └── tests/                 # pytest test suite
 │       ├── unit/             # Service layer tests
 │       ├── integration/      # Route/API tests
@@ -244,8 +245,10 @@ markdown-viewer/
 
 **Pandoc (Required for export):**
 - CLI tool for document conversion
-- PDF: Uses XeLaTeX engine for Unicode support
+- PDF: Uses XeLaTeX engine; characters appear only if the configured font has them
+- Images: A Lua filter converts SVG with `rsvg-convert` and leaves out images LaTeX cannot read, so one image cannot stop the export
 - Install: System package (brew, apt, etc.)
+- Configuration: See "PDF Export Configuration" in `CONFIGURATION.md`
 
 ### 4.4 Deployment & Infrastructure
 
@@ -288,6 +291,7 @@ markdown-viewer/
 - Single-instance lock: second launch focuses existing window, opens file from argv
 - macOS `open-file` event: double-click `.md` or drag to dock opens in app
 - Settings changes trigger Flask restart with new environment variables
+- External tools: pandoc, PDF engine and SVG converter are looked up on each Flask start (Settings, then known folders, then PATH) and passed to Flask as environment variables
 - First-run onboarding prompts for OpenRouter API key configuration
 - Health monitoring: periodic health checks (30s) with auto-restart after 3 consecutive failures
 - Sleep recovery: `powerMonitor.on('resume')` triggers immediate backend health check
@@ -436,6 +440,13 @@ GITHUB_REDIRECT_URI=http://localhost:5050/api/github/callback
 BOOKSTACK_URL=https://wiki.yourdomain.com
 BOOKSTACK_API_TIMEOUT=30
 
+# Export
+PANDOC_PATH=pandoc                  # Name or full path
+PDF_ENGINE=xelatex                  # Name or full path
+RSVG_CONVERT_PATH=rsvg-convert      # Name or full path
+PDF_MAIN_FONT=                      # Empty = pandoc's default (no Cyrillic)
+PDF_MONO_FONT=                      # Empty = pandoc's default (no Cyrillic)
+
 # CORS
 CORS_ORIGINS=http://localhost:8000,http://127.0.0.1:8000
 ```
@@ -444,7 +455,7 @@ CORS_ORIGINS=http://localhost:8000,http://127.0.0.1:8000
 
 - **Python:** 3.11+ with venv at `venv/`
 - **Node.js:** 18+ (for desktop development and Electron)
-- **pandoc:** Installed system-wide for export features
+- **pandoc:** Installed system-wide for export features; PDF export also needs XeLaTeX, and SVG images need `rsvg-convert` (all included in the Docker image)
 - **Docker:** Uses multi-stage build, supervisor for process management
 - **Browser:** Modern browser with ES6 module support
 - **File System Access API:** Progressive enhancement (has fallback)

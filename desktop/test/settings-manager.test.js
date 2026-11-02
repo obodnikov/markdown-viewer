@@ -28,6 +28,12 @@ describe('SettingsManager', () => {
       expect(sm.get('openrouterApiKey')).toBe('');
       expect(sm.get('githubClientId')).toBe('');
     });
+    it('returns empty strings for PDF export settings (auto-detect, default fonts)', () => {
+      expect(sm.get('pdfEnginePath')).toBe('');
+      expect(sm.get('rsvgConvertPath')).toBe('');
+      expect(sm.get('pdfMainFont')).toBe('');
+      expect(sm.get('pdfMonoFont')).toBe('');
+    });
   });
 
   describe('get/set', () => {

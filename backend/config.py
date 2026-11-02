@@ -72,8 +72,12 @@ class Config:
     # File uploads
     MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16MB max file size
 
-    # Export settings
-    PANDOC_PATH = os.getenv('PANDOC_PATH', 'pandoc')
+    # Export settings (the desktop app passes an empty value for a tool it did not find)
+    PANDOC_PATH = os.getenv('PANDOC_PATH') or 'pandoc'
+    PDF_ENGINE = os.getenv('PDF_ENGINE') or 'xelatex'
+    RSVG_CONVERT_PATH = os.getenv('RSVG_CONVERT_PATH') or 'rsvg-convert'
+    PDF_MAIN_FONT = os.getenv('PDF_MAIN_FONT', '')
+    PDF_MONO_FONT = os.getenv('PDF_MONO_FONT', '')
 
     # Logging
     LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO').upper()

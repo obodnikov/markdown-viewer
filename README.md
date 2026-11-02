@@ -62,10 +62,10 @@ A modern, feature-rich markdown editor with GitHub Flavored Markdown support, LL
   - Create new pages or update existing ones
   - Bidirectional sync: Read from BookStack, edit locally, write back with `PUT /api/pages/{id}`
 - **Drag & Drop** - Drop markdown files to open
-- **Multiple Export Formats** with full Unicode support:
+- **Multiple Export Formats** with Unicode support:
   - Markdown (.md)
   - HTML (.html)
-  - PDF (.pdf) - Uses XeLaTeX for Unicode characters, emojis, non-Latin scripts
+  - PDF (.pdf) - Uses XeLaTeX; shows the characters your configured font covers (Latin and Cyrillic by default)
   - Word (.docx) - Native Unicode support
   - **BookStack** - Export directly to your BookStack wiki
 
@@ -189,13 +189,14 @@ Update your GitHub OAuth app callback URL to match your domain:
    pip install -r backend/requirements.txt
    ```
 
-4. **Install pandoc**
+4. **Install pandoc** (XeLaTeX and librsvg are for PDF export)
    ```bash
    # macOS
-   brew install pandoc
+   brew install pandoc librsvg
+   brew install --cask mactex
 
    # Ubuntu/Debian
-   sudo apt-get install pandoc texlive-xetex
+   sudo apt-get install pandoc texlive-xetex librsvg2-bin fonts-liberation
 
    # Windows
    # Download from: https://pandoc.org/installing.html
@@ -428,6 +429,9 @@ markdown-viewer/
 
 ### "pandoc not found" error
 Install pandoc: https://pandoc.org/installing.html
+
+### PDF export problems
+See "PDF Export Configuration" in [CONFIGURATION.md](CONFIGURATION.md) for the PDF engine, SVG images and fonts.
 
 ### GitHub OAuth not working
 1. Check callback URL matches in GitHub app settings
