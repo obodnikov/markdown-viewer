@@ -300,7 +300,7 @@ POST /api/github/logout
 
 ## File Size Compliance
 
-All JavaScript files under 800 lines (per [AI.md](AI.md)):
+All JavaScript files under 800 lines (per [AI_FRONTEND.md](AI_FRONTEND.md)):
 ```
 ✅ main.js:              ~180 lines
 ✅ editor/editor.js:     ~90 lines
@@ -416,7 +416,7 @@ Update GitHub app settings:
 ## Success Criteria
 
 ✅ All features from requirements implemented
-✅ Follows [AI.md](AI.md) coding guidelines
+✅ Follows [AI_FRONTEND.md](AI_FRONTEND.md) coding guidelines
 ✅ Material Design 3 aesthetic
 ✅ No inline CSS/JS
 ✅ ES6 modules with <800 line files
@@ -431,7 +431,7 @@ Update GitHub app settings:
 
 For questions about this implementation, refer to:
 - [README.md](README.md) - Full user documentation
-- [AI.md](AI.md) - Frontend coding guidelines
+- [AI_FRONTEND.md](AI_FRONTEND.md) - Frontend coding guidelines
 - [CLAUDE.md](CLAUDE.md) - Project rules
 
 **The project is ready for testing and further development!**

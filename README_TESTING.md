@@ -648,7 +648,7 @@ test('...', async ({ page }) => {
 
 For questions or issues, refer to:
 - [AI_FLASK.md](AI_FLASK.md) - Backend coding guidelines
-- [AI.md](AI.md) - Frontend coding guidelines
+- [AI_FRONTEND.md](AI_FRONTEND.md) - Frontend coding guidelines
 - [CLAUDE.md](CLAUDE.md) - Project rules
 
 ---

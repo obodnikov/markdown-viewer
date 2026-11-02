@@ -413,7 +413,7 @@ markdown-viewer/
 
 ### Code Guidelines
 
-- Follow [AI.md](AI.md) for frontend coding standards
+- Follow [AI_FRONTEND.md](AI_FRONTEND.md) for frontend coding standards
 - Material Design 3 principles
 - No inline CSS/JS
 - ES modules for JavaScript
@@ -469,7 +469,7 @@ MIT License - see LICENSE file for details
 
 ## Contributing
 
-1. Follow coding guidelines in [AI.md](AI.md)
+1. Follow coding guidelines in [AI_FRONTEND.md](AI_FRONTEND.md)
 2. Test all changes locally
 3. Submit pull requests with clear descriptions
 
