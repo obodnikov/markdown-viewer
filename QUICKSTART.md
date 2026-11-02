@@ -207,6 +207,7 @@ CORS_ORIGINS=http://localhost:8000
 - `Ctrl/Cmd + O` - Open file
 - `Ctrl/Cmd + N` - New document
 - `Ctrl/Cmd + E` - Export dialog
+- `Ctrl/Cmd + F` - Find in the open document
 
 ### Transform Operations
 1. **Translation** - Translate to 9 languages

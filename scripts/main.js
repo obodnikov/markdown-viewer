@@ -14,6 +14,7 @@ import { EditableTitle } from './ui/editable-title.js';
 import { tokenizer } from './utils/tokenizer.js';
 import { ScrollSync } from './editor/sync.js';
 import { APIClient } from './utils/api.js';
+import { FindBar } from './search/find-bar.js';
 
 class MarkdownViewerApp {
     constructor() {
@@ -27,6 +28,7 @@ class MarkdownViewerApp {
         this.storage = null;
         this.editableTitle = null;
         this.scrollSync = null;
+        this.findBar = null;
         this._anchorHandlerAttached = false;
 
         this.currentDocument = {
@@ -82,6 +84,15 @@ class MarkdownViewerApp {
             this.editor,
             document.getElementById('preview-pane')
         );
+
+        // Initialize find bar
+        this.findBar = new FindBar({
+            editor: this.editor,
+            previewElement: document.getElementById('preview'),
+            previewPane: document.getElementById('preview-pane'),
+            splitPane: document.getElementById('split-pane'),
+            onOpenReplace: (prefill) => this.transform.openFindReplaceDialog(prefill)
+        });
 
         // Setup event listeners
         this.setupEventListeners();
@@ -159,6 +170,7 @@ class MarkdownViewerApp {
             window.electronAPI.onMenuAction('export', () => this.showExportDialog());
             window.electronAPI.onMenuAction('github', () => this.showGitHubDialog());
             window.electronAPI.onMenuAction('bookstack', () => this.showBookStackDialog());
+            window.electronAPI.onMenuAction('find', () => this.findBar.open());
 
             window.electronAPI.onFileOpened((fileData) => {
                 this.loadDocument(fileData.name, fileData.content, fileData.path);
@@ -318,6 +330,9 @@ class MarkdownViewerApp {
             });
             this._anchorHandlerAttached = true;
         }
+
+        // The preview was rebuilt, so its highlights are gone
+        this.findBar?.refresh();
     }
 
     async updateStatus() {
@@ -364,6 +379,8 @@ class MarkdownViewerApp {
                 this.scrollSync.disable();
             }
         }
+
+        this.findBar?.refresh();
     }
 
     toggleSidebar() {
@@ -615,8 +632,12 @@ class MarkdownViewerApp {
         const content = this.currentDocument.content;
 
         try {
-            await this.exportManager.export(format, content, filename);
-            this.showToast(`Exported as ${format.toUpperCase()}`, 'success');
+            const warning = await this.exportManager.export(format, content, filename);
+            if (warning) {
+                this.showToast(warning, 'warning');
+            } else {
+                this.showToast(`Exported as ${format.toUpperCase()}`, 'success');
+            }
         } catch (error) {
             this.showToast(`Export failed: ${error.message}`, 'error');
         }

@@ -5,9 +5,11 @@ All notable changes to the Markdown Viewer & Editor project will be documented i
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [2.8.0] - 2026-06-25
+## [2.7.2] - 2026-11-02
 
 ### Added
+- Find bar for the open document (Ctrl/Cmd+F, search icon next to the view tabs, Edit > Find in the desktop app): match counter, highlighting in the editor and preview, Enter/Shift+Enter and F3/Shift+F3 to move between matches, match case and whole word options
+- PDF Export section in the desktop Settings (engine, SVG converter, fonts)
 - Backend health indicator in the desktop toolbar
 - Manual refresh button for models and languages in the toolbar
 - Chunked LLM processing for large documents with streaming progress
@@ -15,11 +17,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Content size guard for LLM endpoints (80% token limit)
 
 ### Fixed
+- Find & Replace: "Whole word" now works with Cyrillic and other non-Latin alphabets
+- Find & Replace: a pattern that can match nothing (for example `x*`) no longer hangs the page on Preview
+- Find & Replace: Preview now counts the same matches that Replace All changes (several matches on one line, "Empty lines" preset)
+- PDF export: the packaged desktop app now finds pandoc, xelatex and rsvg-convert instead of failing on every export
+- PDF export: Cyrillic text is no longer silently left out; default fonts are set for macOS, Windows and the Docker image
+- PDF export: an SVG image, dead image link or WebP image no longer stops the whole export; content left out is reported as a warning
+- Desktop packaging: `electron-forge make` no longer stops without creating an installer on Node 24.17 (`yauzl` overridden to 3.3.1)
 - Proxy live backend port so API calls survive backend restarts
 - Refresh models/languages on health recovery, not only on restart
 - Refresh models and languages after backend restart
 - Kill orphaned backend processes before port allocation
 - Improved Flask backend port allocation for multi-instance scenarios
+
+### Changed
+- Version bumped to 2.7.2 across all project files
+- Includes the changes previously listed under 2.8.0, a version that was never released
 
 ## [2.7.1] - 2026-03-24
 

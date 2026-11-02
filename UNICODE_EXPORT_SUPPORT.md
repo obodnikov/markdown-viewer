@@ -4,8 +4,8 @@ This document explains how the Markdown Viewer handles Unicode characters (inclu
 
 ## Summary
 
-✅ **All export formats fully support Unicode**
-- PDF: Uses XeLaTeX engine for complete Unicode support
+All export formats are Unicode-based; for PDF, what appears depends on the font.
+- PDF: Uses XeLaTeX engine; a character appears only if the configured font has it
 - DOCX: Native Office Open XML Unicode support
 - HTML: UTF-8 encoding handles all Unicode
 - Markdown: UTF-8 encoding (no conversion needed)
@@ -22,10 +22,11 @@ This document explains how the Markdown Viewer handles Unicode characters (inclu
 pandoc --from=gfm --to=pdf
 ```
 
-**Current (full Unicode support):**
+**Current (Unicode input, fonts chosen by configuration):**
 ```python
-# Uses XeLaTeX engine by default
-pandoc --from=gfm --to=pdf --pdf-engine=xelatex
+# Uses XeLaTeX engine by default, with the configured fonts
+pandoc --from=gfm --to=pdf --pdf-engine=xelatex \
+  -V mainfont="Times New Roman" -V monofont=Menlo
 ```
 
 ### Why XeLaTeX?
@@ -33,19 +34,34 @@ pandoc --from=gfm --to=pdf --pdf-engine=xelatex
 | Engine | Unicode Support | Speed | Notes |
 |--------|----------------|-------|-------|
 | **pdflatex** (old) | ❌ Limited | ⚡⚡ Fastest | Fails on Unicode chars like █, ●, emojis |
-| **XeLaTeX** (new) | ✅ Full | ⚡ Fast | Handles all UTF-8 characters |
-| **LuaLaTeX** | ✅ Full | ⚡ Medium | Alternative with full Unicode support |
+| **XeLaTeX** (new) | ✅ Reads all UTF-8 | ⚡ Fast | Shows a character only if the font has it |
+| **LuaLaTeX** | ✅ Reads all UTF-8 | ⚡ Medium | Alternative; not tested with the app's defaults |
 
 ### Supported Characters
 
-XeLaTeX supports:
-- ✅ **Box drawing characters**: █ ▓ ▒ ░ ╔ ╗ ╚ ╝
-- ✅ **Bullet points**: ● ○ ■ □ ▪ ▫
-- ✅ **Arrows**: → ← ↑ ↓ ⇒ ⇐
-- ✅ **Emojis**: 😀 🎉 ⚠️ ✨ 🚀
-- ✅ **Math symbols**: ∑ ∫ ∞ ≈ ≠ ≤ ≥
-- ✅ **Currency**: € £ ¥ ₹ ₽
-- ✅ **Non-Latin scripts**: 中文 日本語 한글 العربية Русский
+XeLaTeX accepts any character but can only print what the font contains. Pandoc's default
+font has no Cyrillic, so the app sets its own fonts: see "PDF Export Configuration" in
+[CONFIGURATION.md](CONFIGURATION.md). Measured coverage of the default fonts:
+
+| Characters | Times New Roman + Menlo (macOS) | Liberation (Docker) |
+|------------|--------------------------------|---------------------|
+| Latin, Cyrillic, Greek | ✅ | ✅ |
+| Box drawing: █ ▓ ▒ ░ ┌ ┐ └ ┘ | ✅ | ✅ |
+| Bullets: ● ○ ■ □ ▪ ▫ | ✅ | ✅ |
+| Arrows: → ← ↑ ↓ | ✅ | ✅ |
+| Arrows: ⇒ ⇐ | ❌ | ❌ |
+| Math: ∑ ∫ ∞ ≈ ≠ ≤ ≥ √ | ✅ | ✅ |
+| Currency: € £ ¥ | ✅ | ✅ |
+| Currency: ₹ ₽ | ❌ | ❌ |
+| Chinese, Japanese, Korean | ❌ | ❌ |
+| Emoji | ❌ | ❌ |
+
+Arabic and Hebrew letters are not listed: right-to-left text is not set up, so their
+layout has not been checked.
+
+A character the font lacks is left out of the PDF. The export still succeeds, the app shows
+a warning, and the backend log lists the characters. To include them, set a font that
+has them in Main Font and Code Font (`PDF_MAIN_FONT`, `PDF_MONO_FONT`).
 
 ### Error That Was Fixed
 
@@ -58,7 +74,7 @@ Type H for immediate help.
 
 **After (with XeLaTeX):**
 ```
-✅ PDF generated successfully with all Unicode characters preserved
+✅ PDF generated; characters the font lacks are left out and reported as a warning
 ```
 
 ---
@@ -143,14 +159,9 @@ APIClient.post('/api/export/pdf', {
 
 ### Default Settings
 
-The application uses these defaults for optimal Unicode support:
-
-```python
-# backend/services/export_service.py
-DEFAULT_PDF_ENGINE = 'xelatex'  # Full Unicode support
-DEFAULT_PAPER_SIZE = 'A4'
-DEFAULT_MARGIN = '1in'
-```
+The engine and fonts come from the environment or the desktop app's Settings: see
+"PDF Export Configuration" in [CONFIGURATION.md](CONFIGURATION.md). The frontend asks
+for A4 paper.
 
 ---
 
@@ -195,7 +206,7 @@ $ € £ ¥ ₹ ₽
 
 | Format | Result | Notes |
 |--------|--------|-------|
-| PDF | ✅ All characters visible | XeLaTeX renders everything |
+| PDF | Characters the font covers are visible; the rest are reported in a warning | See the coverage table above |
 | DOCX | ✅ All characters visible | Word handles Unicode natively |
 | HTML | ✅ All characters visible | UTF-8 encoding preserves all |
 
@@ -203,20 +214,45 @@ $ € £ ¥ ₹ ₽
 
 ## Troubleshooting
 
-### PDF Export: "PDF conversion failed"
+### PDF Export: "PDF engine 'xelatex' not found"
 
-**Symptom:** Error message mentions LaTeX or Unicode
+**Cause:** XeLaTeX is not installed, or the app cannot find it. A packaged desktop app
+does not get your shell's `PATH`.
 
-**Solution:** Verify XeLaTeX is installed:
+**Solution:** Verify XeLaTeX is installed, then set its full path if needed:
 ```bash
-# Check XeLaTeX availability
+# Check XeLaTeX availability and location
+which xelatex
 xelatex --version
 
 # Docker: Already included (texlive-xetex)
 # Manual install:
 # Ubuntu: sudo apt-get install texlive-xetex
-# macOS: brew install mactex
+# macOS: brew install --cask mactex
 ```
+In the desktop app, use Settings → PDF Export → PDF Engine Path. Elsewhere, set `PDF_ENGINE`.
+
+### PDF Export: "PDF font ... not found"
+
+**Cause:** Main Font or Code Font names a font the system does not have.
+
+**Solution:** Correct the name in Settings → PDF Export (`PDF_MAIN_FONT`, `PDF_MONO_FONT`),
+or clear the field to use the default. The app does not replace a missing font on its
+own, because another font could silently lose text.
+
+### PDF: Some text or symbols are missing
+
+**Cause:** The font does not have those characters. The app shows a warning after the export.
+
+**Solution:** Choose a font that has them; the backend log lists the missing characters.
+
+### PDF: `[SVG image: ...]` instead of a picture
+
+**Cause:** The SVG converter was not found.
+
+**Solution:** Install it (`brew install librsvg`, or `sudo apt-get install librsvg2-bin`).
+If it is installed in an unusual place, set Settings → PDF Export → SVG Converter Path
+(`RSVG_CONVERT_PATH`).
 
 ### DOCX: Characters show as boxes
 
@@ -251,21 +287,23 @@ xelatex --version
 RUN apt-get install -y \
     pandoc \
     texlive-xetex \              # Includes XeLaTeX
-    texlive-fonts-recommended \  # Good Unicode font coverage
-    texlive-plain-generic
+    texlive-fonts-recommended \
+    texlive-plain-generic \
+    fonts-liberation \           # Default PDF fonts, with Cyrillic
+    librsvg2-bin                 # rsvg-convert, for SVG images
 ```
 
 **Manual Install:**
 ```bash
 # Ubuntu/Debian
-sudo apt-get install pandoc texlive-xetex texlive-fonts-recommended
+sudo apt-get install pandoc texlive-xetex texlive-fonts-recommended fonts-liberation librsvg2-bin
 
 # macOS
-brew install pandoc
+brew install pandoc librsvg
 brew install --cask mactex  # Full TeX distribution with XeLaTeX
 
 # Windows
-choco install pandoc miktex  # MiKTeX includes XeLaTeX
+choco install pandoc miktex rsvg-convert  # MiKTeX includes XeLaTeX
 ```
 
 ### Pandoc Command Details
@@ -276,6 +314,9 @@ pandoc \
   --from=gfm \                    # GitHub Flavored Markdown
   --to=pdf \                      # Output format
   --pdf-engine=xelatex \          # Unicode-capable engine
+  --lua-filter=prepare_images.lua \ # Prepares images before LaTeX runs
+  -V mainfont="Times New Roman" \ # Font for text; must have the document's characters
+  -V monofont=Menlo \             # Font for code
   -V papersize=A4 \               # Paper size variable
   -V margin-top=1in \             # Margin settings
   input.md -o output.pdf
@@ -303,7 +344,7 @@ pandoc \
 | **Font handling** | Type 1 only | OTF/TTF/Type 1 | Better |
 | **Output quality** | Good | Excellent | Superior |
 
-**Verdict:** The small performance hit is worth the complete Unicode support and better quality output.
+**Verdict:** The small performance hit is worth the Unicode input and better quality output.
 
 ### Optimization Tips
 
@@ -316,11 +357,9 @@ For large documents (>100 pages):
 
 ## Summary
 
-✅ **PDF Export:** Full Unicode support via XeLaTeX (no configuration needed)
+**PDF Export:** Latin and Cyrillic work with the default fonts; choose another font for other characters
 ✅ **DOCX Export:** Native Unicode support (Office Open XML)
 ✅ **HTML Export:** Full UTF-8 support (no issues)
-
-**No action required by users** - Unicode support is built-in and works automatically for all export formats!
 
 ---
 

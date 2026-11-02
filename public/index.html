@@ -13,6 +13,7 @@
     <link rel="stylesheet" href="/styles/components/editor.css">
     <link rel="stylesheet" href="/styles/components/preview.css">
     <link rel="stylesheet" href="/styles/components/dialog.css">
+    <link rel="stylesheet" href="/styles/components/search.css">
 
     <!-- External Libraries -->
     <!-- marked.js - GitHub Flavored Markdown parser -->
@@ -245,6 +246,7 @@
                         <button class="view-tab" data-view="preview">
                             <span>Preview Only</span>
                         </button>
+                        <button class="view-controls__find" id="btn-find" type="button" title="Find in document (Ctrl+F)" aria-label="Find in document">&#128269;</button>
                     </div>
 
                     <div class="view-controls__status" id="editor-status">
@@ -256,6 +258,18 @@
                         <span class="divider">•</span>
                         <span id="status-tokens">0 tokens</span>
                     </div>
+                </div>
+
+                <!-- Find Bar -->
+                <div class="find-bar" id="find-bar" role="search" aria-label="Find in document" hidden>
+                    <input class="find-bar__input" id="find-input" type="text" placeholder="Find in document" aria-label="Find in document" autocomplete="off" spellcheck="false">
+                    <span class="find-bar__count" id="find-count" role="status"></span>
+                    <button class="find-bar__button" id="find-prev" type="button" title="Previous match (Shift+Enter)" aria-label="Previous match" disabled>&#8593;</button>
+                    <button class="find-bar__button" id="find-next" type="button" title="Next match (Enter)" aria-label="Next match" disabled>&#8595;</button>
+                    <button class="find-bar__button" id="find-case" type="button" title="Match case" aria-label="Match case" aria-pressed="false">Aa</button>
+                    <button class="find-bar__button" id="find-word" type="button" title="Whole word" aria-label="Whole word" aria-pressed="false">Word</button>
+                    <button class="find-bar__button" id="find-open-replace" type="button" title="Open Find &amp; Replace with this text">Replace...</button>
+                    <button class="find-bar__button find-bar__close" id="find-close" type="button" title="Close (Esc)" aria-label="Close find bar">×</button>
                 </div>
 
                 <!-- Split Pane Container -->

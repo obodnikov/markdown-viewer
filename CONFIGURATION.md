@@ -210,6 +210,58 @@ GITHUB_REDIRECT_URI=http://localhost:3000/api/github/callback
 
 ---
 
+## PDF Export Configuration
+
+PDF export runs pandoc, which runs a PDF engine (XeLaTeX by default) and, for SVG
+images, an SVG converter. Each of them can be configured:
+
+| Environment variable | Desktop app: Settings | Default | Purpose |
+|----------------------|-----------------------|---------|---------|
+| `PANDOC_PATH` | Backend → Pandoc Path | `pandoc` | pandoc program |
+| `PDF_ENGINE` | PDF Export → PDF Engine Path | `xelatex` | PDF engine: a name or a full path to `xelatex` or `lualatex` |
+| `RSVG_CONVERT_PATH` | PDF Export → SVG Converter Path | `rsvg-convert` | Converts SVG images for the PDF (`librsvg`) |
+| `PDF_MAIN_FONT` | PDF Export → Main Font | see below | System font name for text and headings |
+| `PDF_MONO_FONT` | PDF Export → Code Font | see below | System font name for code |
+
+### Finding the Tools (Desktop App)
+
+A packaged desktop app does not get your shell's `PATH`, so it looks for each tool in
+this order and passes the result to the backend:
+
+1. The path from Settings, if that program runs
+2. `~/.local/Homebrew/bin`, `/opt/homebrew/bin`, `/usr/local/bin`, `/Library/TeX/texbin`, `/usr/bin`
+3. The `PATH` the app was started with (the only step on Windows)
+
+The search runs each time the backend starts, including after you save Settings.
+
+### Fonts
+
+Pandoc's default font has no Cyrillic, so without a suitable font Russian text is left
+out of the PDF. Defaults:
+
+| Where | Main font | Code font |
+|-------|-----------|-----------|
+| Desktop app on macOS | Times New Roman | Menlo |
+| Desktop app on Windows | Times New Roman | Consolas |
+| Docker image | Liberation Serif | Liberation Mono |
+| Desktop app on Linux, local development | pandoc's default | pandoc's default |
+
+See [UNICODE_EXPORT_SUPPORT.md](UNICODE_EXPORT_SUPPORT.md) for which characters they cover.
+
+### When Something Is Left Out
+
+If a PDF is created without some content, the app says so in a warning and the backend
+log lists the characters and images. These do not stop the export:
+
+- A character missing from the font
+- An image that cannot be downloaded: its description appears instead
+- A WebP image, or a server's error page in place of an image: `[Image: description]` appears
+- An SVG image that cannot be converted: `[SVG image: description]` appears
+
+An export stops with an error if the PDF engine or a configured font is not found.
+
+---
+
 ## Complete Configuration Example
 
 ### Scenario: Backend on port 3000, Frontend on port 8080

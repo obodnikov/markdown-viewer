@@ -2,6 +2,8 @@
  * Find and Replace functionality with preset patterns and regex support
  */
 
+import { escapeRegex, wholeWordPattern } from '../search/text-search.js';
+
 export class FindReplace {
     constructor() {
         this.presets = this.initializePresets();
@@ -39,8 +41,8 @@ export class FindReplace {
             'whole-word': {
                 name: 'Whole word',
                 description: 'Match complete words only',
-                generatePattern: (input) => `\\b${this.escapeRegex(input)}\\b`,
-                flags: 'g',
+                generatePattern: (input) => wholeWordPattern(this.escapeRegex(input)),
+                flags: 'gu',
                 placeholder: 'Enter word...',
                 example: 'cat matches "cat" but not "catalog"'
             },
@@ -119,7 +121,7 @@ export class FindReplace {
      * Escape special regex characters
      */
     escapeRegex(str) {
-        return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        return escapeRegex(str);
     }
 
     /**
@@ -175,41 +177,28 @@ export class FindReplace {
      */
     findMatches(content, pattern, flags = 'g') {
         try {
-            const regex = new RegExp(pattern, flags);
+            // One pass over the whole text, like replace(): the counts always agree.
+            // matchAll also steps over empty matches, which would loop forever with exec().
+            const regex = new RegExp(pattern, flags.includes('g') ? flags : `${flags}g`);
             const matches = [];
-            let match;
+            let line = 1;
+            let lineStart = 0;
+            let lineEnd = content.indexOf('\n');
 
-            // For single line matching
-            if (!flags.includes('m')) {
-                while ((match = regex.exec(content)) !== null) {
-                    matches.push({
-                        text: match[0],
-                        index: match.index,
-                        length: match[0].length,
-                        groups: match.slice(1)
-                    });
+            for (const match of content.matchAll(regex)) {
+                while (lineEnd !== -1 && lineEnd < match.index) {
+                    line++;
+                    lineStart = lineEnd + 1;
+                    lineEnd = content.indexOf('\n', lineStart);
                 }
-            } else {
-                // For multiline matching
-                const lines = content.split('\n');
-                let offset = 0;
 
-                lines.forEach((line, lineNum) => {
-                    const lineRegex = new RegExp(pattern, flags.replace('g', ''));
-                    const lineMatch = line.match(lineRegex);
-
-                    if (lineMatch) {
-                        matches.push({
-                            text: lineMatch[0],
-                            index: offset + lineMatch.index,
-                            length: lineMatch[0].length,
-                            line: lineNum + 1,
-                            lineText: line,
-                            groups: lineMatch.slice(1)
-                        });
-                    }
-
-                    offset += line.length + 1; // +1 for newline
+                matches.push({
+                    text: match[0],
+                    index: match.index,
+                    length: match[0].length,
+                    line,
+                    lineText: content.substring(lineStart, lineEnd === -1 ? content.length : lineEnd),
+                    groups: match.slice(1)
                 });
             }
 

@@ -84,6 +84,27 @@
         </div>
       </section>
 
+      <!-- PDF Export -->
+      <section class="settings__section">
+        <h2>PDF Export</h2>
+        <div class="field">
+          <label for="pdfEnginePath">PDF Engine Path <span class="hint">(xelatex or lualatex; leave empty to auto-detect)</span></label>
+          <input type="text" id="pdfEnginePath" placeholder="/usr/local/bin/xelatex or leave empty">
+        </div>
+        <div class="field">
+          <label for="rsvgConvertPath">SVG Converter Path <span class="hint">(rsvg-convert; leave empty to auto-detect)</span></label>
+          <input type="text" id="rsvgConvertPath" placeholder="/usr/local/bin/rsvg-convert or leave empty">
+        </div>
+        <div class="field">
+          <label for="pdfMainFont">Main Font <span class="hint">(must cover your document's languages; leave empty for the default)</span></label>
+          <input type="text" id="pdfMainFont" placeholder="Times New Roman">
+        </div>
+        <div class="field">
+          <label for="pdfMonoFont">Code Font <span class="hint">(leave empty for the default)</span></label>
+          <input type="text" id="pdfMonoFont" placeholder="Menlo">
+        </div>
+      </section>
+
       <!-- Advanced -->
       <section class="settings__section">
         <h2>Advanced</h2>

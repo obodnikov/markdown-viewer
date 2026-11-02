@@ -1,6 +1,6 @@
 {
   "name": "markdown-viewer-desktop",
-  "version": "2.7.1",
+  "version": "2.7.2",
   "description": "Markdown Viewer & Editor — Desktop Application",
   "main": "main.js",
   "scripts": {
@@ -28,5 +28,8 @@
     "@electron-forge/maker-rpm": "^7.0.0",
     "@electron-forge/maker-zip": "^7.0.0",
     "vitest": "^2.1.8"
+  },
+  "overrides": {
+    "yauzl": "3.3.1"
   }
 }

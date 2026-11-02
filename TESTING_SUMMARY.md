@@ -284,7 +284,7 @@ afterEach(() => {
 |----------|---------|
 | [README_TESTING.md](README_TESTING.md) | Complete testing guide with examples |
 | [AI_FLASK.md](AI_FLASK.md) | Backend coding guidelines (updated with testing requirements) |
-| [AI.md](AI.md) | Frontend coding guidelines |
+| [AI_FRONTEND.md](AI_FRONTEND.md) | Frontend coding guidelines |
 | [CODE_REVIEW_FIXES_v2.md](CODE_REVIEW_FIXES_v2.md) | Latest code review fixes |
 
 ---

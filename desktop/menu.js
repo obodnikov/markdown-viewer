@@ -150,7 +150,13 @@ function buildMenuTemplate() {
         { role: 'cut' },
         { role: 'copy' },
         { role: 'paste' },
-        { role: 'selectAll' }
+        { role: 'selectAll' },
+        { type: 'separator' },
+        {
+          label: 'Find...',
+          accelerator: 'CmdOrCtrl+F',
+          click: () => getWin()?.webContents.send('menu:find')
+        }
       ]
     },
 

@@ -310,7 +310,7 @@ open Settings.
 - **Custom protocol** — serves static files with correct MIME types, proxies API calls
   to Flask, path traversal protection
 - **Native file dialogs** — open/save via IPC, Electron-aware detection in frontend
-- **Native menu bar** — File (New/Open/Save/Export), Edit, View, Integrations
+- **Native menu bar** — File (New/Open/Save/Export), Edit (including Find), View, Integrations
   (GitHub/BookStack), Help; platform-correct layout (macOS app menu vs Windows File menu)
 - **Window state persistence** — size, position, maximized state saved between sessions
 - **Single-instance lock** — second launch focuses existing window, opens file argument
@@ -318,6 +318,7 @@ open Settings.
 - **Settings UI** — dark-themed form with validation, encrypted storage, backend restart
 - **First-run onboarding** — welcome dialog prompts for API key configuration
 - **Pandoc detection** — non-blocking dialog with install link if pandoc is missing
+- **PDF tools** — pandoc, PDF engine and SVG converter come from Settings or known install folders; default PDF fonts include Cyrillic (see `CONFIGURATION.md`)
 - **GitHub OAuth** — opens system browser, polls for completion, no redirect needed
 - **Secure IPC bridge** — contextIsolation enabled, no nodeIntegration, explicit API surface
 - **Electron Forge packaging** — DMG (macOS), Squirrel (Windows), DEB/RPM (Linux), ZIP

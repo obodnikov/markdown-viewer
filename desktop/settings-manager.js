@@ -6,6 +6,12 @@ const schema = {
   pythonPath: { type: 'string', default: '' },  // Empty = auto-detect
   pandocPath: { type: 'string', default: '' },  // Empty = auto-detect
 
+  // PDF export
+  pdfEnginePath: { type: 'string', default: '' },  // Empty = auto-detect
+  rsvgConvertPath: { type: 'string', default: '' },  // Empty = auto-detect
+  pdfMainFont: { type: 'string', default: '' },  // Empty = platform default
+  pdfMonoFont: { type: 'string', default: '' },  // Empty = platform default
+
   // OpenRouter
   openrouterApiKey: { type: 'string', default: '' },
   openrouterDefaultModel: { type: 'string', default: 'anthropic/claude-3.5-sonnet' },

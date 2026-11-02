@@ -101,6 +101,22 @@ describe('menu', () => {
       expect(roles).toContain('paste');
     });
 
+    it('includes Find in the Edit menu, sent to the focused window', () => {
+      setupMenu(createMockSettings(), createMockCreateWindow());
+      const findItem = Menu._getLastTemplate()
+        .find(m => m.label === 'Edit').submenu
+        .find(i => i.label === 'Find...');
+      expect(findItem).toBeDefined();
+      expect(findItem.accelerator).toBe('CmdOrCtrl+F');
+
+      const sent = [];
+      const win = new BrowserWindow();
+      win.webContents.send = (channel) => sent.push(channel);
+      BrowserWindow.getFocusedWindow = () => win;
+      findItem.click();
+      expect(sent).toEqual(['menu:find']);
+    });
+
     it('includes View menu with devTools toggle', () => {
       setupMenu(createMockSettings(), createMockCreateWindow());
       const roles = Menu._getLastTemplate()

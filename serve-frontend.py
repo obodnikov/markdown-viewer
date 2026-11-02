@@ -7,7 +7,7 @@ Usage: python3 serve-frontend.py [--port 8000]
 import sys
 import os
 import argparse
-from http.server import HTTPServer, SimpleHTTPRequestHandler
+from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 from functools import partial
 
 
@@ -47,7 +47,8 @@ if __name__ == '__main__':
 
     # Create server
     server_address = (args.host, args.port)
-    httpd = HTTPServer(server_address, handler)
+    # One thread is not enough: a connection a browser opens in advance blocks all other requests
+    httpd = ThreadingHTTPServer(server_address, handler)
 
     print("✅ Frontend Server Starting")
     print(f"   Host: {args.host}")

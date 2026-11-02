@@ -14,7 +14,13 @@ export_bp = Blueprint('export', __name__, url_prefix='/api/export')
 
 def get_export_service() -> ExportService:
     """Get export service instance."""
-    return ExportService(pandoc_path=Config.PANDOC_PATH)
+    return ExportService(
+        pandoc_path=Config.PANDOC_PATH,
+        pdf_engine=Config.PDF_ENGINE,
+        rsvg_convert_path=Config.RSVG_CONVERT_PATH,
+        main_font=Config.PDF_MAIN_FONT,
+        mono_font=Config.PDF_MONO_FONT
+    )
 
 
 @export_bp.route('/html', methods=['POST'])
@@ -79,7 +85,8 @@ def export_pdf():
         }
 
     Returns:
-        PDF file download
+        PDF file download. X-Export-Missing-Characters and X-Export-Skipped-Images
+        report content that could not be included, when there is any.
     """
     try:
         data = request.get_json()
@@ -95,14 +102,20 @@ def export_pdf():
             return jsonify({'error': 'content is required'}), 400
 
         service = get_export_service()
-        pdf_bytes = service.to_pdf(content, options)
+        result = service.to_pdf(content, options)
 
-        return send_file(
-            io.BytesIO(pdf_bytes),
+        response = send_file(
+            io.BytesIO(result.content),
             mimetype='application/pdf',
             as_attachment=True,
             download_name=filename
         )
+        if result.missing_characters:
+            response.headers['X-Export-Missing-Characters'] = str(result.missing_characters)
+        if result.skipped_images:
+            response.headers['X-Export-Skipped-Images'] = str(result.skipped_images)
+
+        return response
 
     except RuntimeError as e:
         return jsonify({'error': str(e)}), 500
