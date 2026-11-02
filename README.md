@@ -1,26 +1,30 @@
 # Markdown Viewer & Editor
 
-**Version 2.7.1**
+**Version 2.7.2**
 
 A modern, feature-rich markdown editor with GitHub Flavored Markdown support, LLM-powered transformations, GitHub integration, BookStack wiki integration, and an Electron desktop app.
 
-## What's New in v2.7.1
+## What's New in v2.7.2
 
-🔗 **Heading Anchor IDs & In-Preview Navigation**
-- Headings now get auto-generated `id` attributes for anchor linking
-- Click `#heading` links in the preview pane to scroll to the target section
-- Duplicate headings get deduplicated slugs (`setup`, `setup-1`, `setup-2`)
-- Handles malformed hash values and encoded characters gracefully
+🔍 **Find Bar**
+- Search the open document with Ctrl/Cmd+F, the search icon next to the view tabs, or Edit > Find in the desktop app
+- Match counter and highlighting in the editor and preview
+- Enter/Shift+Enter or F3/Shift+F3 move between matches
+- Match case and whole word options, including Cyrillic and other non-Latin alphabets
 
-🧩 **Per-Instance Markdown Parser**
-- Each `MarkdownParser` uses its own local `marked.Marked` instance
-- No global state contamination between parser instances
-- Slug counters reset between parse calls for consistent output
+📚 **Large Documents with LLM Actions**
+- Large documents are processed in chunks with streaming progress, including Custom Prompt and Restore Markdown
+- Content size guard on LLM endpoints (80% token limit)
 
-🛡️ **Hardened Parser Initialization**
-- Explicit `marked.Marked` check with graceful degradation when unavailable
-- Defensive guards for edge cases (empty tokens, missing dependencies)
-- Correct marked v11 renderer API usage throughout
+🖥️ **More Reliable Desktop Backend**
+- Backend health indicator and a manual refresh button for models and languages in the toolbar
+- API calls survive backend restarts, and models and languages refresh when the backend recovers
+- Orphaned backend processes are stopped before a port is chosen
+
+📄 **PDF Export Fixes**
+- The packaged desktop app now finds pandoc, xelatex and rsvg-convert, with a new PDF Export section in Settings
+- Cyrillic text is no longer silently left out of the PDF
+- An SVG image, dead image link or WebP image no longer stops the whole export; content left out is reported as a warning
 
 ## Features
 
@@ -76,6 +80,7 @@ A modern, feature-rich markdown editor with GitHub Flavored Markdown support, LL
 - **Dark Mode** - Toggle between light and dark themes
 - **Responsive** - Works on desktop and mobile
 - **Keyboard Shortcuts** - Ctrl/Cmd+S (save), Ctrl/Cmd+O (open), etc.
+- **Find in Document** - Ctrl/Cmd+F opens a find bar with a match counter and highlighting in the editor and preview. Edit and Split views search the source text, Preview view searches what the reader sees. Highlighting needs Chrome 105, Safari 17.2 or Firefox 140; in older browsers the counter and moving between matches still work
 
 ## Quick Start
 
@@ -424,6 +429,10 @@ markdown-viewer/
 - `Ctrl/Cmd + E` - Export dialog (MD, HTML, PDF, DOCX, BookStack)
 - `Ctrl/Cmd + K` - BookStack browser dialog
 - `Ctrl/Cmd + G` - GitHub browser dialog
+- `Ctrl/Cmd + F` - Find in the open document
+- `Enter` / `Shift + Enter` - Next / previous match (in the find bar)
+- `F3` / `Shift + F3` - Next / previous match (while the find bar is open)
+- `Esc` - Close the find bar
 
 ## Troubleshooting
 
@@ -466,7 +475,7 @@ MIT License - see LICENSE file for details
 
 ## Roadmap
 
-### Phase 1 (Completed) - v2.7.1 ✅
+### Phase 1 (Completed) - v2.7.2 ✅
 - ✅ Core editor with GFM support
 - ✅ LLM transformations (translation, tone adjustment, summarization, expansion)
 - ✅ Restore Markdown Format (LLM-powered formatting recovery)

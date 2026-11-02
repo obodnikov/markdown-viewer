@@ -28,12 +28,14 @@ export default defineConfig({
   ],
   webServer: [
     {
-      command: 'cd public && python3 -m http.server 8000',
+      command: 'python3 serve-frontend.py --port 8000',
       port: 8000,
       reuseExistingServer: !process.env.CI,
     },
     {
-      command: 'cd backend && python app.py',
+      command: '. venv/bin/activate && cd backend && python app.py',
+      // The backend refuses to start without a key; these tests make no real LLM calls
+      env: { OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY || 'e2e-test-key', BACKEND_PORT: '5050' },
       port: 5050,
       reuseExistingServer: !process.env.CI,
     },

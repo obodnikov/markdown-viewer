@@ -1,6 +1,6 @@
 # ARCHITECTURE.md
 
-**Version:** 2.7.1
+**Version:** 2.7.2
 **Last Updated:** 2026-11-02
 **Status:** ✅ Current
 
@@ -102,7 +102,12 @@ markdown-viewer/
 │   ├── config.js              # Frontend configuration (API URLs)
 │   ├── editor/                # CodeMirror integration
 │   │   ├── editor.js         # Editor initialization & management
+│   │   ├── text-mirror.js    # Invisible copy of the textarea text (search highlighting)
 │   │   └── sync.js           # Scroll synchronization (v1.3.0)
+│   ├── search/                # Search in the open document
+│   │   ├── find-bar.js       # Find bar controller
+│   │   ├── text-search.js    # Plain-text matching (no DOM)
+│   │   └── highlight.js      # Rendered text mapping & match painting
 │   ├── markdown/              # Markdown rendering
 │   │   ├── parser.js         # marked.js wrapper
 │   │   └── renderer.js       # Custom renderer extensions
@@ -175,7 +180,7 @@ markdown-viewer/
 └── package.json                # Frontend test dependencies
 ```
 
-**File size compliance:** All JS files ≤ 800 lines per [AI.md](AI.md) guidelines.
+**File size:** [AI.md](AI.md) asks for JS files of about 800 lines or less. `scripts/main.js`, `scripts/file/bookstack.js` and `scripts/transforms/transform-ui.js` are already over it, so new features go into their own modules.
 
 ---
 
@@ -213,6 +218,7 @@ markdown-viewer/
 - `main.js` - Bootstraps app, wires event handlers, initializes components
 - `editor/editor.js` - CodeMirror 6 initialization with textarea fallback
 - `editor/sync.js` - Proportional bidirectional scroll sync (v1.3.0)
+- `search/find-bar.js` - Find bar for the open document; see Section 5.5
 - `transforms/transform-ui.js` - LLM transform panel controller
 - `file/bookstack.js` - BookStack browser with hierarchical navigation, smart save, and export from any source
 - `file/github.js` - GitHub OAuth & file browser
@@ -402,6 +408,17 @@ BrowserWindow → app:// protocol → static files + proxy /api/* → Flask (dyn
 
 **Key:** Frontend uses `/api` (relative URL) → works identically in both environments.
 
+### 5.5 Find Bar
+
+Search runs entirely in the frontend and is the same in web and desktop. Electron's `findInPage` is not used.
+
+- **Which pane counts:** Split and Edit views search the source text; Preview view searches the rendered text. In Split view the preview is highlighted too and follows through scroll sync, so its position is approximate.
+- **Editor:** a textarea cannot highlight part of its text or report where a wrapped line sits. While the bar is open, `editor/text-mirror.js` keeps an invisible copy of the text behind a transparent textarea; highlights and scroll positions are taken from the copy. The copy is removed when the bar closes.
+- **Preview:** `search/highlight.js` joins text nodes block by block, so a phrase split by inline markup is found and a match cannot cross blocks.
+- **Painting:** CSS Custom Highlight API (Chrome 105, Safari 17.2, Firefox 140), which does not change the markup. In older browsers the counter and moving between matches still work, without highlights.
+- **Updates:** `updatePreview()` rebuilds the preview on every change and then calls `FindBar.refresh()`, which searches again without moving the view.
+- **Regular expressions** stay in Find & Replace (`transforms/find-replace.js`). The bar searches on every keystroke and always escapes the query, so it cannot hang the page.
+
 ---
 
 ## 6. Configuration & Environment Assumptions
@@ -506,6 +523,8 @@ Components mapped by production-readiness and change risk:
 - `scripts/editor/sync.js` - Scroll sync (v1.3.0, may refine algorithm)
 - `scripts/file/github.js` - GitHub browser (flat list, may add tree view)
 - `scripts/transforms/find-replace.js` - Search/replace feature
+- `scripts/search/` - Find bar (may gain search across sources)
+- `scripts/editor/text-mirror.js` - Text copy for search; goes away if the editor moves to CodeMirror
 - `scripts/ui/editable-title.js` - Title editor
 
 ### ⚠️ Experimental (Working, may be replaced)

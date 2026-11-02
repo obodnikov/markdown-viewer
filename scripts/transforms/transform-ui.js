@@ -523,8 +523,18 @@ export class TransformUI {
         this.populatePresets();
     }
 
-    openFindReplaceDialog() {
+    openFindReplaceDialog(prefill = null) {
         const dialog = document.getElementById('find-replace-dialog');
+
+        if (prefill) {
+            const preset = prefill.wholeWord ? 'whole-word' : 'contains';
+            this.switchFRTab('basic');
+            document.getElementById('fr-preset').value = preset;
+            this.handlePresetChange(preset);
+            document.getElementById('fr-find').value = prefill.text;
+            document.getElementById('fr-case-sensitive').checked = prefill.caseSensitive;
+        }
+
         dialog.showModal();
     }
 

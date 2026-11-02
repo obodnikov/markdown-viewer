@@ -1,0 +1,145 @@
+/**
+ * Find bar and match highlighting
+ */
+
+.view-controls__find {
+    min-width: 32px;
+    min-height: 32px;
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-sm);
+    transition: background-color var(--transition-fast);
+}
+
+.view-controls__find:hover {
+    background-color: var(--color-surface-variant);
+}
+
+.view-controls__find:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: -1px;
+}
+
+.find-bar {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+    padding: var(--space-1) var(--space-2);
+    background-color: var(--color-surface);
+    border-bottom: 1px solid var(--color-outline-variant);
+}
+
+.find-bar[hidden] {
+    display: none;
+}
+
+.find-bar__input {
+    flex: 0 1 320px;
+    min-width: 96px;
+    padding: 4px var(--space-1);
+    color: var(--color-on-surface);
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-outline);
+    border-radius: var(--radius-xs);
+    font-size: var(--font-size-sm);
+}
+
+.find-bar__input:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: -1px;
+}
+
+.find-bar__input.is-invalid {
+    border-color: var(--color-error);
+}
+
+.find-bar__count {
+    min-width: 72px;
+    color: var(--color-on-surface-variant);
+    font-size: var(--font-size-xs);
+    white-space: nowrap;
+}
+
+.find-bar__button {
+    min-width: 32px;
+    min-height: 32px;
+    padding: 4px var(--space-1);
+    color: var(--color-on-surface-variant);
+    border: 1px solid transparent;
+    border-radius: var(--radius-xs);
+    font-size: var(--font-size-sm);
+    transition: background-color var(--transition-fast);
+}
+
+.find-bar__button:hover:not(:disabled) {
+    background-color: var(--color-surface-variant);
+    color: var(--color-on-surface);
+}
+
+.find-bar__button:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: -1px;
+}
+
+.find-bar__button:disabled {
+    opacity: 0.4;
+    cursor: default;
+}
+
+.find-bar__button.is-active {
+    background-color: var(--color-primary-container);
+    border-color: var(--color-primary);
+    color: var(--color-on-primary-container);
+}
+
+.find-bar__close {
+    margin-left: auto;
+}
+
+@media (max-width: 768px) {
+    .find-bar {
+        flex-wrap: wrap;
+    }
+}
+
+/* Copy of the editor text behind a transparent textarea (see text-mirror.js) */
+#editor.is-searching {
+    position: relative;
+}
+
+#editor.is-searching textarea {
+    position: relative;
+    z-index: 1;
+    background-color: transparent;
+}
+
+.text-mirror {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+    user-select: none;
+    background-color: var(--color-surface);
+}
+
+.text-mirror__content {
+    color: transparent;
+    white-space: pre-wrap;
+    overflow-wrap: break-word;
+}
+
+/* Plain colors: var() inside ::highlight() is not resolved the same way in every browser */
+::highlight(find-match) {
+    background-color: #fff1a8;
+}
+
+::highlight(find-current) {
+    background-color: #ffb74d;
+}
+
+[data-theme="dark"] ::highlight(find-match) {
+    background-color: #5c4d00;
+}
+
+[data-theme="dark"] ::highlight(find-current) {
+    background-color: #8f4a00;
+}

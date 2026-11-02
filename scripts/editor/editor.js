@@ -2,11 +2,14 @@
  * CodeMirror editor manager
  */
 
+import { TextMirror } from './text-mirror.js';
+
 export class EditorManager {
     constructor(element, onChange) {
         this.element = element;
         this.onChange = onChange;
         this.editor = null;
+        this.textMirror = null;
         this.init();
     }
 
@@ -94,6 +97,37 @@ export class EditorManager {
         } else if (this.editor && this.editor.focus) {
             this.editor.focus();
         }
+    }
+
+    hasFocus() {
+        return this.editor instanceof HTMLTextAreaElement && document.activeElement === this.editor;
+    }
+
+    getCursorOffset() {
+        return this.editor instanceof HTMLTextAreaElement ? this.editor.selectionStart : 0;
+    }
+
+    getSelectedText() {
+        if (!(this.editor instanceof HTMLTextAreaElement)) return '';
+        return this.editor.value.substring(this.editor.selectionStart, this.editor.selectionEnd);
+    }
+
+    selectRange(start, end) {
+        if (!(this.editor instanceof HTMLTextAreaElement)) return;
+        this.editor.focus();
+        this.editor.setSelectionRange(start, end);
+    }
+
+    /**
+     * Copy of the text used for search highlighting. CodeMirror has its own search,
+     * so there is no copy in that case.
+     */
+    getTextMirror() {
+        if (!(this.editor instanceof HTMLTextAreaElement)) return null;
+        if (!this.textMirror) {
+            this.textMirror = new TextMirror(this.editor);
+        }
+        return this.textMirror;
     }
 
     getScrollContainer() {

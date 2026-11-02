@@ -310,7 +310,7 @@ open Settings.
 - **Custom protocol** — serves static files with correct MIME types, proxies API calls
   to Flask, path traversal protection
 - **Native file dialogs** — open/save via IPC, Electron-aware detection in frontend
-- **Native menu bar** — File (New/Open/Save/Export), Edit, View, Integrations
+- **Native menu bar** — File (New/Open/Save/Export), Edit (including Find), View, Integrations
   (GitHub/BookStack), Help; platform-correct layout (macOS app menu vs Windows File menu)
 - **Window state persistence** — size, position, maximized state saved between sessions
 - **Single-instance lock** — second launch focuses existing window, opens file argument
